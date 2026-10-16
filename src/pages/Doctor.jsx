@@ -3,15 +3,16 @@
 // (POST /api/share/claim) a ukážeme je v tabulce. Interakce se hned na pozadí
 // zkontrolují na backendu (databáze DDInter, viz doctorCheck.js) a pod tabulkou
 // je rozbalovací lišta s nálezy a maticí dvojic.
+// Onkologická léčba (režimy) má vlastní lištu mezi tabulkou léků a interakcemi.
 //
 // Tahle stránka je pro počítač v ordinaci, ne pro pacienta – proto má
 // vlastní rozložení bez spodní lišty (viz App.jsx).
 //
-// Po načtení léků jde zprávu stáhnout jako PDF (tisk prohlížeče → "Uložit jako PDF")
+// Po načtení léků jde zprávu stáhnout jako PDF (generuje backend, POST /api/report/pdf)
 // nebo jako soubor FHIR pro nemocniční systém.
 import { useState } from 'react';
-import { claimShare } from '../api.js';
-import { LEVEL_RANK, checkMeds } from '../doctorCheck.js';
+import { claimShare, downloadReportPdf } from '../api.js';
+import { LEVEL_RANK, checkMeds, pickShared } from '../doctorCheck.js';
 import { ChevronIcon, DownloadIcon } from '../components/Icons.jsx';
 import { medDosage, pluralLeky } from '../labels.js';
 import { downloadFhir } from '../fhir.js';
@@ -62,6 +63,17 @@ function toFhirItems(meds) {
   }));
 }
 
+// Zdroj jako text pro lékaře: ['box', 'note'] → "krabička + lístek"
+function sourceText(med) {
+  return (med.sources ?? [med.source]).map((s) => (SOURCE_KEYS.includes(s) ? t(`doc.source.${s}`) : s)).join(' + ');
+}
+
+// Poslední dávku režimu pacient posílá v dávkování jako "poslední dávka/cyklus 1. 10. 2026"
+// (viz createSharePin v api.js) – do sloupce "Poslední dávka" stačí datum.
+function lastDoseText(med) {
+  return med.frequency?.replace(/^poslední dávka\/cyklus\s*/, '') || '—';
+}
+
 // Zkratka léku do matice, např. "Warfarin" → "WAR"
 function abbr(name) {
   return name.replace(/[^\p{L}\d]/gu, '').slice(0, 3).toUpperCase();
@@ -75,8 +87,10 @@ export default function Doctor() {
   // takže by o ně lékař přišel třeba jen kvůli omylem zadanému dalšímu kódu.
   const [meds, setMeds] = useState(null);
   const [open, setOpen] = useState(false); // jsou interakce rozbalené?
+  const [oncoOpen, setOncoOpen] = useState(true); // je onkologická léčba rozbalená?
   // Kontrola interakcí: status 'loading' | 'done' | 'error', result = výsledek checkMeds
   const [check, setCheck] = useState({ status: 'loading', result: null });
+  const [pdfState, setPdfState] = useState('idle'); // 'idle' | 'loading' | 'error'
 
   // Spustí kontrolu interakcí na pozadí (preload) – po rozbalení lišty je už hotová.
   async function runCheck(list) {
@@ -102,6 +116,7 @@ export default function Doctor() {
       const data = await claimShare(pin);
       setMeds(data.medications);
       setOpen(false);
+      setPdfState('idle');
       runCheck(data.medications);
     } catch (err) {
       setErrorCode(ERROR_CODES.includes(err.message) ? err.message : 'network');
@@ -110,11 +125,32 @@ export default function Doctor() {
     }
   }
 
+  // PDF vygeneruje backend, my ho jen uložíme jako soubor (přes dočasný odkaz).
+  async function handlePdf() {
+    setPdfState('loading');
+    try {
+      const { blob, filename } = await downloadReportPdf(meds.map(pickShared), getLang());
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+      setPdfState('idle');
+    } catch {
+      setPdfState('error');
+    }
+  }
+
   // Do pole pustíme jen číslice, nejvýš 4.
   function handlePinChange(event) {
     setPin(event.target.value.replace(/\D/g, '').slice(0, 4));
   }
 
+  // Běžné léky jdou do tabulky, onkologické režimy do vlastní lišty.
+  // Interakce a matice ale počítají se vším dohromady.
+  const drugs = meds?.filter((m) => m.kind !== 'regimen') ?? [];
+  const regimens = meds?.filter((m) => m.kind === 'regimen') ?? [];
   const count = meds?.length ?? 0;
   const pairCount = (count * (count - 1)) / 2;
   const result = check.result;
@@ -156,14 +192,19 @@ export default function Doctor() {
         {meds !== null && (
           <>
             {/* ---------- Tabulka léků ---------- */}
-            <h1 className="doc-title">{t('doc.medsTitle', { count: meds.length })}</h1>
+            <h1 className="doc-title">{t('doc.medsTitle', { count: drugs.length })}</h1>
             <p className="doc-muted no-print">{t('doc.oneTime')}</p>
 
             {/* ---------- Stažení zprávy ---------- */}
             <div className="doc-actions no-print">
-              <button type="button" className="doc-button doc-button-secondary" onClick={() => window.print()}>
+              <button
+                type="button"
+                className="doc-button doc-button-secondary"
+                disabled={pdfState === 'loading'}
+                onClick={handlePdf}
+              >
                 <DownloadIcon size={22} />
-                {t('doc.pdf')}
+                {pdfState === 'loading' ? t('doc.pdfLoading') : t('doc.pdf')}
               </button>
               {/* Soubor pro nemocniční systém (standard FHIR R4) */}
               <button
@@ -175,41 +216,91 @@ export default function Doctor() {
                 {t('doc.fhir')}
               </button>
             </div>
+            {pdfState === 'error' && (
+              <p className="doc-error no-print" role="alert">
+                {t('doc.pdfError')}
+              </p>
+            )}
 
-            <div className="doc-table-wrap">
-              <table className="doc-table">
-                <thead>
-                  <tr>
-                    <th>{t('doc.col.med')}</th>
-                    <th>{t('doc.col.substance')}</th>
-                    <th>{t('doc.col.strength')}</th>
-                    <th>{t('doc.col.dosage')}</th>
-                    <th>{t('doc.col.source')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {meds.map((med) => (
-                    <tr key={med.id}>
-                      <td>
-                        <strong>{med.name}</strong>
-                        {med.kind === 'regimen' && <span className="doc-kind"> {t('doc.regimen')}</span>}
-                      </td>
-                      <td>
-                        {med.kind === 'regimen' ? <RegimenDrugs info={result?.regimens[med.id]} status={check.status} /> : med.active_substance || '—'}
-                      </td>
-                      <td>{med.strength || '—'}</td>
-                      <td>{medDosage(med) || '—'}</td>
-                      {/* sources[] = lék byl nalezen na více místech (lístek i krabička) */}
-                      <td>
-                        {(med.sources ?? [med.source])
-                          .map((s) => (SOURCE_KEYS.includes(s) ? t(`doc.source.${s}`) : s))
-                          .join(' + ')}
-                      </td>
+            {drugs.length > 0 && (
+              <div className="doc-table-wrap">
+                <table className="doc-table">
+                  <thead>
+                    <tr>
+                      <th>{t('doc.col.med')}</th>
+                      <th>{t('doc.col.substance')}</th>
+                      <th>{t('doc.col.strength')}</th>
+                      <th>{t('doc.col.dosage')}</th>
+                      <th>{t('doc.col.source')}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {drugs.map((med) => (
+                      <tr key={med.id}>
+                        <td>
+                          <strong>{med.name}</strong>
+                        </td>
+                        <td>{med.active_substance || '—'}</td>
+                        <td>{med.strength || '—'}</td>
+                        <td>{medDosage(med) || '—'}</td>
+                        {/* sources[] = lék byl nalezen na více místech (lístek i krabička) */}
+                        <td>{sourceText(med)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* ---------- Rozbalovací lišta s onkologickou léčbou ---------- */}
+            {regimens.length > 0 && (
+              <section className="doc-interactions doc-onco">
+                <button
+                  type="button"
+                  className="doc-toggle"
+                  aria-expanded={oncoOpen}
+                  aria-controls="doc-onco-body"
+                  onClick={() => setOncoOpen(!oncoOpen)}
+                >
+                  <span className={oncoOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
+                    <ChevronIcon size={22} />
+                  </span>
+                  <strong>{t('doc.onco.title', { count: regimens.length })}</strong>
+                  <span className="doc-toggle-hint">{oncoOpen ? t('doc.hide') : t('doc.show')}</span>
+                </button>
+
+                {oncoOpen && (
+                  <div id="doc-onco-body" className="doc-onco-body doc-table-wrap">
+                    <table className="doc-table">
+                      <thead>
+                        <tr>
+                          <th>{t('doc.col.regimen')}</th>
+                          <th>{t('doc.col.drugs')}</th>
+                          <th>{t('doc.col.oncoForm')}</th>
+                          <th>{t('doc.col.lastDose')}</th>
+                          <th>{t('doc.col.source')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {regimens.map((med) => (
+                          <tr key={med.id}>
+                            <td>
+                              <strong>{med.name}</strong>
+                            </td>
+                            <td>
+                              <RegimenDrugs info={result?.regimens[med.id]} status={check.status} />
+                            </td>
+                            <td>{med.form || '—'}</td>
+                            <td>{lastDoseText(med)}</td>
+                            <td>{sourceText(med)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            )}
 
             {/* ---------- Rozbalovací lišta s interakcemi ---------- */}
             <section className={open ? 'doc-interactions doc-interactions-open' : 'doc-interactions'}>

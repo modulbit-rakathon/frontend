@@ -22,7 +22,8 @@ const ALLOWED_FIELDS = ['id', 'kind', 'name', 'active_substance', 'strength', 'f
 // Oddělovač v id pomocného léku z režimu: "med_03#1"
 const PART = '#';
 
-function pick(med) {
+// Lék jen s poli, která backend přijme (používá i stažení PDF v Doctor.jsx)
+export function pickShared(med) {
   return Object.fromEntries(ALLOWED_FIELDS.filter((k) => med[k] !== undefined).map((k) => [k, med[k]]));
 }
 
@@ -74,7 +75,7 @@ export async function checkMeds(meds) {
 
   // Seznam pro backend: léky bez změny, režimy nahradí jejich léčiva
   const toCheck = meds.flatMap((med) => {
-    if (med.kind !== 'regimen') return [pick(med)];
+    if (med.kind !== 'regimen') return [pickShared(med)];
     return (regimens[med.id]?.drugs ?? []).map((drug, i) => ({
       id: `${med.id}${PART}${i}`,
       kind: 'drug',

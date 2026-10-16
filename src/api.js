@@ -160,6 +160,43 @@ export function claimShare(pin) {
 }
 
 /**
+ * Aplikace lékaře: zpráva jako PDF (generuje backend, POST /api/report/pdf).
+ * Interakce, rozklad režimů i duplicity si backend spočítá sám.
+ * Odpověď je PDF (ne JSON), proto vlastní fetch místo request().
+ * @param {Array} medications – léky ve tvaru z claimShare (jen pole, která backend zná)
+ * @param {'cs'|'en'|'uk'} lang – jazyk zprávy
+ * @returns {Promise<{ blob: Blob, filename: string }>}
+ * Chyby (error.message): 'invalid_input', 'payload_too_large', 'rate_limited' (20 za minutu), 'offline'
+ */
+export async function downloadReportPdf(medications, lang) {
+  if (!navigator.onLine) throw new Error('offline');
+
+  let res;
+  try {
+    res = await fetch('/api/report/pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ medications, lang }),
+      signal: AbortSignal.timeout(30000),
+    });
+  } catch (error) {
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') throw error;
+    reportNetworkFailure();
+    throw new Error('offline');
+  }
+  reportNetworkSuccess();
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw new Error(data?.error?.code ?? `http_${res.status}`);
+  }
+
+  // Název souboru posílá backend v hlavičce, např. "pillgaze-leky-2026-10-16-2130.pdf"
+  const filename = res.headers.get('Content-Disposition')?.match(/filename="([^"]+)"/)?.[1] ?? 'pillgaze-leky.pdf';
+  return { blob: await res.blob(), filename };
+}
+
+/**
  * Aplikace lékaře: zkontroluje interakce léků v databázi DDInter (na backendu).
  * Kontroluje se jen podle účinné látky – lék bez ní backend vrátí v "unchecked".
  * @param {Array} medications – léky ve tvaru z claimShare (jen pole, která backend zná)
