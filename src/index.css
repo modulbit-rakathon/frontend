@@ -1061,6 +1061,28 @@ ul {
   background: var(--surface);
 }
 
+/* "Zavřít pacienta" – vpravo v hlavičce */
+.doc-discard {
+  margin-left: auto;
+}
+
+/* Okno pro první kód (CodeDialog v Doctor.jsx) – vzhled z ConfirmDialog */
+.doc-code-dialog {
+  font-size: 17px;
+}
+
+.doc-code-pin {
+  width: 100%;
+  height: 72px;
+  margin-top: 4px;
+  font-size: 36px;
+}
+
+.doc-code-dialog .doc-lang {
+  justify-content: center;
+  margin-top: 8px;
+}
+
 /* --- Obsah --- */
 .doc-main {
   display: flex;

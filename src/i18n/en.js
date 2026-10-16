@@ -522,6 +522,10 @@ export default {
   'doc.pinLabel': 'Patient code',
   'doc.loading': 'Loading…',
   'doc.load': 'Load',
+  'doc.discard': 'Close patient',
+  'doc.discardTitle': 'Close this patient?',
+  'doc.discardText': 'The patient’s medications will disappear from the screen. The code is single-use – you will need a new code from the patient to see them again.',
+  'doc.discardKeep': 'Keep',
   'doc.enterCode': 'Enter the 4-digit code the patient gives you.',
   'doc.error.not_found':
     'The code does not exist or has expired. A code is valid for 3 minutes and can be used only once – ask the patient for a new one.',

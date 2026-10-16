@@ -530,6 +530,10 @@ export default {
   'doc.pinLabel': 'Kód pacienta',
   'doc.loading': 'Načítám…',
   'doc.load': 'Načíst',
+  'doc.discard': 'Zavřít pacienta',
+  'doc.discardTitle': 'Zavřít tohoto pacienta?',
+  'doc.discardText': 'Léky pacienta z obrazovky zmizí. Kód je jednorázový – znovu je uvidíte jen s novým kódem od pacienta.',
+  'doc.discardKeep': 'Ponechat',
   'doc.enterCode': 'Zadejte 4místný kód, který vám nadiktuje pacient.',
   'doc.error.not_found':
     'Kód neexistuje nebo už vypršel. Kód platí 3 minuty a jde použít jen jednou – požádejte pacienta o nový.',
