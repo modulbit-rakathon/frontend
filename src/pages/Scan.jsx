@@ -28,6 +28,7 @@ import { shrinkPhoto, sizeText } from '../photos.js';
 import { draftToItem, draftTodos, makeDraft } from '../review.js';
 import { ITEM_TYPES, PHOTO_KINDS, PHOTO_LIMITS, dosageText } from '../types.js';
 import { getLang, t } from '../i18n/index.js';
+import BackButton from '../components/BackButton.jsx';
 
 // Uklidňující texty při čtení fotek – střídají se každých 5 sekund (viz 'scan.loadingMessages').
 const loadingMessages = () => t('scan.loadingMessages');
@@ -279,6 +280,13 @@ export default function Scan() {
     navigate(afterAdd);
   }
 
+  // Šipka zpět z ručního zadání: přišel-li pacient odkazem ?rucne=1 (např. z Mých léků),
+  // vrátíme ho tam, odkud přišel; jinak zpět na focení.
+  function backFromManual() {
+    if (searchParams.get('rucne') && window.history.state?.idx > 0) navigate(-1);
+    else setStep('pick');
+  }
+
   const remaining = drafts.filter((d) => draftTodos(d) > 0).length;
 
   return (
@@ -407,6 +415,7 @@ export default function Scan() {
 
       {step === 'review' && (
         <>
+          <BackButton onClick={() => setStep('pick')} />
           <h1>{t('scan.reviewTitle')}</h1>
           <p className="subtitle">{t('scan.reviewSub')}</p>
 
@@ -424,7 +433,7 @@ export default function Scan() {
             <p className="empty-state">{t('scan.allRemoved')}</p>
           ) : (
             <div className="table-wrap">
-              <table className="report-table review-table">
+              <table className="report-table review-table report-table-stack">
                 <caption className="sr-only">{t('scan.caption')}</caption>
                 <thead>
                   <tr>
@@ -453,8 +462,8 @@ export default function Scan() {
                               <span>{sourcesText(d.med)}</span>
                             </button>
                           </td>
-                          <td>{dosageText(d.dosage) || t('common.notRead')}</td>
-                          <td>
+                          <td data-label={t('scan.col.dosage')}>{dosageText(d.dosage) || t('common.notRead')}</td>
+                          <td data-label={t('scan.col.status')}>
                             {/* Stav ikonou i slovy – ne jen barvou */}
                             {todos > 0 ? (
                               <span className="review-status review-status-todo">
@@ -515,6 +524,7 @@ export default function Scan() {
 
       {step === 'queued' && (
         <>
+          <BackButton to="/" />
           <h1>{t('offline.queuedTitle')}</h1>
           {online && sendingId === jobId ? (
             <div className="loading-box">
@@ -544,6 +554,7 @@ export default function Scan() {
 
       {step === 'error' && (
         <>
+          <BackButton onClick={() => setStep('pick')} />
           <h1>{t('scan.errorTitle')}</h1>
           <div className="box box-info">
             <p>
@@ -575,6 +586,7 @@ export default function Scan() {
 
       {step === 'manual' && (
         <>
+          <BackButton onClick={backFromManual} />
           <h1>{t('common.enterMedManually')}</h1>
           <p className="subtitle">{t('scan.manualSub')}</p>
           <MedForm onSubmit={handleManual} />

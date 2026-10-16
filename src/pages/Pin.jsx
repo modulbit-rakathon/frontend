@@ -24,6 +24,7 @@ import { createSharePin } from '../api.js';
 import { OfflineIcon, WarningIcon } from '../components/Icons.jsx';
 import { useOnline } from '../offline/network.js';
 import { t, tRich } from '../i18n/index.js';
+import BackButton from '../components/BackButton.jsx';
 
 // Adresa lékařské stránky (stejný server, na kterém běží appka)
 const DOCTOR_URL = `${window.location.origin}/doc`;
@@ -116,6 +117,7 @@ export default function Pin() {
 
   return (
     <>
+      <BackButton to="/zprava" />
       <h1>{t('pin.title')}</h1>
 
       {step === 'empty' && (

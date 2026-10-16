@@ -21,7 +21,7 @@ export default function BottomNav() {
           <span className="nav-icon">
             <Icon />
           </span>
-          <span>{t(label)}</span>
+          <span className="nav-label">{t(label)}</span>
         </NavLink>
       ))}
     </nav>

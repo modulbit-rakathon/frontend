@@ -434,8 +434,10 @@ ul {
 }
 
 .med-name {
+  min-width: 0;
   font-size: 26px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 /* Šipka: zavřeno → doprava, otevřeno → dolů */
@@ -696,8 +698,10 @@ ul {
 }
 
 .nav-item {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   max-width: 140px;
+  padding: 0 2px;
   min-height: var(--nav-height);
   display: flex;
   flex-direction: column;
@@ -712,7 +716,7 @@ ul {
 
 .nav-icon {
   display: flex;
-  padding: 4px 18px;
+  padding: 4px 14px;
   border-radius: 999px;
 }
 
@@ -839,6 +843,7 @@ ul {
 
 .doc-form {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
@@ -1368,11 +1373,13 @@ fieldset.field legend + * {
 /* "Užívám od": rok + měsíc */
 .since-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
 .since-row select {
+  width: 100%;
+  min-width: 0;
   min-height: 56px;
   padding: 8px 12px;
   border: 2px solid var(--text-muted);
@@ -1391,7 +1398,8 @@ fieldset.field legend + * {
 /* Výběr jedné možnosti jako velké dlaždice (Kdo předepsal…) */
 .choice-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* 2 sloupce, když je místo; na úzkém displeji / velkém písmu 1 sloupec */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5em), 1fr));
   gap: 10px;
 }
 
@@ -1399,6 +1407,8 @@ fieldset.field legend + * {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  overflow-wrap: anywhere;
   min-height: 60px;
   padding: 8px 14px;
   border: 3px solid var(--control-border);
@@ -1438,7 +1448,8 @@ fieldset.field legend + * {
   list-style: none;
   padding: 0;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* 2 sloupce, když je místo; jinak 1 */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 7em), 1fr));
   gap: 12px;
 }
 
@@ -1472,9 +1483,11 @@ fieldset.field legend + * {
 }
 
 .tile-label {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.25;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .tile-state {
@@ -1726,7 +1739,7 @@ html[data-font='xlarge'] .app {
 
 .font-switch-buttons {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 7em), 1fr));
   gap: 8px;
 }
 
@@ -1736,6 +1749,9 @@ html[data-font='xlarge'] .app {
   align-items: center;
   justify-content: center;
   gap: 2px;
+  min-width: 0;
+  text-align: center;
+  overflow-wrap: anywhere;
   min-height: 72px;
   padding: 6px;
   border: 3px solid var(--control-border);
@@ -2262,4 +2278,177 @@ html[data-font='xlarge'] .app {
   font-family: inherit;
   font-size: 18px;
   overflow-wrap: anywhere;
+}
+
+/* =========================================================
+   20) MOBIL – šipka zpět, popisky lišty, zpráva bez posouvání
+   ========================================================= */
+
+/* Šipka "Zpět" nad nadpisem obrazovky */
+.back-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  margin: -12px 0 -8px -8px;
+  padding: 4px 12px 4px 8px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.back-btn:active {
+  background: var(--primary-light);
+}
+
+/* Nadpisy a texty: příliš dlouhé slovo (např. "Налаштування" při extra velkém
+   písmu) se rozdělí, místo aby roztáhlo stránku do strany */
+.page {
+  overflow-wrap: break-word;
+}
+
+.page h1,
+.page h2,
+.page h3 {
+  overflow-wrap: anywhere;
+}
+
+/* Dlouhé slovo (např. ukrajinsky při velkém písmu) se v tlačítku zalomí,
+   aby tlačítko nepřeteklo z obrazovky */
+.btn,
+.hero-button,
+.card-link {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Popisek ve spodní liště: delší slovo se zalomí, nepřeteče */
+.nav-label {
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+/* Při extra velkém písmu je celá appka zvětšená (zoom) → lišta má menší písmo,
+   ať se 4 položky vejdou vedle sebe */
+html[data-font='large'] .nav-item {
+  font-size: 15px;
+}
+
+html[data-font='xlarge'] .nav-item {
+  font-size: 13px;
+}
+
+/* Extra velké písmo na úzkém telefonu: nadpisy o kus menší, ať se dlouhé
+   slovo (např. "Налаштування") vejde na řádek a nedělí se uprostřed */
+@media (max-width: 400px) {
+  html[data-font='xlarge'] .page h1 {
+    font-size: 28px;
+  }
+
+  html[data-font='xlarge'] .page h2,
+  html[data-font='xlarge'] .report-paper h2 {
+    font-size: 21px;
+  }
+
+  html[data-font='large'] .page h1 {
+    font-size: 30px;
+  }
+
+  html[data-font='xlarge'] .med-name {
+    font-size: 22px;
+  }
+
+  .report-paper {
+    padding: 16px 14px;
+  }
+}
+
+html[data-font='xlarge'] .nav-icon {
+  padding: 4px 10px;
+}
+
+/* Zpráva pro lékaře na displeji: místo široké tabulky (posouvání do strany)
+   je každý lék jako karta "popisek: hodnota". Při tisku zůstává tabulka. */
+@media screen {
+  .report-table-stack thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .report-table-stack,
+  .report-table-stack tbody,
+  .report-table-stack tr,
+  .report-table-stack td {
+    display: block;
+    width: 100%;
+  }
+
+  .report-table-stack tr {
+    padding: 10px 0;
+    border-bottom: 2px solid var(--border);
+  }
+
+  .report-table-stack td {
+    padding: 4px 0;
+    border: none;
+    overflow-wrap: anywhere;
+  }
+
+  .report-table-stack td::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--text-muted);
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  /* Název léku přes celou šířku, bez popisku */
+  .report-table-stack td:first-child {
+    font-size: 20px;
+  }
+
+  .report-table-stack td:first-child::before {
+    content: none;
+  }
+}
+
+/* Kontrola "Sedí to?" jako karty: dávkování a stav vedle sebe pod názvem,
+   rozbalený detail přes celou šířku */
+@media screen {
+  .review-table.report-table-stack .review-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 7em), 1fr));
+    column-gap: 12px;
+    padding: 8px 0 8px 10px;
+  }
+
+  .review-table.report-table-stack .review-row td:first-child {
+    grid-column: 1 / -1;
+    box-shadow: none;
+  }
+
+  .review-table.report-table-stack .review-row td:first-child .review-toggle {
+    padding-left: 0;
+  }
+
+  /* Řádek k vyřešení: žlutý pruh vlevo přes celou kartu */
+  .review-table.report-table-stack .review-row-todo {
+    box-shadow: inset 6px 0 0 var(--warning-border);
+    padding-left: 16px;
+  }
+
+  .review-table.report-table-stack .review-detail-row {
+    padding: 0 0 16px;
+  }
 }

@@ -5,6 +5,7 @@ export default {
   'meta.description': 'Photograph your medicines and share the list with your doctor using a one-time code.',
 
   // --- Společné ---
+  'common.back': 'Back',
   'common.remove': 'Remove',
   'common.done': 'Done',
   'common.tryAgain': 'Try again',

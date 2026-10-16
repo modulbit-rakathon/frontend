@@ -11,6 +11,7 @@ import { useMeds } from '../context/MedsContext.jsx';
 import { CheckIcon } from '../components/Icons.jsx';
 import { ITEM_TYPES, SUPPLEMENTS, emptyDosage, itemsOfType, supplementStoredName } from '../types.js';
 import { t } from '../i18n/index.js';
+import BackButton from '../components/BackButton.jsx';
 
 export default function Supplements() {
   const navigate = useNavigate();
@@ -66,6 +67,7 @@ export default function Supplements() {
 
   return (
     <>
+      <BackButton to="/leky" />
       <h1>{t('supp.title')}</h1>
       <p className="subtitle">{t('common.supplementsMatter')}</p>
 

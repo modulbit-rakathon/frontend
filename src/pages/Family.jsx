@@ -21,6 +21,7 @@ import {
   rememberLink,
   shareUrl,
 } from '../familyShare.js';
+import BackButton from '../components/BackButton.jsx';
 
 // Upozornění, které ukážeme před vytvořením každého odkazu.
 function PrivacyNote() {
@@ -88,6 +89,7 @@ function AskForHelp() {
 
   return (
     <>
+      <BackButton to="/" />
       <h1>{t('family.ask.title')}</h1>
       <p className="subtitle">{t('family.ask.subtitle')}</p>
 
@@ -177,6 +179,7 @@ function SendBack() {
 
   return (
     <>
+      <BackButton to="/leky" />
       <h1>{t('family.send.title')}</h1>
       <p className="subtitle">{tRich('family.helpingFor', { name: <strong>{who}</strong> })}</p>
 

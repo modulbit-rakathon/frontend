@@ -17,6 +17,7 @@ import {
   oncoSuggestions,
 } from '../types.js';
 import { getLang, t } from '../i18n/index.js';
+import BackButton from '../components/BackButton.jsx';
 
 // Dnešní datum ve tvaru "2026-10-16" (pro max u výběru data).
 // Švédský formát data je shodou okolností přesně RRRR-MM-DD, a to v místním čase.
@@ -55,6 +56,7 @@ export default function Onco() {
 
   return (
     <>
+      <BackButton to="/leky" />
       <h1>{t('common.oncoTreatment')}</h1>
 
       {/* Dokud pacient neodpověděl "Ano", ukážeme nejdřív otázku */}

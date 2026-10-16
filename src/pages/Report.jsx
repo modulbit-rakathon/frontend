@@ -106,7 +106,7 @@ export default function Report() {
           {/* Obal tabulky – na úzkém displeji jde tabulka posouvat do strany */}
           {meds.length > 0 && (
           <div className="table-wrap">
-            <table className="report-table">
+            <table className="report-table report-table-stack">
               <thead>
                 <tr>
                   <th>{t('report.col.med')}</th>
@@ -122,10 +122,10 @@ export default function Report() {
                     <td>
                       <strong>{medName(med)}</strong>
                     </td>
-                    <td>{med.strength || '–'}</td>
-                    <td>{dosageText(med.dosage) || '–'}</td>
-                    <td>{[sinceText(med.since), prescriberText(med.prescriber)].filter(Boolean).join(', ') || '–'}</td>
-                    <td>{sourcesText(med)}</td>
+                    <td data-label={t('report.col.strength')}>{med.strength || '–'}</td>
+                    <td data-label={t('report.col.dosage')}>{dosageText(med.dosage) || '–'}</td>
+                    <td data-label={t('report.col.since')}>{[sinceText(med.since), prescriberText(med.prescriber)].filter(Boolean).join(', ') || '–'}</td>
+                    <td data-label={t('report.col.source')}>{sourcesText(med)}</td>
                   </tr>
                 ))}
               </tbody>

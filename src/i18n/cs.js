@@ -6,6 +6,7 @@ export default {
   'meta.description': 'Vyfoťte své léky a sdílejte jejich seznam s lékařem jednorázovým kódem.',
 
   // --- Společné ---
+  'common.back': 'Zpět',
   'common.remove': 'Odebrat',
   'common.done': 'Hotovo',
   'common.tryAgain': 'Zkusit znovu',

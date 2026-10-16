@@ -145,3 +145,11 @@ export function SettingsIcon({ size }) {
     </Svg>
   );
 }
+export function ArrowLeftIcon({ size }) {
+  return (
+    <Svg size={size}>
+      <path d="M19 12H5" />
+      <path d="M11 5l-7 7 7 7" />
+    </Svg>
+  );
+}

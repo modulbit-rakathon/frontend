@@ -14,6 +14,7 @@ import { medName } from '../labels.js';
 import { decodeShare, diffShare, hasLink, isOld, readHash, rememberLink } from '../familyShare.js';
 import { dateText, dosageText, itemName, oncoFormText, prescriberText, sinceText } from '../types.js';
 import { joinList, localeOf, t, tRich } from '../i18n/index.js';
+import BackButton from '../components/BackButton.jsx';
 
 // Chyby z decodeShare, pro které máme vlastní text
 const ERROR_CODES = ['empty', 'invalid', 'newer', 'unsupported'];
@@ -74,6 +75,7 @@ export default function FamilyOpen() {
   if (step === 'error') {
     return (
       <>
+        <BackButton to="/" />
         <h1>{t('family.open.errorTitle')}</h1>
         <div className="box box-warning" role="alert">
           <div className="box-title">
@@ -122,6 +124,7 @@ function OpenRequest({ share, oldWarning }) {
   if (ownLink) {
     return (
       <>
+        <BackButton to="/" />
         <h1>{t('family.req.ownTitle')}</h1>
         <p className="subtitle">{t('family.req.ownText')}</p>
         <Link to="/" className="btn btn-primary">
@@ -139,6 +142,7 @@ function OpenRequest({ share, oldWarning }) {
   if (helper && helper.requestId === share.id) {
     return (
       <>
+        <BackButton to="/" />
         <h1>{t('family.req.continueTitle')}</h1>
         <p className="subtitle">
           {tRich('family.req.continueText', { name: <strong>{helper.name || who}</strong> })}
@@ -159,6 +163,7 @@ function OpenRequest({ share, oldWarning }) {
 
   return (
     <>
+      <BackButton to="/" />
       <h1>{t('family.req.title')}</h1>
       <p className="subtitle">
         {share.name
@@ -228,6 +233,7 @@ function OpenResponse({ share, oldWarning }) {
   if (helper && helper.requestId === share.id) {
     return (
       <>
+        <BackButton to="/" />
         <h1>{t('family.res.selfTitle')}</h1>
         <p className="subtitle">
           {tRich('family.res.selfText', { name: <strong>{helper.name || t('family.defaultName')}</strong> })}
@@ -243,6 +249,7 @@ function OpenResponse({ share, oldWarning }) {
   if (helper) {
     return (
       <>
+        <BackButton to="/" />
         <h1>{t('family.res.title')}</h1>
         <div className="box box-warning">
           <div className="box-title">
@@ -314,6 +321,7 @@ function OpenResponse({ share, oldWarning }) {
 
   return (
     <>
+      <BackButton to="/" />
       <h1>{t('family.res.title')}</h1>
       <p className="subtitle">
         {share.from

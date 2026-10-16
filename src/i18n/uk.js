@@ -6,6 +6,7 @@ export default {
   'meta.description': 'Сфотографуйте свої ліки й поділіться їх списком із лікарем за одноразовим кодом.',
 
   // --- Společné ---
+  'common.back': 'Назад',
   'common.remove': 'Видалити',
   'common.done': 'Готово',
   'common.tryAgain': 'Спробувати ще раз',
