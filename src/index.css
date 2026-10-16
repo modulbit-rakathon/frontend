@@ -2152,6 +2152,58 @@ html[data-font='xlarge'] .app {
   background: var(--surface);
 }
 
+/* Fotka s upozorněním (možná tmavá / rozmazaná) přes celou šířku mřížky:
+   náhled a text vedle sebe, tlačítka pod nimi */
+.photo-item-warn {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  align-items: start;
+  gap: 8px 12px;
+  padding: 12px;
+  background: var(--warning-bg);
+  border: 3px solid var(--warning-border);
+  border-radius: var(--radius);
+}
+
+.photo-item-warn img {
+  border-color: var(--warning-border);
+}
+
+/* Obal jen pro čitelnost JSX – jeho části se řadí přímo do mřížky .photo-item-warn */
+.photo-warn {
+  display: contents;
+}
+
+.photo-warn-text {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--warning-text);
+}
+
+.photo-warn-text svg {
+  flex-shrink: 0;
+}
+
+.photo-warn .btn,
+.photo-warn-more {
+  grid-column: 1 / -1;
+}
+
+.photo-warn-more {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+}
+
+.photo-warn-more .btn-text {
+  color: var(--warning-text);
+}
+
 /* Při načítání jen malé náhledy */
 .photo-list-small {
   grid-template-columns: repeat(5, 1fr);
