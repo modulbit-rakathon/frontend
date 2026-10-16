@@ -835,9 +835,13 @@ ul {
   /* Jen tak široké jako text (ne přes celou šířku jako ostatní .btn), uprostřed */
   width: auto;
   align-self: center;
-  padding: 12px 28px;
+  min-height: 54px;
+  padding: 8px 24px;
+  gap: 10px;
+  font-size: 19px;
   border-radius: 999px;
 }
+
 
 /* =========================================================
    8) SPODNÍ LIŠTA

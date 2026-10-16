@@ -152,7 +152,7 @@ export default function Report() {
       <SpeakButton text={speechText} />
       {/* Tlačítko plave nad spodní lištou, ať ho pacient nemusí hledat na konci zprávy */}
       <Link to="/pin" className="btn btn-primary report-share no-print">
-        <MedicIcon />
+        <MedicIcon size={24} />
         {t('report.share')}
       </Link>
     </>
