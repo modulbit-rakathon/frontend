@@ -24,32 +24,19 @@ import { medTitle, sourcesText } from '../labels.js';
 import { shrinkPhoto, sizeText } from '../photos.js';
 import { draftToItem, draftTodos, makeDraft } from '../review.js';
 import { ITEM_TYPES, PHOTO_KINDS, PHOTO_LIMITS, dosageText } from '../types.js';
+import { getLang, t } from '../i18n/index.js';
 
-// Uklidňující texty při čtení fotek – střídají se každých 5 sekund.
-const LOADING_MESSAGES = [
-  'Čtu text na fotkách…',
-  'Hledám léky v seznamu léků…',
-  'Porovnávám lístek s krabičkami…',
-  'Ručně psaný lístek trvá déle. Ještě chvilku…',
-];
+// Uklidňující texty při čtení fotek – střídají se každých 5 sekund (viz 'scan.loadingMessages').
+const loadingMessages = () => t('scan.loadingMessages');
 
-// Chyby od backendu → co řekneme pacientovi
-const ERROR_TEXTS = {
-  nothing_found: 'Na fotkách jsme nenašli žádný lék.',
-  payload_too_large: 'Fotek je moc nebo jsou moc velké.',
-  unsupported_media_type: 'Tento formát fotky neumíme přečíst.',
-  rate_limited: 'Moc pokusů za sebou. Zkuste to prosím za minutu.',
-};
+// Chyby od backendu, pro které máme vlastní větu pro pacienta ('scan.error.<kód>')
+const ERROR_CODES = ['nothing_found', 'payload_too_large', 'unsupported_media_type', 'rate_limited'];
 
 // Jednoduché unikátní id pro fotku
 let photoCounter = 0;
 
-// Správný tvar slova: 1 fotka, 2 fotky, 5 fotek
-function pluralFotky(count) {
-  if (count === 1) return '1 fotku';
-  if (count >= 2 && count <= 4) return `${count} fotky`;
-  return `${count} fotek`;
-}
+// Druh fotky malými písmeny do věty ("krabičky léků")
+const lower = (text) => text.toLocaleLowerCase(getLang());
 
 export default function Scan() {
   const navigate = useNavigate();
@@ -98,7 +85,7 @@ export default function Scan() {
     setLoadingIndex(0);
     const timer = setInterval(() => {
       // Poslední text necháme svítit, nezačínáme znovu od začátku.
-      setLoadingIndex((i) => Math.min(i + 1, LOADING_MESSAGES.length - 1));
+      setLoadingIndex((i) => Math.min(i + 1, loadingMessages().length - 1));
     }, 5000);
     return () => clearInterval(timer);
   }, [step]);
@@ -121,7 +108,7 @@ export default function Scan() {
     // Víc než 10 fotek backend nepřijme → přebytečné nepřidáme.
     const free = PHOTO_LIMITS.maxCount - photos.length;
     const accepted = files.slice(0, free);
-    let message = files.length > free ? `Najednou jde poslat nejvýš ${PHOTO_LIMITS.maxCount} fotek.` : '';
+    let message = files.length > free ? t('scan.tooMany', { max: PHOTO_LIMITS.maxCount }) : '';
 
     setPreparing(true);
     const added = [];
@@ -130,7 +117,7 @@ export default function Scan() {
         const small = await shrinkPhoto(file);
         added.push({ id: ++photoCounter, field: photoFieldRef.current, file: small, url: URL.createObjectURL(small) });
       } catch {
-        message = 'Některou fotku se nepodařilo otevřít. Vyfoťte ji prosím znovu.';
+        message = t('scan.openFailed');
       }
     }
     setPreparing(false);
@@ -150,7 +137,7 @@ export default function Scan() {
   async function send() {
     const totalBytes = photos.reduce((sum, p) => sum + p.file.size, 0);
     if (totalBytes > PHOTO_LIMITS.maxBytes) {
-      setPickMessage(`Fotky mají dohromady ${sizeText(totalBytes)}, víc než 15 MB. Odeberte některé.`);
+      setPickMessage(t('scan.tooBig', { size: sizeText(totalBytes) }));
       return;
     }
 
@@ -229,10 +216,8 @@ export default function Scan() {
 
       {step === 'pick' && (
         <>
-          <h1>Vyfotit léky</h1>
-          <p className="subtitle">
-            Vyfoťte lístek od lékaře a krabičky léků. Najednou můžete poslat až {PHOTO_LIMITS.maxCount} fotek.
-          </p>
+          <h1>{t('scan.title')}</h1>
+          <p className="subtitle">{t('scan.subtitle', { max: PHOTO_LIMITS.maxCount })}</p>
 
           {photoKinds.map((kind, i) => {
             const list = photos.filter((p) => p.field === kind.field);
@@ -248,14 +233,14 @@ export default function Scan() {
                   <ul className="photo-list">
                     {list.map((p, index) => (
                       <li key={p.id} className="photo-item">
-                        <img src={p.url} alt={`${kind.title}, fotka ${index + 1}`} />
+                        <img src={p.url} alt={t('scan.photoAlt', { kind: kind.title, n: index + 1 })} />
                         <button
                           type="button"
                           className="btn-text"
-                          aria-label={`Odebrat fotku ${index + 1} – ${kind.title.toLowerCase()}`}
+                          aria-label={t('scan.removePhoto', { n: index + 1, kind: lower(kind.title) })}
                           onClick={() => removePhoto(p.id)}
                         >
-                          Odebrat
+                          {t('common.remove')}
                         </button>
                       </li>
                     ))}
@@ -275,11 +260,11 @@ export default function Scan() {
                   <button
                     type="button"
                     className="btn btn-link"
-                    aria-label={`Vybrat z galerie – ${kind.title.toLowerCase()}`}
+                    aria-label={t('scan.fromGalleryAria', { kind: lower(kind.title) })}
                     onClick={() => openPicker(kind.field, false)}
                     disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
                   >
-                    Vybrat z galerie
+                    {t('scan.fromGallery')}
                   </button>
                 </div>
               </section>
@@ -288,7 +273,7 @@ export default function Scan() {
 
           {/* role="status" = čtečka přečte změnu (přidaná fotka, upozornění) */}
           <p className="photo-counter" role="status">
-            {preparing ? 'Připravuji fotky…' : `Fotky: ${photos.length} z ${PHOTO_LIMITS.maxCount}`}
+            {preparing ? t('scan.preparing') : t('scan.counter', { count: photos.length, max: PHOTO_LIMITS.maxCount })}
           </p>
           {pickMessage && (
             <div className="box box-warning">
@@ -305,18 +290,18 @@ export default function Scan() {
             onClick={send}
             disabled={photos.length === 0 || preparing}
           >
-            {photos.length === 0 ? 'Odeslat fotky' : `Odeslat ${pluralFotky(photos.length)}`}
+            {photos.length === 0 ? t('scan.sendNone') : t('scan.send', { count: photos.length })}
           </button>
           <button type="button" className="btn btn-link" onClick={() => setStep('manual')}>
-            Zadat ručně
+            {t('common.enterManually')}
           </button>
         </>
       )}
 
       {step === 'loading' && (
         <>
-          <h1>Čtu fotky…</h1>
-          <p className="subtitle">Nic nemusíte dělat. Ručně psaný lístek může trvat až minutu.</p>
+          <h1>{t('scan.reading')}</h1>
+          <p className="subtitle">{t('scan.readingSub')}</p>
           <ul className="photo-list photo-list-small" aria-hidden="true">
             {photos.map((p) => (
               <li key={p.id} className="photo-item">
@@ -328,41 +313,41 @@ export default function Scan() {
             <div className="spinner" aria-hidden="true" />
             {/* aria-live = čtečka obrazovky přečte každý nový text */}
             <p className="loading-text" aria-live="polite">
-              {LOADING_MESSAGES[loadingIndex]}
+              {loadingMessages()[loadingIndex]}
             </p>
           </div>
           <button type="button" className="btn btn-secondary" onClick={cancelLoading}>
-            Zrušit
+            {t('common.cancel')}
           </button>
         </>
       )}
 
       {step === 'review' && (
         <>
-          <h1>Sedí to?</h1>
-          <p className="subtitle">Tohle jsme na fotkách přečetli. Klepnutím na lék ho rozbalíte.</p>
+          <h1>{t('scan.reviewTitle')}</h1>
+          <p className="subtitle">{t('scan.reviewSub')}</p>
 
           {unreadable > 0 && (
             <div className="box box-warning">
               <div className="box-title">
                 <WarningIcon />
-                <span>Něco na fotkách nešlo přečíst</span>
+                <span>{t('scan.unreadableTitle')}</span>
               </div>
-              <p>Chybějící lék vyfoťte znovu, nebo ho zadejte ručně.</p>
+              <p>{t('scan.unreadableText')}</p>
             </div>
           )}
 
           {drafts.length === 0 ? (
-            <p className="empty-state">Všechny léky jste odebrali.</p>
+            <p className="empty-state">{t('scan.allRemoved')}</p>
           ) : (
             <div className="table-wrap">
               <table className="report-table review-table">
-                <caption className="sr-only">Léky přečtené z fotek</caption>
+                <caption className="sr-only">{t('scan.caption')}</caption>
                 <thead>
                   <tr>
-                    <th scope="col">Lék</th>
-                    <th scope="col">Dávkování</th>
-                    <th scope="col">Stav</th>
+                    <th scope="col">{t('scan.col.med')}</th>
+                    <th scope="col">{t('scan.col.dosage')}</th>
+                    <th scope="col">{t('scan.col.status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -385,18 +370,18 @@ export default function Scan() {
                               <span>{sourcesText(d.med)}</span>
                             </button>
                           </td>
-                          <td>{dosageText(d.dosage) || 'nepřečteno'}</td>
+                          <td>{dosageText(d.dosage) || t('common.notRead')}</td>
                           <td>
                             {/* Stav ikonou i slovy – ne jen barvou */}
                             {todos > 0 ? (
                               <span className="review-status review-status-todo">
                                 <WarningIcon size={24} />
-                                Zkontrolovat
+                                {t('scan.statusTodo')}
                               </span>
                             ) : (
                               <span className="review-status review-status-ok">
                                 <CheckIcon size={24} />
-                                Sedí
+                                {t('scan.statusOk')}
                               </span>
                             )}
                           </td>
@@ -424,7 +409,7 @@ export default function Scan() {
 
           {remaining > 0 && (
             <p className="submit-note" role="status">
-              Nejdřív zkontrolujte léky označené „Zkontrolovat“ (zbývá {remaining}).
+              {t('scan.remaining', { count: remaining })}
             </p>
           )}
           <button
@@ -434,56 +419,56 @@ export default function Scan() {
             disabled={drafts.length === 0 || remaining > 0}
           >
             <CheckIcon />
-            Ano, uložit do mých léků
+            {t('scan.saveAll')}
           </button>
           <button type="button" className="btn btn-secondary" onClick={() => setStep('pick')}>
-            Upravit fotky a poslat znovu
+            {t('scan.editAndResend')}
           </button>
           <button type="button" className="btn btn-link" onClick={() => setStep('manual')}>
-            Zadat lék ručně
+            {t('common.enterMedManually')}
           </button>
         </>
       )}
 
       {step === 'error' && (
         <>
-          <h1>Nepodařilo se přečíst fotky</h1>
+          <h1>{t('scan.errorTitle')}</h1>
           <div className="box box-info">
             <p>
-              <strong>{ERROR_TEXTS[errorCode] ?? 'Zkontrolujte připojení k internetu a zkuste to znovu.'}</strong>
+              <strong>{ERROR_CODES.includes(errorCode) ? t(`scan.error.${errorCode}`) : t('common.checkConnection')}</strong>
             </p>
             {errorCode === 'nothing_found' && (
               <>
-                <p>Zkuste:</p>
+                <p>{t('scan.tipsTitle')}</p>
                 <ul>
-                  <li>víc světla</li>
-                  <li>krabičku zblízka</li>
-                  <li>bez odlesků</li>
+                  <li>{t('scan.tip.light')}</li>
+                  <li>{t('scan.tip.close')}</li>
+                  <li>{t('scan.tip.glare')}</li>
                 </ul>
               </>
             )}
           </div>
           <button type="button" className="btn btn-primary" onClick={send}>
-            Zkusit znovu
+            {t('common.tryAgain')}
           </button>
           <button type="button" className="btn btn-secondary" onClick={() => setStep('pick')}>
             <CameraIcon />
-            Upravit fotky
+            {t('scan.editPhotos')}
           </button>
           <button type="button" className="btn btn-link" onClick={() => setStep('manual')}>
-            Zadat lék ručně
+            {t('common.enterMedManually')}
           </button>
         </>
       )}
 
       {step === 'manual' && (
         <>
-          <h1>Zadat lék ručně</h1>
-          <p className="subtitle">Opište údaje z krabičky nebo lístku.</p>
+          <h1>{t('common.enterMedManually')}</h1>
+          <p className="subtitle">{t('scan.manualSub')}</p>
           <MedForm onSubmit={handleManual} />
           <button type="button" className="btn btn-secondary" onClick={() => setStep('pick')}>
             <CameraIcon />
-            Raději vyfotit
+            {t('scan.ratherPhoto')}
           </button>
         </>
       )}

@@ -3,6 +3,10 @@
 //
 // Používáme JSDoc komentáře (@typedef): JavaScript je nekontroluje, ale editor
 // (VS Code) podle nich napovídá a ukazuje, co má objekt obsahovat.
+//
+// Popisky (label, title…) se překládají až při čtení (getter), takže jsou
+// vždy v aktuálním jazyce – viz src/i18n/.
+import { formatDate, getLang, t, tIn } from './i18n/index.js';
 
 // ---------------------------------------------------------------
 // Položka v seznamu (lék, doplněk stravy, onkologická léčba)
@@ -112,11 +116,21 @@ export const CATALOG_STATUS = {
  * Druhy fotek pro POST /api/analyze. `field` = název pole ve formuláři pro backend.
  * (Backend umí ještě 'regimen' = zpráva s onkologickým režimem, zatím ho nefotíme.)
  */
+function photoKind(field, extra) {
+  return {
+    field,
+    get title() { return t(`photo.${field}.title`); },
+    get add() { return t(`photo.${field}.add`); },
+    get hint() { return t(`photo.${field}.hint`); },
+    ...extra,
+  };
+}
+
 export const PHOTO_KINDS = [
-  { field: 'note', title: 'Lístek od lékaře', add: 'Vyfotit lístek', hint: 'Seznam léků, recept nebo propouštěcí zpráva.' },
-  { field: 'box', title: 'Krabičky léků', add: 'Vyfotit krabičku', hint: 'Každou krabičku zvlášť, ať je vidět název a síla.' },
+  photoKind('note'),
+  photoKind('box'),
   // Jen pro pacienty, kteří se léčí na onkologii (profile.onco === 'ano')
-  { field: 'regimen', title: 'Zpráva z onkologie', add: 'Vyfotit zprávu', hint: 'Část, kde je název léčby, např. FOLFOX.', onco: true },
+  photoKind('regimen', { onco: true }),
 ];
 
 /** Limity backendu pro jedno odeslání fotek. */
@@ -138,10 +152,17 @@ export const BACKEND_TO_FORM_FIELD = {
 
 /** Popisky polí formuláře. */
 export const FORM_FIELD_LABELS = {
-  name: 'Název',
-  strength: 'Síla',
-  dosage: 'Dávkování',
+  get name() { return t('field.name'); },
+  get strength() { return t('field.strength'); },
+  get dosage() { return t('field.dosage'); },
 };
+
+// Seznam { key, label } s popiskem přeloženým až při čtení: 'gp' → t('prescriber.gp')
+function labelled(prefix, items) {
+  return items.map((item) =>
+    Object.defineProperty({ ...item }, 'label', { get: () => t(`${prefix}.${item.key}`), enumerable: true }),
+  );
+}
 
 // ---------------------------------------------------------------
 // Dávkování
@@ -154,12 +175,11 @@ export const DOSAGE_MODES = {
 };
 
 /** Denní doby v pořadí, v jakém se píšou do zápisu 1-0-1-0. */
-export const DOSE_TIMES = [
-  { key: 'morning', label: 'Ráno', short: 'ráno' },
-  { key: 'noon', label: 'Poledne', short: 'v poledne' },
-  { key: 'evening', label: 'Večer', short: 'večer' },
-  { key: 'night', label: 'Na noc', short: 'na noc' },
-];
+export const DOSE_TIMES = ['morning', 'noon', 'evening', 'night'].map((key) => ({
+  key,
+  get label() { return t(`dose.${key}`); }, // "Ráno"
+  get short() { return t(`dose.${key}.short`); }, // "ráno"
+}));
 
 /** Prázdné dávkování (nic nevybráno). @returns {Dosage} */
 export function emptyDosage() {
@@ -181,14 +201,14 @@ export function dosageCode(d) {
 
 /**
  * Čitelný text, např. "ráno 1, večer 1" / "podle potřeby" / "1× týdně".
- * Prázdné dávkování → "".
+ * Prázdné dávkování → "". lang = jazyk textu (výchozí aktuální).
  */
-export function dosageText(d) {
+export function dosageText(d, lang = getLang()) {
   if (!hasDosage(d)) return '';
-  if (d.mode === DOSAGE_MODES.AS_NEEDED) return 'podle potřeby';
+  if (d.mode === DOSAGE_MODES.AS_NEEDED) return tIn(lang, 'dosage.asNeeded');
   if (d.mode === DOSAGE_MODES.OTHER) return d.text.trim();
-  return DOSE_TIMES.filter((t) => d[t.key] > 0)
-    .map((t) => `${t.short} ${d[t.key]}`)
+  return DOSE_TIMES.filter((time) => d[time.key] > 0)
+    .map((time) => `${tIn(lang, `dose.${time.key}.short`)} ${d[time.key]}`)
     .join(', ');
 }
 
@@ -210,7 +230,8 @@ export function dosageFromText(frequency, amount) {
     return d;
   }
 
-  if (/podle potřeby|dle potřeby|při bolesti/i.test(freq)) {
+  // Česky i v ostatních jazycích appky (hlasové zadání)
+  if (/podle potřeby|dle potřeby|při bolesti|as needed|when needed|if needed|за потреби|при потребі|при болю/i.test(freq)) {
     d.mode = DOSAGE_MODES.AS_NEEDED;
     return d;
   }
@@ -225,37 +246,33 @@ export function dosageFromText(frequency, amount) {
 
 /**
  * Pro backend (/api/share zná jen textová pole frequency a amount).
+ * Pro lékaře posíláme vždy česky, ať je appka pacienta v jakémkoli jazyce.
  * @returns {{ frequency: string|null, amount: string|null }}
  */
 export function dosageToBackend(d) {
   if (!hasDosage(d)) return { frequency: null, amount: null };
   if (d.mode === DOSAGE_MODES.SCHEDULE) {
-    return { frequency: `${dosageCode(d)} (${dosageText(d)})`, amount: null };
+    return { frequency: `${dosageCode(d)} (${dosageText(d, 'cs')})`, amount: null };
   }
-  return { frequency: dosageText(d), amount: null };
+  return { frequency: dosageText(d, 'cs'), amount: null };
 }
 
 // ---------------------------------------------------------------
 // Kdo předepsal, užívám od
 // ---------------------------------------------------------------
 
-export const PRESCRIBERS = [
-  { key: 'gp', label: 'Praktický lékař' },
-  { key: 'onco', label: 'Onkolog' },
-  { key: 'other', label: 'Jiný lékař' },
-  { key: 'self', label: 'Sám / sama' },
-];
+export const PRESCRIBERS = labelled('prescriber', [{ key: 'gp' }, { key: 'onco' }, { key: 'other' }, { key: 'self' }]);
 
-export const MONTHS = [
-  'leden', 'únor', 'březen', 'duben', 'květen', 'červen',
-  'červenec', 'srpen', 'září', 'říjen', 'listopad', 'prosinec',
-];
+/** Názvy měsíců v aktuálním jazyce: ['leden', 'únor', …] */
+export function monthNames() {
+  return t('months');
+}
 
 /** "2024-03" → "březen 2024", "2024" → "2024", "" → "" */
 export function sinceText(since) {
   if (!since) return '';
   const [year, month] = since.split('-');
-  return month ? `${MONTHS[Number(month) - 1]} ${year}` : year;
+  return month ? `${monthNames()[Number(month) - 1]} ${year}` : year;
 }
 
 export function prescriberText(key) {
@@ -267,59 +284,56 @@ export function prescriberText(key) {
 // icon = emoji, je jen ozdoba (čtečka ho přeskočí), význam nese text.
 // ---------------------------------------------------------------
 
-export const SUPPLEMENTS = [
-  { key: 'trezalka', label: 'Třezalka', icon: '🌼' },
-  { key: 'kurkuma', label: 'Kurkuma', icon: '🟡' },
-  { key: 'grapefruit', label: 'Grapefruit nebo grapefruitový džus', icon: '🍊' },
-  { key: 'ostropestrec', label: 'Ostropestřec', icon: '🌿' },
-  { key: 'zensen', label: 'Ženšen', icon: '🫚' },
-  { key: 'cesnek', label: 'Česnek v tabletách', icon: '🧄' },
-  { key: 'zeleny-caj', label: 'Zelený čaj (extrakt)', icon: '🍵' },
-  { key: 'vitamin-c', label: 'Vitamín C ve vysokých dávkách', icon: '🍋' },
-  { key: 'vitamin-d', label: 'Vitamín D', icon: '☀️' },
-  { key: 'omega-3', label: 'Omega-3', icon: '🐟' },
-  { key: 'probiotika', label: 'Probiotika', icon: '🥛' },
-  { key: 'cbd', label: 'CBD', icon: '🍃' },
-];
+export const SUPPLEMENTS = labelled('supplement', [
+  { key: 'trezalka', icon: '🌼' },
+  { key: 'kurkuma', icon: '🟡' },
+  { key: 'grapefruit', icon: '🍊' },
+  { key: 'ostropestrec', icon: '🌿' },
+  { key: 'zensen', icon: '🫚' },
+  { key: 'cesnek', icon: '🧄' },
+  { key: 'zeleny-caj', icon: '🍵' },
+  { key: 'vitamin-c', icon: '🍋' },
+  { key: 'vitamin-d', icon: '☀️' },
+  { key: 'omega-3', icon: '🐟' },
+  { key: 'probiotika', icon: '🥛' },
+  { key: 'cbd', icon: '🍃' },
+]);
+
+/** Český název doplňku z dlaždice – tak ho ukládáme a posíláme lékaři. */
+export function supplementStoredName(key) {
+  return tIn('cs', `supplement.${key}`);
+}
+
+/**
+ * Název položky pro pacienta: doplněk z dlaždice v aktuálním jazyce,
+ * všechno ostatní tak, jak je uložené.
+ */
+export function itemName(item) {
+  return SUPPLEMENTS.some((s) => s.key === item.supplementKey) ? t(`supplement.${item.supplementKey}`) : item.name;
+}
 
 // ---------------------------------------------------------------
 // Onkologická léčba
 // ---------------------------------------------------------------
 
 /** Běžné názvy pro našeptávání (pacient může napsat i cokoli jiného). */
-export const ONCO_SUGGESTIONS = [
-  'kapecitabin',
-  'tamoxifen',
-  'letrozol',
-  'anastrozol',
-  'imatinib',
-  'pembrolizumab',
-  'nivolumab',
-  'chemoterapie – nevím název',
-];
-
-export const ONCO_FORMS = [
-  { key: 'tablets', label: 'Tablety' },
-  { key: 'infusion', label: 'Infuze v nemocnici' },
-  { key: 'injection', label: 'Injekce' },
-];
-
-/** Odpovědi na otázku "Léčíte se na onkologii?" */
-export const ONCO_ANSWERS = [
-  { key: 'ano', label: 'Ano' },
-  { key: 'ne', label: 'Ne' },
-  { key: 'nechci', label: 'Nechci uvádět' },
-];
-
-export function oncoFormText(key) {
-  return ONCO_FORMS.find((f) => f.key === key)?.label ?? '';
+export function oncoSuggestions() {
+  return t('onco.suggestions');
 }
 
-/** "2026-10-01" → "1. 10. 2026" */
-export function dateText(isoDate) {
-  if (!isoDate) return '';
-  const [y, m, d] = isoDate.split('-');
-  return `${Number(d)}. ${Number(m)}. ${y}`;
+export const ONCO_FORMS = labelled('oncoForm', [{ key: 'tablets' }, { key: 'infusion' }, { key: 'injection' }]);
+
+/** Odpovědi na otázku "Léčíte se na onkologii?" */
+export const ONCO_ANSWERS = labelled('onco.answer', [{ key: 'ano' }, { key: 'ne' }, { key: 'nechci' }]);
+
+/** Forma onkologické léčby jako text. lang = jazyk textu (výchozí aktuální). */
+export function oncoFormText(key, lang = getLang()) {
+  return ONCO_FORMS.some((f) => f.key === key) ? tIn(lang, `oncoForm.${key}`) : '';
+}
+
+/** "2026-10-01" → "1. 10. 2026" (podle jazyka, viz formatDate) */
+export function dateText(isoDate, lang = getLang()) {
+  return formatDate(isoDate, lang);
 }
 
 /** Vybere z celého seznamu jen položky jednoho typu. */

@@ -7,11 +7,13 @@ import { useMeds } from '../context/MedsContext.jsx';
 import { CameraIcon, ChevronIcon, PillIcon } from '../components/Icons.jsx';
 import { medName, sourcesText } from '../labels.js';
 import SpeakButton from '../components/SpeakButton.jsx';
+import { t } from '../i18n/index.js';
 import {
   ITEM_TYPES,
   ONCO_ANSWERS,
   dateText,
   dosageText,
+  itemName,
   itemsOfType,
   oncoFormText,
   prescriberText,
@@ -31,21 +33,21 @@ export default function Meds() {
   if (items.length === 0) {
     return (
       <>
-        <h1>Moje léky</h1>
+        <h1>{t('meds.title')}</h1>
         <div className="empty-state">
           <PillIcon size={96} />
-          <h2>Zatím tu nejsou žádné léky</h2>
-          <p>Začněte vyfocením krabičky nebo lístku od lékaře.</p>
+          <h2>{t('meds.emptyTitle')}</h2>
+          <p>{t('meds.emptyText')}</p>
         </div>
         <Link to="/vyfotit" className="btn btn-primary">
           <CameraIcon />
-          Vyfotit lék
+          {t('common.photoMed')}
         </Link>
         <Link to="/vyfotit?rucne=1" className="btn btn-link">
-          Zadat ručně
+          {t('common.enterManually')}
         </Link>
         <Link to="/doplnky" className="btn btn-link">
-          Doplňky stravy a bylinky
+          {t('common.supplements')}
         </Link>
       </>
     );
@@ -57,27 +59,27 @@ export default function Meds() {
   }
 
   function handleRemove(med) {
-    if (window.confirm(`Opravdu odebrat lék ${med.name}?`)) {
+    if (window.confirm(t('meds.confirmRemove', { name: med.name }))) {
       removeMed(med.id);
     }
   }
 
   return (
     <>
-      <h1>Moje léky</h1>
+      <h1>{t('meds.title')}</h1>
 
       {/* ---------- Onkologická léčba (jen když pacient odpověděl "Ano") ---------- */}
       {profile.onco === 'ano' && (
         <section className="onco-section" aria-labelledby="onco-title">
-          <h2 id="onco-title">Onkologická léčba</h2>
+          <h2 id="onco-title">{t('common.oncoTreatment')}</h2>
           {treatments.length === 0 ? (
-            <p>Zatím nezadáno.</p>
+            <p>{t('meds.oncoNone')}</p>
           ) : (
             <ul className="onco-list">
-              {treatments.map((t) => (
-                <li key={t.id}>
-                  <strong>{t.name}</strong>
-                  {[oncoFormText(t.oncoForm), t.lastDose && `poslední dávka ${dateText(t.lastDose)}`]
+              {treatments.map((item) => (
+                <li key={item.id}>
+                  <strong>{item.name}</strong>
+                  {[oncoFormText(item.oncoForm), item.lastDose && t('common.lastDose', { date: dateText(item.lastDose) })]
                     .filter(Boolean)
                     .map((text) => ` · ${text}`)}
                 </li>
@@ -85,7 +87,7 @@ export default function Meds() {
             </ul>
           )}
           <Link to="/onkologie" className="btn btn-secondary">
-            {treatments.length === 0 ? 'Zadat léčbu' : 'Upravit léčbu'}
+            {treatments.length === 0 ? t('meds.oncoAdd') : t('meds.oncoEdit')}
           </Link>
         </section>
       )}
@@ -114,36 +116,36 @@ export default function Meds() {
               {isOpen && (
                 <div id={detailsId} className="med-details">
                   <dl>
-                    <dt>Síla</dt>
-                    <dd>{med.strength || 'Nezadáno'}</dd>
-                    <dt>Kdy a kolik</dt>
-                    <dd>{dosageText(med.dosage) || 'Nezadáno'}</dd>
+                    <dt>{t('meds.strength')}</dt>
+                    <dd>{med.strength || t('common.notEntered')}</dd>
+                    <dt>{t('meds.whenHowMuch')}</dt>
+                    <dd>{dosageText(med.dosage) || t('common.notEntered')}</dd>
                     {med.since && (
                       <>
-                        <dt>Užívám od</dt>
+                        <dt>{t('meds.since')}</dt>
                         <dd>{sinceText(med.since)}</dd>
                       </>
                     )}
                     {med.prescriber && (
                       <>
-                        <dt>Předepsal</dt>
+                        <dt>{t('meds.prescriber')}</dt>
                         <dd>{prescriberText(med.prescriber)}</dd>
                       </>
                     )}
-                    <dt>Zdroj</dt>
+                    <dt>{t('meds.source')}</dt>
                     <dd>{sourcesText(med)}</dd>
                   </dl>
                   <SpeakButton
                     text={[
                       medName(med),
-                      med.strength && `síla ${med.strength}`,
-                      dosageText(med.dosage) || 'dávkování nezadáno',
+                      med.strength && t('meds.speakStrength', { strength: med.strength }),
+                      dosageText(med.dosage) || t('meds.speakNoDosage'),
                     ]
                       .filter(Boolean)
                       .join(', ')}
                   />
                   <button type="button" className="btn-text" onClick={() => handleRemove(med)}>
-                    Odebrat
+                    {t('common.remove')}
                   </button>
                 </div>
               )}
@@ -152,37 +154,37 @@ export default function Meds() {
         })}
       </ul>
 
-      {meds.length === 0 && <p className="subtitle">Zatím žádné léky.</p>}
+      {meds.length === 0 && <p className="subtitle">{t('meds.none')}</p>}
 
       <Link to="/vyfotit" className="btn btn-dashed">
-        + Přidat lék
+        {t('meds.add')}
       </Link>
 
       {/* ---------- Doplňky stravy a bylinky ---------- */}
       <section className="list-section" aria-labelledby="supplements-title">
-        <h2 id="supplements-title">Doplňky stravy a bylinky</h2>
+        <h2 id="supplements-title">{t('common.supplements')}</h2>
         {supplements.length === 0 ? (
-          <p className="subtitle">I bylinky a vitamíny jsou pro lékaře důležité.</p>
+          <p className="subtitle">{t('common.supplementsMatter')}</p>
         ) : (
           <ul className="chip-list">
             {supplements.map((s) => (
               <li key={s.id} className="chip">
-                {s.name}
+                {itemName(s)}
               </li>
             ))}
           </ul>
         )}
         <Link to="/doplnky" className="btn btn-secondary">
-          {supplements.length === 0 ? 'Berete i doplňky nebo bylinky?' : 'Upravit doplňky'}
+          {supplements.length === 0 ? t('meds.supplementsAsk') : t('meds.supplementsEdit')}
         </Link>
       </section>
 
       {/* Odpověď na onkologii jde kdykoli změnit */}
       {profile.onco !== 'ano' && (
         <p className="onco-answer">
-          Léčba na onkologii:{' '}
-          <strong>{ONCO_ANSWERS.find((a) => a.key === profile.onco)?.label ?? 'neodpovězeno'}</strong>{' '}
-          <Link to="/onkologie">Změnit</Link>
+          {t('meds.oncoAnswer')}{' '}
+          <strong>{ONCO_ANSWERS.find((a) => a.key === profile.onco)?.label ?? t('common.unanswered')}</strong>{' '}
+          <Link to="/onkologie">{t('meds.change')}</Link>
         </p>
       )}
     </>

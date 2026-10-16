@@ -2,6 +2,7 @@
 // Když prohlížeč čtení nahlas neumí, ukáže místo tlačítka krátkou poznámku.
 import { useEffect, useState } from 'react';
 import { canSpeak, speak, stopSpeaking } from '../accessibility.js';
+import { t } from '../i18n/index.js';
 
 /** @param {string} text – co se má přečíst */
 export default function SpeakButton({ text, className = 'btn btn-secondary' }) {
@@ -13,7 +14,7 @@ export default function SpeakButton({ text, className = 'btn btn-secondary' }) {
   useEffect(() => stopSpeaking, []);
 
   if (!canSpeak) {
-    return <p className="speak-fallback">Čtení nahlas tento prohlížeč neumí.</p>;
+    return <p className="speak-fallback">{t('speak.unsupported')}</p>;
   }
 
   function handleClick() {
@@ -38,11 +39,11 @@ export default function SpeakButton({ text, className = 'btn btn-secondary' }) {
     <>
       <button type="button" className={`${className} no-print`} onClick={handleClick} aria-pressed={speaking}>
         <span aria-hidden="true">{speaking ? '⏹' : '🔊'}</span>
-        {speaking ? 'Zastavit čtení' : 'Přečíst nahlas'}
+        {speaking ? t('speak.stop') : t('speak.start')}
       </button>
       {failed && (
         <p className="speak-fallback" role="status">
-          Čtení nahlas se nepovedlo – v zařízení asi chybí hlas pro čtení. Zkuste jiný prohlížeč.
+          {t('speak.failed')}
         </p>
       )}
     </>

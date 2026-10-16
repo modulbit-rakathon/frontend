@@ -3,6 +3,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { ONCO_ANSWERS } from '../types.js';
+import { t } from '../i18n/index.js';
 
 export default function OncoQuestion() {
   const navigate = useNavigate();
@@ -16,7 +17,7 @@ export default function OncoQuestion() {
   return (
     // role="group" + aria-labelledby = čtečka přečte otázku spolu s tlačítky
     <section className="card question" role="group" aria-labelledby="onco-question">
-      <h2 id="onco-question">Léčíte se na onkologii?</h2>
+      <h2 id="onco-question">{t('onco.question')}</h2>
       <div className="question-answers">
         {ONCO_ANSWERS.map((a) => (
           <button

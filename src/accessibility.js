@@ -3,17 +3,18 @@
 //   2) čtení nahlas (Web Speech API – speechSynthesis)
 //   3) hlasové zadání (Web Speech API – SpeechRecognition)
 
+import { getLang, localeOf, t } from './i18n/index.js';
+
 // ---------------------------------------------------------------
 // 1) Velikost písma
 // ---------------------------------------------------------------
 
 const FONT_KEY = 'pillgaze-font-size';
 
-export const FONT_SIZES = [
-  { key: 'normal', label: 'Normální' },
-  { key: 'large', label: 'Velké' },
-  { key: 'xlarge', label: 'Extra velké' },
-];
+export const FONT_SIZES = ['normal', 'large', 'xlarge'].map((key) => ({
+  key,
+  get label() { return t(`font.${key}`); }, // "Normální" / "Velké" / "Extra velké"
+}));
 
 /** Přečte uloženou velikost písma ('normal' když nic není nebo localStorage nejde). */
 export function loadFontSize() {
@@ -46,17 +47,17 @@ export function applyFontSize(key) {
 export const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
 /**
- * Přečte text česky. Vrátí objekt "promluvy", abychom věděli, kdy skončila.
- * Když v zařízení není český hlas, prohlížeč použije výchozí hlas
- * (česky to ale pořád zkusí díky lang = 'cs-CZ').
+ * Přečte text v jazyce appky. Vrátí objekt "promluvy", abychom věděli, kdy skončila.
+ * Když v zařízení není hlas pro daný jazyk, prohlížeč použije výchozí hlas
+ * (jazyk to ale pořád zkusí díky lang, např. 'cs-CZ').
  */
 export function speak(text) {
   window.speechSynthesis.cancel(); // případné předchozí čtení zastavíme
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'cs-CZ';
+  utterance.lang = localeOf();
   utterance.rate = 0.9; // o kousek pomaleji – lépe se poslouchá
-  const czechVoice = window.speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith('cs'));
-  if (czechVoice) utterance.voice = czechVoice;
+  const voice = window.speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith(getLang()));
+  if (voice) utterance.voice = voice;
   window.speechSynthesis.speak(utterance);
   return utterance;
 }
@@ -78,14 +79,14 @@ const Recognition =
 export const canListen = Boolean(Recognition);
 
 /**
- * Spustí poslech jedné věty v češtině.
+ * Spustí poslech jedné věty v jazyce appky.
  * @param {(text: string) => void} onResult – co pacient řekl
  * @param {() => void} onEnd – poslech skončil (s výsledkem i bez)
  * @returns objekt rozpoznávání (jde zastavit přes .stop())
  */
 export function listen(onResult, onEnd) {
   const recognition = new Recognition();
-  recognition.lang = 'cs-CZ';
+  recognition.lang = localeOf();
   recognition.interimResults = false; // chceme až hotovou větu
   recognition.maxAlternatives = 1;
   recognition.onresult = (event) => onResult(event.results[0][0].transcript);

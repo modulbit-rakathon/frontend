@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { searchCatalog } from '../api.js';
 import { catalogName } from '../labels.js';
+import { t } from '../i18n/index.js';
 
 const MIN_LENGTH = 2;
 const DEBOUNCE_MS = 300;
@@ -59,24 +60,24 @@ export default function CatalogSearch({ onPick, initialQuery = '', idPrefix }) {
 
   return (
     <div className="catalog-search">
-      <label htmlFor={inputId}>Název léku nebo účinná látka</label>
+      <label htmlFor={inputId}>{t('catalog.label')}</label>
       <input
         id={inputId}
         type="search"
         className="text-input"
         value={query}
-        placeholder="např. Brufen"
+        placeholder={t('catalog.placeholder')}
         autoComplete="off"
         onChange={(e) => setQuery(e.target.value)}
       />
 
       {/* aria-live = čtečka přečte, když se změní stav hledání */}
       <p className="catalog-status" aria-live="polite">
-        {status === 'short' && `Napište aspoň ${MIN_LENGTH} písmena.`}
-        {status === 'loading' && 'Hledám…'}
-        {status === 'done' && products.length === 0 && 'Nic jsme nenašli. Zkuste jiný název.'}
-        {status === 'done' && products.length > 0 && `Nalezeno: ${products.length}. Klepněte na správný lék.`}
-        {status === 'error' && 'Hledání se nepovedlo. Zkontrolujte internet a zkuste to znovu.'}
+        {status === 'short' && t('catalog.short', { count: MIN_LENGTH })}
+        {status === 'loading' && t('catalog.loading')}
+        {status === 'done' && products.length === 0 && t('catalog.none')}
+        {status === 'done' && products.length > 0 && t('catalog.found', { count: products.length })}
+        {status === 'error' && t('catalog.error')}
       </p>
 
       {status === 'done' && products.length > 0 && (

@@ -11,9 +11,12 @@ import Pin from './pages/Pin.jsx';
 import Doctor from './pages/Doctor.jsx';
 import Supplements from './pages/Supplements.jsx';
 import Onco from './pages/Onco.jsx';
+import { useLang } from './i18n/index.js';
 
 export default function App() {
   const location = useLocation();
+  // Po změně jazyka se překreslí celá appka (všechny texty jdou přes t()).
+  useLang();
 
   // Po přechodu na jinou obrazovku začneme nahoře (jinak by zůstala
   // odscrollovaná pozice z předchozí obrazovky).

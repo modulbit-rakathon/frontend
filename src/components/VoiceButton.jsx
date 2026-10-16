@@ -1,7 +1,8 @@
-// Tlačítko s mikrofonem pro hlasové zadání (česky).
+// Tlačítko s mikrofonem pro hlasové zadání (v jazyce appky).
 // Když prohlížeč rozpoznávání řeči neumí, tlačítko se vůbec neukáže.
 import { useEffect, useRef, useState } from 'react';
 import { canListen, listen } from '../accessibility.js';
+import { t } from '../i18n/index.js';
 
 /**
  * @param {(text: string) => void} onResult – co pacient řekl
@@ -33,7 +34,7 @@ export default function VoiceButton({ onResult, label }) {
       aria-pressed={listening}
     >
       <span aria-hidden="true">🎤</span>
-      {listening ? 'Poslouchám… (klepnutím ukončit)' : label}
+      {listening ? t('voice.listening') : label}
     </button>
   );
 }
