@@ -806,14 +806,13 @@ ul {
 /* =========================================================
    VLNA při klepnutí na tlačítko (kód je v src/ripple.js)
    ========================================================= */
-/* Tlačítka s vlnou: kroužek se musí měřit od tlačítka a nesmí přetéct ven */
-.btn,
-.hero-button,
-.med-toggle,
-.nav-item,
-.card-link {
-  position: relative;
+/* Obal vlny: leží přes celé tlačítko a ořízne kroužek do jeho tvaru */
+.ripple-holder {
+  position: absolute;
+  inset: 0;
   overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .ripple {
