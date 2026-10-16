@@ -94,14 +94,14 @@ export default function Report() {
         </p>
       </article>
 
-      <button type="button" className="btn btn-primary no-print" onClick={() => window.print()}>
-        <DownloadIcon />
-        Stáhnout PDF
-      </button>
-      <Link to="/pin" className="btn btn-secondary no-print">
+      <Link to="/pin" className="btn btn-primary no-print">
         <MedicIcon />
         Sdílet s lékařem
       </Link>
+      <button type="button" className="btn btn-secondary no-print" onClick={() => window.print()}>
+        <DownloadIcon />
+        Stáhnout PDF
+      </button>
     </>
   );
 }
