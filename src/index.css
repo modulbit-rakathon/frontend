@@ -608,6 +608,20 @@ ul {
   font-weight: 700;
 }
 
+/* iOS Safari dává date inputu vlastní minimální šířku a vyčuhuje z formuláře */
+.field input[type="date"] {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  text-align: left;
+}
+
+.field input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+}
+
 .field input::placeholder {
   color: #6d6a96;
   font-weight: 400;
