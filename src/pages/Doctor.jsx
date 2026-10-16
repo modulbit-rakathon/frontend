@@ -22,6 +22,7 @@ import LanguageSwitch from '../components/LanguageSwitch.jsx';
 
 // Zdroj léku v "lékařské" podobě (podstatné jméno): 'box' → "krabička"
 const SOURCE_KEYS = ['box', 'note', 'manual'];
+const SUPPLEMENT_SUFFIX = /\s+\(doplněk stravy\)$/i;
 
 // Závažnost z DDInter: text na kartě, symbol a popis v matici a barva (třída CSS).
 // Barva nikdy není jediná informace – vždy i text nebo symbol.
@@ -88,6 +89,7 @@ export default function Doctor() {
   const [meds, setMeds] = useState(null);
   const [open, setOpen] = useState(false); // jsou interakce rozbalené?
   const [oncoOpen, setOncoOpen] = useState(true); // je onkologická léčba rozbalená?
+  const [supplementsOpen, setSupplementsOpen] = useState(true);
   // Kontrola interakcí: status 'loading' | 'done' | 'error', result = výsledek checkMeds
   const [check, setCheck] = useState({ status: 'loading', result: null });
   const [pdfState, setPdfState] = useState('idle'); // 'idle' | 'loading' | 'error'
@@ -116,6 +118,8 @@ export default function Doctor() {
       const data = await claimShare(pin);
       setMeds(data.medications);
       setOpen(false);
+      setOncoOpen(true);
+      setSupplementsOpen(true);
       setPdfState('idle');
       runCheck(data.medications);
     } catch (err) {
@@ -147,9 +151,10 @@ export default function Doctor() {
     setPin(event.target.value.replace(/\D/g, '').slice(0, 4));
   }
 
-  // Běžné léky jdou do tabulky, onkologické režimy do vlastní lišty.
+  // Běžné léky jdou do tabulky; režimy a doplňky mají vlastní rozbalovací lišty.
   // Interakce a matice ale počítají se vším dohromady.
-  const drugs = meds?.filter((m) => m.kind !== 'regimen') ?? [];
+  const supplements = meds?.filter((m) => SUPPLEMENT_SUFFIX.test(m.name)) ?? [];
+  const drugs = meds?.filter((m) => m.kind !== 'regimen' && !SUPPLEMENT_SUFFIX.test(m.name)) ?? [];
   const regimens = meds?.filter((m) => m.kind === 'regimen') ?? [];
   const count = meds?.length ?? 0;
   const pairCount = (count * (count - 1)) / 2;
@@ -292,6 +297,48 @@ export default function Doctor() {
                             </td>
                             <td>{med.form || '—'}</td>
                             <td>{lastDoseText(med)}</td>
+                            <td>{sourceText(med)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ---------- Rozbalovací lišta s doplňky stravy ---------- */}
+            {supplements.length > 0 && (
+              <section className="doc-interactions doc-onco">
+                <button
+                  type="button"
+                  className="doc-toggle"
+                  aria-expanded={supplementsOpen}
+                  aria-controls="doc-supplements-body"
+                  onClick={() => setSupplementsOpen(!supplementsOpen)}
+                >
+                  <span className={supplementsOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
+                    <ChevronIcon size={22} />
+                  </span>
+                  <strong>{t('doc.supplements.title', { count: supplements.length })}</strong>
+                  <span className="doc-toggle-hint">{supplementsOpen ? t('doc.hide') : t('doc.show')}</span>
+                </button>
+
+                {supplementsOpen && (
+                  <div id="doc-supplements-body" className="doc-onco-body doc-table-wrap">
+                    <table className="doc-table">
+                      <thead>
+                        <tr>
+                          <th>{t('doc.col.supplement')}</th>
+                          <th>{t('doc.col.source')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {supplements.map((med) => (
+                          <tr key={med.id}>
+                            <td>
+                              <strong>{med.name.replace(SUPPLEMENT_SUFFIX, '')}</strong>
+                            </td>
                             <td>{sourceText(med)}</td>
                           </tr>
                         ))}
