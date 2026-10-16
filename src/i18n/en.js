@@ -373,6 +373,10 @@ export default {
   'meds.supplementsEdit': 'Edit supplements',
   'meds.oncoAnswer': 'Cancer treatment:',
   'meds.change': 'Change',
+  'meds.edit': 'Edit',
+  'meds.recheckText': 'You changed the name or strength. Pick the medicine from the list so the doctor sees the right active substance.',
+  'meds.saveWithoutCatalog': 'Save without picking from the list',
+  'meds.checkingCatalog': 'Looking up the medicine in the list…',
 
   // --- Onkologická léčba (/onkologie) ---
   'oncoPage.subtitle': 'Your doctor will see this at the very top of the summary.',

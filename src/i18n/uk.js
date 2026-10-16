@@ -383,6 +383,10 @@ export default {
   'meds.supplementsEdit': 'Змінити добавки',
   'meds.oncoAnswer': 'Онкологічне лікування:',
   'meds.change': 'Змінити',
+  'meds.edit': 'Редагувати',
+  'meds.recheckText': 'Ви змінили назву або силу. Виберіть лік зі списку, щоб лікар бачив правильну діючу речовину.',
+  'meds.saveWithoutCatalog': 'Зберегти без вибору зі списку',
+  'meds.checkingCatalog': 'Шукаємо лік у списку…',
 
   // --- Onkologická léčba (/onkologie) ---
   'oncoPage.subtitle': 'Лікар побачить ці дані на самому початку виписки.',

@@ -377,6 +377,10 @@ export default {
   'meds.supplementsEdit': 'Upravit doplňky',
   'meds.oncoAnswer': 'Léčba na onkologii:',
   'meds.change': 'Změnit',
+  'meds.edit': 'Upravit',
+  'meds.recheckText': 'Změnili jste název nebo sílu. Vyberte lék ze seznamu, ať lékař vidí správnou účinnou látku.',
+  'meds.saveWithoutCatalog': 'Uložit bez přiřazení ze seznamu',
+  'meds.checkingCatalog': 'Hledáme lék v seznamu…',
 
   // --- Onkologická léčba (/onkologie) ---
   'oncoPage.subtitle': 'Tyto údaje uvidí lékař ve zprávě úplně nahoře.',

@@ -7,6 +7,7 @@ import { useMeds } from '../context/MedsContext.jsx';
 import { CameraIcon, ChevronIcon, PillIcon } from '../components/Icons.jsx';
 import { medName, sourcesText } from '../labels.js';
 import SpeakButton from '../components/SpeakButton.jsx';
+import MedEdit from '../components/MedEdit.jsx';
 import { t } from '../i18n/index.js';
 import {
   ITEM_TYPES,
@@ -23,6 +24,8 @@ import {
 export default function Meds() {
   const { meds: items, removeMed, profile } = useMeds();
   const [openId, setOpenId] = useState(null); // ID rozbaleného léku (null = žádný)
+  // ID léku, který se upravuje – vždy jen jeden (formulář má pevná id polí)
+  const [editingId, setEditingId] = useState(null);
 
   // V jednom seznamu jsou léky i doplňky – rozdělíme je podle typu.
   const meds = itemsOfType(items, ITEM_TYPES.LEK);
@@ -56,6 +59,7 @@ export default function Meds() {
   // Klepnutí na otevřený lék ho zavře, na jiný lék ho otevře.
   function toggle(id) {
     setOpenId((current) => (current === id ? null : id));
+    setEditingId(null);
   }
 
   function handleRemove(med) {
@@ -113,7 +117,13 @@ export default function Meds() {
                 </span>
               </button>
 
-              {isOpen && (
+              {isOpen && editingId === med.id && (
+                <div id={detailsId}>
+                  <MedEdit med={med} onDone={() => setEditingId(null)} />
+                </div>
+              )}
+
+              {isOpen && editingId !== med.id && (
                 <div id={detailsId} className="med-details">
                   <dl>
                     <dt>{t('meds.strength')}</dt>
@@ -144,6 +154,9 @@ export default function Meds() {
                       .filter(Boolean)
                       .join(', ')}
                   />
+                  <button type="button" className="btn btn-secondary" onClick={() => setEditingId(med.id)}>
+                    {t('meds.edit')}
+                  </button>
                   <button type="button" className="btn-text" onClick={() => handleRemove(med)}>
                     {t('common.remove')}
                   </button>
