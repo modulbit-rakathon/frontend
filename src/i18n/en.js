@@ -205,9 +205,9 @@ export default {
   'home.myMeds': 'My medicines',
   'home.noneYet': 'None yet',
   'home.report': 'Summary for your doctor',
-  'home.settings': 'Nastavení',
-  'settings.title': 'Nastavení',
-  'settings.subtitle': 'Velikost písma a jazyk',
+  'home.settings': 'Settings',
+  'settings.title': 'Settings',
+  'settings.subtitle': 'Text size and language',
 
   // --- Otázka na onkologii ---
   'onco.question': 'Are you having cancer treatment?',
