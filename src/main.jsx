@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { MedsProvider } from './context/MedsContext.jsx';
 import './index.css';
+import './ripple.js'; // vlna při klepnutí na tlačítka
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

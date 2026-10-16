@@ -47,9 +47,11 @@ function substancesOf(medName) {
   return result;
 }
 
-// Obsahuje lék danou látku?
+// Obsahuje lék danou látku? Díváme se na název i na účinnou látku od backendu.
 function containsDrug(med, drug) {
-  return substancesOf(med.name).some((s) => s.includes(drug));
+  const substances = substancesOf(med.name);
+  if (med.active_substance) substances.push(med.active_substance.toLowerCase());
+  return substances.some((s) => s.includes(drug));
 }
 
 /**

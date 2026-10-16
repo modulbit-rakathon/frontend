@@ -1,13 +1,15 @@
 // Obrazovka: Sdílení zprávy s lékařem pomocí PINu
 //
-// Po otevření hned požádáme backend o PIN (zatím mock v mock/share.js).
+// Po otevření hned pošleme léky na backend a ten vrátí PIN (viz createSharePin v api.js).
 // Stavy obrazovky (proměnná `step`):
 //   'loading' – čekáme na PIN
 //   'ready'   – PIN je tu, ukážeme ho velkým písmem
+//   'expired' – PIN už neplatí, nabídneme nový
 //   'error'   – nepodařilo se ho získat
+//   'empty'   – pacient nemá žádné léky, není co sdílet
 import { useEffect, useState } from 'react';
 import { useMeds } from '../context/MedsContext.jsx';
-import { createSharePin } from '../mock/share.js';
+import { createSharePin } from '../api.js';
 import { WarningIcon } from '../components/Icons.jsx';
 
 export default function Pin() {
@@ -21,6 +23,12 @@ export default function Pin() {
   useEffect(() => {
     // Když pacient odejde z obrazovky dřív, než PIN dorazí, výsledek zahodíme.
     let cancelled = false;
+
+    // Bez léků není co sdílet (backend by prázdný seznam odmítl).
+    if (meds.length === 0) {
+      setStep('empty');
+      return;
+    }
 
     setStep('loading');
     createSharePin(meds)
@@ -41,6 +49,17 @@ export default function Pin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt]);
 
+  // Když PIN vyprší, přepneme obrazovku na 'expired' (lékař by ho už nemohl použít).
+  useEffect(() => {
+    if (step !== 'ready') return;
+
+    const msLeft = new Date(share.expires_at).getTime() - Date.now();
+    const timer = setTimeout(() => setStep('expired'), Math.max(msLeft, 0));
+
+    // Když se obrazovka zavře nebo přijde nový PIN, starý budík zrušíme.
+    return () => clearTimeout(timer);
+  }, [step, share]);
+
   function newPin() {
     setAttempt((n) => n + 1);
   }
@@ -48,6 +67,10 @@ export default function Pin() {
   return (
     <>
       <h1>Sdílet s lékařem</h1>
+
+      {step === 'empty' && (
+        <p className="subtitle">Zatím nemáte žádné léky. Nejdřív nějaký přidejte.</p>
+      )}
 
       {step === 'loading' && (
         <>
@@ -71,6 +94,21 @@ export default function Pin() {
             })}
           </p>
           <button type="button" className="btn btn-secondary" onClick={newPin}>
+            Vytvořit nový kód
+          </button>
+        </>
+      )}
+
+      {step === 'expired' && (
+        <>
+          <div className="box box-info">
+            <div className="box-title">
+              <WarningIcon />
+              <span>Kód už neplatí</span>
+            </div>
+            <p>Z bezpečnostních důvodů platí kód jen pár minut.</p>
+          </div>
+          <button type="button" className="btn btn-primary" onClick={newPin}>
             Vytvořit nový kód
           </button>
         </>

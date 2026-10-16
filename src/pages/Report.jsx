@@ -22,10 +22,6 @@ export default function Report() {
           <CameraIcon />
           Vyfotit lék
         </Link>
-        <Link to="/pin" className="btn btn-primary">
-          <MedicIcon />
-          Sdílet s lékařem
-        </Link>
       </>
     );
   }
@@ -102,6 +98,10 @@ export default function Report() {
         <DownloadIcon />
         Stáhnout PDF
       </button>
+      <Link to="/pin" className="btn btn-secondary no-print">
+        <MedicIcon />
+        Sdílet s lékařem
+      </Link>
     </>
   );
 }

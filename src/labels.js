@@ -13,9 +13,13 @@ export const SEVERITY_LABELS = {
   medium: 'Střední riziko',
 };
 
-// Název léku + síla, např. "Ibuprofen 400 mg"
+// Název léku + síla, např. "Ibuprofen 400 mg".
+// Backend někdy pošle sílu už v názvu ("IBUPROFEN 400 mg") – pak ji nepřidáváme podruhé.
 export function medTitle(med) {
-  return [med.name, med.strength].filter(Boolean).join(' ');
+  if (!med.strength || med.name.toLowerCase().includes(med.strength.toLowerCase())) {
+    return med.name;
+  }
+  return `${med.name} ${med.strength}`;
 }
 
 // Dávkování, např. "3× denně · 1 tableta"

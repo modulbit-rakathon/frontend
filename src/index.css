@@ -394,30 +394,6 @@ ul {
   text-underline-offset: 4px;
 }
 
-.interaction-list {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.interaction-list li {
-  display: flex;
-  flex-direction: column;
-}
-
-.interaction-pair {
-  font-size: 24px;
-  color: var(--text);
-}
-
-.interaction-severity {
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-}
-
 /* =========================================================
    5) SEZNAM LÉKŮ
    ========================================================= */
@@ -429,43 +405,86 @@ ul {
   gap: 12px;
 }
 
+/* Karta léku – padding má tlačítko uvnitř, aby šlo klepnout na celou plochu */
 .med-card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-bottom: 4px;
+  padding: 0;
 }
 
-/* Lék, který má interakci – silnější oranžový rámeček (+ ikona a text) */
-.med-card-warning {
-  border: 3px solid var(--warning-border);
-}
-
-.med-card-top,
-.med-card-bottom {
+/* Tlačítko s názvem léku (rozbalí podrobnosti) */
+.med-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.med-toggle:hover {
+  background: var(--surface);
 }
 
 .med-name {
   font-size: 26px;
+  font-weight: 700;
 }
 
-.med-dosage {
+/* Šipka: zavřeno → doprava, otevřeno → dolů */
+.med-chevron {
+  display: flex;
+  flex-shrink: 0;
+  color: var(--primary);
+  transition: transform 0.2s;
+}
+
+.med-chevron-open {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .med-chevron {
+    transition: none;
+  }
+}
+
+/* Rozbalené podrobnosti léku */
+.med-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0 20px 8px;
+}
+
+.med-details dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  width: 100%;
+  padding-top: 12px;
+  border-top: 2px solid var(--surface);
   font-size: 20px;
+}
+
+.med-details dt {
   color: var(--text-muted);
 }
 
-.med-warning {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--warning-text);
+.med-details dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.med-details .btn-text {
+  padding-left: 0;
 }
 
 /* Štítek "z krabičky" / "z lístku" / "ručně" */
@@ -790,5 +809,35 @@ ul {
   .report-interactions {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+}
+
+/* =========================================================
+   VLNA při klepnutí na tlačítko (kód je v src/ripple.js)
+   ========================================================= */
+/* Tlačítka s vlnou: kroužek se musí měřit od tlačítka a nesmí přetéct ven */
+.btn,
+.hero-button,
+.med-toggle,
+.nav-item,
+.card-link {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor; /* barva podle textu tlačítka */
+  opacity: 0.25;
+  transform: scale(0);
+  pointer-events: none; /* kroužek nesmí "chytat" klepnutí */
+  animation: ripple 0.6s ease-out;
+}
+
+@keyframes ripple {
+  to {
+    transform: scale(1);
+    opacity: 0;
   }
 }

@@ -12,6 +12,7 @@ import { useMeds } from '../context/MedsContext.jsx';
 import { analyzePhoto } from '../api.js';
 import MedForm from '../components/MedForm.jsx';
 import { CameraIcon, WarningIcon } from '../components/Icons.jsx';
+import { medTitle } from '../labels.js';
 
 export default function Scan() {
   const navigate = useNavigate();
@@ -27,6 +28,9 @@ export default function Scan() {
 
   // Odkaz na skrytý <input type="file">, abychom ho mohli "kliknout" z tlačítka.
   const fileInputRef = useRef(null);
+  // Co pacient fotí: 'box' = krabička, 'note' = lístek od lékaře.
+  // Pamatujeme si to, aby "Vyfotit znovu" fotilo zase totéž.
+  const photoSourceRef = useRef('box');
   // Číslo aktuálního požadavku – díky němu umíme ignorovat zrušené čtení.
   const requestIdRef = useRef(0);
 
@@ -38,7 +42,9 @@ export default function Scan() {
   }, [photoUrl]);
 
   // Otevře fotoaparát (na mobilu) nebo výběr souboru (na počítači).
-  function openCamera() {
+  // source = co se fotí; bez něj se fotí totéž co minule.
+  function openCamera(source) {
+    if (source) photoSourceRef.current = source;
     fileInputRef.current.click();
   }
 
@@ -53,7 +59,7 @@ export default function Scan() {
 
     const requestId = ++requestIdRef.current;
     try {
-      const result = await analyzePhoto(file, 'box');
+      const result = await analyzePhoto(file, photoSourceRef.current);
       // Pacient mezitím dal "Zrušit" nebo vyfotil jinou fotku → výsledek zahodíme.
       if (requestId !== requestIdRef.current) return;
 
@@ -78,7 +84,15 @@ export default function Scan() {
   // Pacient potvrdil lék z fotky.
   function handleConfirm(values) {
     const current = pending[0];
-    addMed({ ...values, source: current.source });
+    // Formulář vrací jen to, co pacient vidí (název, síla, dávkování).
+    // Ostatní údaje od backendu (druh, účinná látka, léková forma) doplníme sami.
+    addMed({
+      ...values,
+      source: current.source,
+      kind: current.kind ?? 'drug',
+      active_substance: current.active_substance ?? null,
+      form: current.form ?? null,
+    });
 
     const rest = pending.slice(1);
     if (rest.length > 0) {
@@ -90,7 +104,7 @@ export default function Scan() {
 
   // Pacient zadal lék ručně.
   function handleManual(values) {
-    addMed({ ...values, source: 'manual' });
+    addMed({ ...values, source: 'manual', kind: 'drug' });
     navigate('/leky');
   }
 
@@ -110,9 +124,13 @@ export default function Scan() {
         <>
           <h1>Vyfotit lék</h1>
           <p className="subtitle">Vyfoťte krabičku nebo lístek od lékaře.</p>
-          <button type="button" className="hero-button" onClick={openCamera}>
+          <button type="button" className="hero-button" onClick={() => openCamera('box')}>
             <CameraIcon size={72} />
-            <span className="hero-title">Vyfotit lék</span>
+            <span className="hero-title">Vyfotit krabičku</span>
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => openCamera('note')}>
+            <CameraIcon />
+            Vyfotit lístek od lékaře
           </button>
           <button type="button" className="btn btn-link" onClick={() => setStep('manual')}>
             Zadat ručně
@@ -139,10 +157,7 @@ export default function Scan() {
 
           <div className="confirm-header">
             <img src={photoUrl} alt="Vaše fotka" className="photo-thumb" />
-            <p className="confirm-name">
-              {pending[0].name}
-              {pending[0].strength && <span> {pending[0].strength}</span>}
-            </p>
+            <p className="confirm-name">{medTitle(pending[0])}</p>
           </div>
 
           {unreadable > 0 && (
@@ -162,7 +177,7 @@ export default function Scan() {
             uncertainFields={pending[0].uncertain_fields}
             onSubmit={handleConfirm}
           />
-          <button type="button" className="btn btn-secondary" onClick={openCamera}>
+          <button type="button" className="btn btn-secondary" onClick={() => openCamera()}>
             Vyfotit znovu
           </button>
           <button type="button" className="btn btn-link" onClick={() => setStep('manual')}>
@@ -185,7 +200,7 @@ export default function Scan() {
               <li>bez odlesků</li>
             </ul>
           </div>
-          <button type="button" className="btn btn-primary" onClick={openCamera}>
+          <button type="button" className="btn btn-primary" onClick={() => openCamera()}>
             <CameraIcon />
             Vyfotit znovu
           </button>
@@ -200,7 +215,7 @@ export default function Scan() {
           <h1>Zadat lék ručně</h1>
           <p className="subtitle">Opište údaje z krabičky nebo lístku.</p>
           <MedForm onSubmit={handleManual} />
-          <button type="button" className="btn btn-secondary" onClick={openCamera}>
+          <button type="button" className="btn btn-secondary" onClick={() => openCamera()}>
             <CameraIcon />
             Raději vyfotit
           </button>

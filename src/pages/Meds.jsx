@@ -1,12 +1,15 @@
 // Obrazovka 3: Moje léky
+// Každý lék je tlačítko s názvem. Po klepnutí se pod ním rozbalí podrobnosti.
+// Otevřený může být vždy jen jeden lék (ID máme v `openId`).
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
-import { InteractionList } from '../components/InteractionBox.jsx';
-import { CameraIcon, PillIcon, WarningIcon } from '../components/Icons.jsx';
+import { CameraIcon, ChevronIcon, PillIcon } from '../components/Icons.jsx';
 import { SOURCE_LABELS, medTitle } from '../labels.js';
 
 export default function Meds() {
-  const { meds, removeMed, interactions } = useMeds();
+  const { meds, removeMed } = useMeds();
+  const [openId, setOpenId] = useState(null); // ID rozbaleného léku (null = žádný)
 
   // Prázdný stav – zatím žádné léky
   if (meds.length === 0) {
@@ -29,8 +32,10 @@ export default function Meds() {
     );
   }
 
-  // ID všech léků, které mají nějakou interakci (aby šly na kartě zvýraznit)
-  const medsWithInteraction = new Set(interactions.flatMap((it) => [it.medA.id, it.medB.id]));
+  // Klepnutí na otevřený lék ho zavře, na jiný lék ho otevře.
+  function toggle(id) {
+    setOpenId((current) => (current === id ? null : id));
+  }
 
   function handleRemove(med) {
     if (window.confirm(`Opravdu odebrat lék ${med.name}?`)) {
@@ -42,32 +47,43 @@ export default function Meds() {
     <>
       <h1>Moje léky</h1>
 
-      <InteractionList interactions={interactions} />
-
       <ul className="med-list">
         {meds.map((med) => {
-          const hasInteraction = medsWithInteraction.has(med.id);
+          const isOpen = openId === med.id;
+          const detailsId = `med-details-${med.id}`;
           return (
-            <li key={med.id} className={hasInteraction ? 'card med-card med-card-warning' : 'card med-card'}>
-              <div className="med-card-top">
-                <h2 className="med-name">{medTitle(med)}</h2>
-                {hasInteraction && (
-                  <span className="med-warning">
-                    <WarningIcon />
-                    Interakce
-                  </span>
-                )}
-              </div>
-              <p className="med-dosage">
-                {med.frequency || 'Dávkování nezadáno'}
-                {med.amount && ` · ${med.amount}`}
-              </p>
-              <div className="med-card-bottom">
-                <span className="tag">{SOURCE_LABELS[med.source]}</span>
-                <button type="button" className="btn-text" onClick={() => handleRemove(med)}>
-                  Odebrat
-                </button>
-              </div>
+            <li key={med.id} className="card med-card">
+              {/* aria-expanded = čtečka obrazovky řekne, jestli je lék rozbalený */}
+              <button
+                type="button"
+                className="med-toggle"
+                aria-expanded={isOpen}
+                aria-controls={detailsId}
+                onClick={() => toggle(med.id)}
+              >
+                <span className="med-name">{medTitle(med)}</span>
+                <span className={isOpen ? 'med-chevron med-chevron-open' : 'med-chevron'}>
+                  <ChevronIcon />
+                </span>
+              </button>
+
+              {isOpen && (
+                <div id={detailsId} className="med-details">
+                  <dl>
+                    <dt>Síla</dt>
+                    <dd>{med.strength || 'Nezadáno'}</dd>
+                    <dt>Jak často</dt>
+                    <dd>{med.frequency || 'Nezadáno'}</dd>
+                    <dt>Kolik</dt>
+                    <dd>{med.amount || 'Nezadáno'}</dd>
+                    <dt>Zdroj</dt>
+                    <dd>{SOURCE_LABELS[med.source]}</dd>
+                  </dl>
+                  <button type="button" className="btn-text" onClick={() => handleRemove(med)}>
+                    Odebrat
+                  </button>
+                </div>
+              )}
             </li>
           );
         })}
