@@ -10,7 +10,6 @@ Protože naše aplikace je primárně pro starší uživatele, musíme se držet
 
 Funkce:
 
-- [ ] export pdfka
 - [ ] přihlášení lékaře přes jednorázový kód
 - [ ] reakce léků na sebe
 
