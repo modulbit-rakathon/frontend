@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CheckIcon, WarningIcon } from '../components/Icons.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { medName } from '../labels.js';
 import { decodeShare, diffShare, hasLink, isOld, readHash, rememberLink } from '../familyShare.js';
 import { dateText, dosageText, itemName, oncoFormText, prescriberText, sinceText } from '../types.js';
@@ -114,6 +115,8 @@ function OpenRequest({ share, oldWarning }) {
   const { helper, startHelping } = useMeds();
   // Odkaz vytvořený na tomto telefonu – nejspíš ho pacient omylem otevřel sám.
   const [ownLink, setOwnLink] = useState(() => hasLink('sent', share.id));
+  // Otevřené potvrzení: 'restart' | 'replace' | null
+  const [confirming, setConfirming] = useState(null);
   const who = share.name || t('family.defaultName');
 
   function start() {
@@ -153,10 +156,20 @@ function OpenRequest({ share, oldWarning }) {
         <button
           type="button"
           className="btn btn-link"
-          onClick={() => window.confirm(t('family.req.confirmRestart')) && start()}
+          onClick={() => setConfirming('restart')}
         >
           {t('family.req.restart')}
         </button>
+        <ConfirmDialog
+          open={confirming === 'restart'}
+          title={t('family.req.confirmRestartTitle')}
+          text={t('family.req.confirmRestartText')}
+          confirmLabel={t('family.req.restart')}
+          cancelLabel={t('family.keepFilling')}
+          danger
+          onConfirm={start}
+          onCancel={() => setConfirming(null)}
+        />
       </>
     );
   }
@@ -197,13 +210,23 @@ function OpenRequest({ share, oldWarning }) {
       <button
         type="button"
         className="btn btn-primary"
-        onClick={() => (!helper || window.confirm(t('family.req.confirmReplace'))) && start()}
+        onClick={() => (helper ? setConfirming('replace') : start())}
       >
         {t('family.req.start', { name: who })}
       </button>
       <Link to="/" className="btn btn-link">
         {t('family.notNow')}
       </Link>
+      <ConfirmDialog
+        open={confirming === 'replace'}
+        title={t('family.req.confirmReplaceTitle')}
+        text={t('family.req.confirmReplaceText')}
+        confirmLabel={t('family.req.replace')}
+        cancelLabel={t('common.back')}
+        danger
+        onConfirm={start}
+        onCancel={() => setConfirming(null)}
+      />
     </>
   );
 }
@@ -214,6 +237,7 @@ function OpenResponse({ share, oldWarning }) {
   // Rozdíl počítáme jen jednou – po uložení by se jinak přepočítal na "nic nového".
   const [diff] = useState(() => diffShare(ownMeds, share));
   const [done, setDone] = useState(false);
+  const [confirmEnd, setConfirmEnd] = useState(false);
   const alreadyImported = hasLink('imported', share.rid);
 
   // Co je zaškrtnuté: nové a změněné ano, odebrání ne (nic nemažeme bez souhlasu).
@@ -261,13 +285,26 @@ function OpenResponse({ share, oldWarning }) {
         <button
           type="button"
           className="btn btn-primary"
-          onClick={() => window.confirm(t('family.res.confirmEnd')) && endHelping()}
+          onClick={() => setConfirmEnd(true)}
         >
           {t('family.res.endHelping')}
         </button>
         <Link to="/blizky" className="btn btn-link">
           {t('family.res.sendFirst')}
         </Link>
+        <ConfirmDialog
+          open={confirmEnd}
+          title={t('family.res.confirmEndTitle')}
+          text={t('family.res.confirmEndText')}
+          confirmLabel={t('family.res.endHelping')}
+          cancelLabel={t('common.back')}
+          danger
+          onConfirm={() => {
+            setConfirmEnd(false);
+            endHelping();
+          }}
+          onCancel={() => setConfirmEnd(false)}
+        />
       </>
     );
   }

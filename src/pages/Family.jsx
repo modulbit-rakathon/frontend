@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import ShareLink from '../components/ShareLink.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { WarningIcon } from '../components/Icons.jsx';
 import { medName } from '../labels.js';
 import { itemName } from '../types.js';
@@ -145,6 +146,7 @@ function SendBack() {
   const [from, setFrom] = useState('');
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
   async function create(event) {
     event.preventDefault();
@@ -171,11 +173,12 @@ function SendBack() {
   }
 
   function finish() {
-    const ok = window.confirm(t(url ? 'family.send.confirmEndSent' : 'family.send.confirmEndUnsent', { name: who }));
-    if (!ok) return;
     endHelping();
     navigate('/');
   }
+
+  // Odeslaný a neodeslaný seznam mají jiné varování
+  const endKey = url ? 'family.send.confirmEndSent' : 'family.send.confirmEndUnsent';
 
   return (
     <>
@@ -232,9 +235,20 @@ function SendBack() {
         </>
       )}
 
-      <button type="button" className="btn btn-text family-end" onClick={finish}>
+      <button type="button" className="btn btn-text family-end" onClick={() => setConfirmEnd(true)}>
         {t('family.send.end', { name: who })}
       </button>
+
+      <ConfirmDialog
+        open={confirmEnd}
+        title={t(`${endKey}Title`, { name: who })}
+        text={t(`${endKey}Text`, { name: who })}
+        confirmLabel={t('family.res.endHelping')}
+        cancelLabel={t('family.keepFilling')}
+        danger
+        onConfirm={finish}
+        onCancel={() => setConfirmEnd(false)}
+      />
     </>
   );
 }

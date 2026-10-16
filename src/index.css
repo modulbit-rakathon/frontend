@@ -381,6 +381,100 @@ ul {
   justify-content: space-between;
 }
 
+/* Červené tlačítko pro nevratné akce (Odebrat v potvrzovacím okně) */
+.btn-danger {
+  background: var(--danger-border);
+  color: #ffffff;
+}
+
+.btn-danger:hover {
+  background: var(--danger-text);
+}
+
+/* Potvrzovací okno (ConfirmDialog.jsx) – zbytek stránky se ztmaví a rozmaže */
+.confirm-dialog {
+  width: calc(100% - 32px);
+  max-width: 480px;
+  margin: auto;
+  padding: 0;
+  border: 2px solid var(--control-border);
+  border-radius: 24px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 24px 60px rgba(20, 18, 63, 0.28);
+  animation: confirm-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.confirm-dialog::backdrop {
+  background: rgba(20, 18, 63, 0.55);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: confirm-fade-in 0.22s ease-out;
+}
+
+.confirm-dialog-closing {
+  animation: confirm-out 0.16s ease-in forwards;
+}
+
+.confirm-dialog-closing::backdrop {
+  animation: confirm-fade-out 0.16s ease-in forwards;
+}
+
+.confirm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px 24px 24px;
+}
+
+.confirm-body h2 {
+  overflow-wrap: anywhere;
+}
+
+.confirm-body p {
+  color: var(--text-muted);
+}
+
+.confirm-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@keyframes confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+}
+
+@keyframes confirm-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes confirm-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes confirm-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confirm-dialog,
+  .confirm-dialog::backdrop {
+    animation: none;
+  }
+}
+
 /* Box, který je celý odkazem (upozornění na Domů) */
 .box-row {
   flex-direction: row;
