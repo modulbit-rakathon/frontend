@@ -101,7 +101,7 @@ export default function MedEdit({ med, onDone }) {
 
   if (!pending) {
     return (
-      <div className="med-details">
+      <div className="med-details med-edit">
         <MedForm initial={med} submitLabel={t('review.saveChanges')} onSubmit={handleSubmit} />
         {cancel}
       </div>
@@ -110,14 +110,14 @@ export default function MedEdit({ med, onDone }) {
 
   if (checking) {
     return (
-      <div className="med-details">
+      <div className="med-details med-edit">
         <p role="status">{t('meds.checkingCatalog')}</p>
       </div>
     );
   }
 
   return (
-    <div className="med-details">
+    <div className="med-details med-edit">
       <div className="review-question">
         <p className="review-question-title">
           <WarningIcon size={24} />

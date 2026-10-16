@@ -490,6 +490,32 @@ ul {
   padding-left: 0;
 }
 
+/* Úprava léku: formulář na celou šířku karty (jinak by na mobilu přetékal) */
+.med-edit {
+  align-items: stretch;
+}
+
+.med-edit > * {
+  min-width: 0;
+}
+
+/* V kartě je méně místa – menší okraje, ať se dávkování vejde na jeden řádek */
+.med-edit {
+  padding: 0 8px 12px;
+}
+
+.med-edit .field {
+  padding-inline: 10px;
+}
+
+.med-edit .dosage-row {
+  gap: 8px;
+}
+
+.med-edit .stepper {
+  gap: 4px;
+}
+
 /* Štítek "z krabičky" / "z lístku" / "ručně" */
 .tag {
   display: inline-block;
@@ -1014,6 +1040,11 @@ ul {
   transform: rotate(90deg);
 }
 
+/* Onkologická léčba – stejná lišta, jen s tabulkou uvnitř */
+.doc-onco-body {
+  border-top: 2px solid var(--surface);
+}
+
 .doc-interactions-body {
   display: flex;
   flex-wrap: wrap;
@@ -1297,6 +1328,7 @@ fieldset.field legend + * {
 /* Řádek: [Ráno]  − 1 + */
 .dosage-row {
   display: flex;
+  flex-wrap: wrap; /* úzký displej: tlačítka −/+ pod název doby, ne mimo obrazovku */
   align-items: center;
   gap: 12px;
 }
