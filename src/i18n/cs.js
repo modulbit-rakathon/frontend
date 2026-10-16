@@ -380,6 +380,9 @@ export default {
   'meds.supplementsEdit': 'Upravit doplňky',
   'meds.oncoAnswer': 'Léčba na onkologii:',
   'meds.change': 'Změnit',
+  'meds.reviewTitle': 'Zkontrolujte prosím celý seznam',
+  'meds.reviewText': 'Berete pořád všechny léky níže? Co už neberete, odeberte. Změnilo se dávkování? Klepněte na lék a upravte ho.',
+  'meds.reviewOk': 'Seznam sedí',
   'meds.edit': 'Upravit',
   'meds.recheckText': 'Změnili jste název nebo sílu. Vyberte lék ze seznamu, ať lékař vidí správnou účinnou látku.',
   'meds.saveWithoutCatalog': 'Uložit bez přiřazení ze seznamu',
@@ -434,6 +437,16 @@ export default {
   'report.speakOnco': 'Onkologická léčba: {list}.',
   'report.speakMeds': 'Užívané léky: {list}.',
   'report.speakSupplements': 'Doplňky stravy a bylinky: {list}.',
+
+  // --- Po přidání prvních léků (/dalsi) ---
+  'more.saved': 'Léky jsou uložené.',
+  'more.title': 'Užíváte ještě něco dalšího?',
+  'more.subtitle': 'Ať lékař vidí všechno, co užíváte.',
+  'more.oncoSub': 'Chemoterapie, imunoterapie, hormonální léčba…',
+  'more.suppSub': 'Vitamíny, bylinky, čaje, minerály…',
+  'more.entered': 'Zadáno: {count}',
+  'more.nothing': 'Nic dalšího neužívám',
+  'more.continue': 'Pokračovat',
 
   // --- Doplňky stravy (/doplnky) ---
   'supp.title': 'Berete i něco z tohohle?',

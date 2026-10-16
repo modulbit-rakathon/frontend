@@ -376,6 +376,9 @@ export default {
   'meds.supplementsEdit': 'Edit supplements',
   'meds.oncoAnswer': 'Cancer treatment:',
   'meds.change': 'Change',
+  'meds.reviewTitle': 'Please check the whole list',
+  'meds.reviewText': 'Do you still take all the medicines below? Remove the ones you no longer take. Has a dose changed? Tap the medicine and edit it.',
+  'meds.reviewOk': 'The list is correct',
   'meds.edit': 'Edit',
   'meds.recheckText': 'You changed the name or strength. Pick the medicine from the list so the doctor sees the right active substance.',
   'meds.saveWithoutCatalog': 'Save without picking from the list',
@@ -430,6 +433,16 @@ export default {
   'report.speakOnco': 'Cancer treatment: {list}.',
   'report.speakMeds': 'Current medicines: {list}.',
   'report.speakSupplements': 'Supplements and herbal remedies: {list}.',
+
+  // --- After adding the first medicines (/dalsi) ---
+  'more.saved': 'Your medicines are saved.',
+  'more.title': 'Do you take anything else?',
+  'more.subtitle': 'So the doctor sees everything you take.',
+  'more.oncoSub': 'Chemotherapy, immunotherapy, hormone therapy…',
+  'more.suppSub': 'Vitamins, herbs, teas, minerals…',
+  'more.entered': 'Entered: {count}',
+  'more.nothing': 'I don’t take anything else',
+  'more.continue': 'Continue',
 
   // --- Doplňky stravy (/doplnky) ---
   'supp.title': 'Do you take any of these?',

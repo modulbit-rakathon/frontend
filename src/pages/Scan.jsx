@@ -50,8 +50,9 @@ export default function Scan() {
   // Fotku zprávy z onkologie nabízíme jen pacientům, kteří se tam léčí.
   const photoKinds = PHOTO_KINDS.filter((kind) => !kind.onco || profile.onco === 'ano');
 
-  // Kam jít po přidání léků: poprvé se ještě zeptáme na doplňky stravy.
-  const afterAdd = profile.supplementsAsked ? '/leky' : '/doplnky?krok=1';
+  // Kam jít po přidání léků: poprvé se zeptáme na onkologickou léčbu a doplňky,
+  // příště pacienta vyzveme, ať zkontroluje celý seznam.
+  const afterAdd = profile.extrasAsked ? '/leky?kontrola=1' : '/dalsi';
 
   // Adresa /vyfotit?rucne=1 otevře rovnou ruční zadání.
   const [searchParams] = useSearchParams();
