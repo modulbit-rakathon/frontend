@@ -1,10 +1,14 @@
 // Volání backendu PillGaze.
+import { ITEM_TYPES, dateText, dosageToBackend, oncoFormText } from './types.js';
+import { analyzePhoto as mockAnalyzePhoto } from './mock/analyze.js';
 // Adresa a klíč se berou ze souboru frontend/.env.local
 //
 // Při vývoji (npm run dev) voláme jen "/api/..." a Vite to přepošle
 // na backend (viz proxy ve vite.config.js). V hotové appce voláme backend přímo.
 const API_URL = import.meta.env.DEV ? '' : import.meta.env.VITE_API_URL;
 const API_KEY = import.meta.env.VITE_API_KEY;
+// VITE_MOCK_API=true → focení nevolá backend, ale mock (src/mock/analyze.js)
+const USE_MOCK = import.meta.env.VITE_MOCK_API === 'true';
 
 // Společná funkce pro všechna volání: pošle požadavek a zpracuje chyby.
 async function request(path, options) {
@@ -32,6 +36,9 @@ async function request(path, options) {
  * @returns {Promise<{ medications: Array, unreadable_items: number }>}
  */
 export function analyzePhoto(file, source) {
+  // Mock místo backendu (zapíná se v .env.local: VITE_MOCK_API=true)
+  if (USE_MOCK) return mockAnalyzePhoto(file, source);
+
   // Data posíláme jako "formulář" (multipart/form-data) – tak to backend chce.
   const form = new FormData();
   form.append('source', source);
@@ -56,12 +63,19 @@ export function createSharePin(meds) {
   const medications = meds.map((med) => ({
     id: med.id,
     kind: med.kind ?? 'drug',
-    name: med.name,
+    // TODO(backend): backend nezná typ "doplněk" (kind je jen drug/regimen),
+    // tak ho lékaři aspoň připíšeme k názvu.
+    name: med.type === ITEM_TYPES.DOPLNEK ? `${med.name} (doplněk stravy)` : med.name,
     active_substance: med.active_substance ?? null,
     strength: med.strength || null,
-    form: med.form ?? null,
-    frequency: med.frequency || null,
-    amount: med.amount || null,
+    form: med.type === ITEM_TYPES.ONKO ? oncoFormText(med.oncoForm) || null : med.form ?? null,
+    // Backend zná dávkování jen jako text → "1-0-1-0 (ráno 1, večer 1)"
+    // TODO(backend): "Užívám od", "Kdo předepsal" a "poslední dávka" backend zatím
+    // neumí přijmout jako samostatná pole. Poslední dávku onkologické léčby
+    // proto posíláme jako text v dávkování.
+    ...(med.type === ITEM_TYPES.ONKO
+      ? { frequency: med.lastDose ? `poslední dávka/cyklus ${dateText(med.lastDose)}` : null, amount: null }
+      : dosageToBackend(med.dosage)),
     source: med.source,
   }));
 

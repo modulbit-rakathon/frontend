@@ -1,12 +1,17 @@
 // Obrazovka 1: Domů
+// Pozor: pacientská část NIKDE neukazuje interakce ani varování o lécích –
+// zadavatel je chce jen pro lékaře (/doc).
 import { Link } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
-import { InteractionSummary } from '../components/InteractionBox.jsx';
 import { CameraIcon, PillIcon, ChevronIcon } from '../components/Icons.jsx';
 import { pluralLeky } from '../labels.js';
+import { ITEM_TYPES, itemsOfType } from '../types.js';
+import OncoQuestion from '../components/OncoQuestion.jsx';
+import FontSizeSwitch from '../components/FontSizeSwitch.jsx';
 
 export default function Home() {
-  const { meds, interactions } = useMeds();
+  const { meds: items, profile } = useMeds();
+  const meds = itemsOfType(items, ITEM_TYPES.LEK);
 
   return (
     <>
@@ -31,12 +36,14 @@ export default function Home() {
         <ChevronIcon />
       </Link>
 
-      {/* Zobrazí se jen když nějaká interakce existuje */}
-      <InteractionSummary count={interactions.length} />
+      {/* Při prvním spuštění (dokud pacient neodpoví) se zeptáme na onkologii */}
+      {profile.onco === '' && <OncoQuestion />}
 
       <Link to="/zprava" className="btn btn-secondary">
         Zpráva pro lékaře
       </Link>
+
+      <FontSizeSwitch />
     </>
   );
 }

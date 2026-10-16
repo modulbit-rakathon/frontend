@@ -1,56 +1,72 @@
 // "Context" = místo, kde držíme data sdílená mezi obrazovkami.
-// Tady je to seznam léků pacienta. Ukládáme ho i do localStorage,
-// takže léky zůstanou uložené i po zavření prohlížeče.
+// Tady je to:
+//   - seznam položek pacienta (léky, doplňky, onkologická léčba – rozlišené podle `type`),
+//   - profil (odpovědi na otázky, např. "Léčíte se na onkologii?").
+// Obojí ukládáme do localStorage, takže zůstane i po zavření prohlížeče.
 import { createContext, useContext, useEffect, useState } from 'react';
 import { findInteractions } from '../mock/interactions.js';
+import { EMPTY_PROFILE, normalizeItem } from '../types.js';
 
 const STORAGE_KEY = 'pillgaze-meds';
+const PROFILE_KEY = 'pillgaze-profile';
 
 const MedsContext = createContext(null);
 
-// Načte léky z localStorage (když tam nic není nebo je to rozbité, vrátí prázdný seznam).
-function loadMeds() {
+// Bezpečné čtení z localStorage: když tam nic není, je to rozbité
+// nebo localStorage nejde použít, vrátí `fallback`.
+function load(key, fallback) {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
   } catch {
-    return [];
+    return fallback;
   }
 }
 
-// Jednoduché unikátní ID pro každý lék (podle času + náhodné číslo).
+function save(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // localStorage nemusí být dostupný (např. anonymní okno) – nevadí.
+  }
+}
+
+// Jednoduché unikátní ID pro každou položku (podle času + náhodné číslo).
 function makeId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
 
 export function MedsProvider({ children }) {
-  // useState(loadMeds) → při prvním spuštění načteme uložené léky.
-  const [meds, setMeds] = useState(loadMeds);
+  // Při prvním spuštění načteme uložená data.
+  // normalizeItem doplní pole, která položky uložené starší verzí appky nemají.
+  const [meds, setMeds] = useState(() => load(STORAGE_KEY, []).map(normalizeItem));
+  const [profile, setProfile] = useState(() => ({ ...EMPTY_PROFILE, ...load(PROFILE_KEY, {}) }));
 
-  // Pokaždé, když se seznam léků změní, uložíme ho do localStorage.
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(meds));
-    } catch {
-      // localStorage nemusí být dostupný (např. anonymní okno) – nevadí.
-    }
-  }, [meds]);
+  // Pokaždé, když se data změní, uložíme je.
+  useEffect(() => save(STORAGE_KEY, meds), [meds]);
+  useEffect(() => save(PROFILE_KEY, profile), [profile]);
 
-  // Přidá nový lék na konec seznamu.
+  // Přidá novou položku na konec seznamu.
   function addMed(med) {
-    setMeds((prev) => [...prev, { ...med, id: makeId() }]);
+    setMeds((prev) => [...prev, normalizeItem({ ...med, id: makeId() })]);
   }
 
-  // Odebere lék podle ID.
+  // Odebere položku podle ID.
   function removeMed(id) {
     setMeds((prev) => prev.filter((m) => m.id !== id));
   }
 
+  // Změní jen některé údaje v profilu, např. updateProfile({ onco: 'ano' }).
+  function updateProfile(changes) {
+    setProfile((prev) => ({ ...prev, ...changes }));
+  }
+
   // Interakce spočítáme vždy znovu z aktuálního seznamu léků.
+  // (Pacientská část je NEZOBRAZUJE – jsou jen pro lékaře.)
   const interactions = findInteractions(meds);
 
   return (
-    <MedsContext.Provider value={{ meds, addMed, removeMed, interactions }}>
+    <MedsContext.Provider value={{ meds, addMed, removeMed, interactions, profile, updateProfile }}>
       {children}
     </MedsContext.Provider>
   );

@@ -5,11 +5,16 @@
 //
 // Tahle stránka je pro počítač v ordinaci, ne pro pacienta – proto má
 // vlastní rozložení bez spodní lišty (viz App.jsx).
+//
+// Po načtení léků jde zprávu stáhnout jako PDF (tisk prohlížeče → "Uložit jako PDF")
+// nebo jako soubor FHIR pro nemocniční systém.
 import { useMemo, useState } from 'react';
 import { claimShare } from '../api.js';
 import { checkMeds } from '../mock/doctorCheck.js';
-import { ChevronIcon } from '../components/Icons.jsx';
+import { ChevronIcon, DownloadIcon } from '../components/Icons.jsx';
 import { medDosage, pluralLeky } from '../labels.js';
+import { downloadFhir } from '../fhir.js';
+import { ITEM_TYPES, dosageFromText } from '../types.js';
 
 // Zdroj léku v "lékařské" podobě (podstatné jméno)
 const SOURCE_NOUNS = { box: 'krabička', note: 'lístek', manual: 'ručně' };
@@ -31,6 +36,19 @@ const ERROR_MESSAGES = {
   rate_limited: 'Příliš mnoho špatných pokusů. Zkuste to za chvíli.',
   invalid_input: 'Kód musí mít 4 číslice.',
 };
+
+// Léky od backendu mají jiný tvar než léky v telefonu pacienta (dávkování je text,
+// chybí "type"). FHIR export čeká tvar z telefonu, tak je převedeme.
+function toFhirItems(meds) {
+  return meds.map((med) => ({
+    ...med,
+    type: med.kind === 'regimen' ? ITEM_TYPES.ONKO : ITEM_TYPES.LEK,
+    source: med.source ?? med.sources?.[0],
+    // Pacient posílá "1-0-1-0 (ráno 1, večer 1)" – závorku uřízneme, aby šlo
+    // dávkování rozložit na ráno/poledne/večer/noc.
+    dosage: dosageFromText(med.frequency?.replace(/\s*\(.*\)$/, ''), med.amount),
+  }));
+}
 
 // Zkratka léku do matice, např. "Warfarin" → "WAR"
 function abbr(name) {
@@ -81,7 +99,7 @@ export default function Doctor() {
   return (
     <div className="doc">
       {/* ---------- Hlavička se zadáním kódu ---------- */}
-      <header className="doc-header">
+      <header className="doc-header no-print">
         <span className="doc-brand">Lékař</span>
         <form className="doc-form" onSubmit={handleSubmit}>
           <label htmlFor="doc-pin">Kód pacienta</label>
@@ -116,9 +134,26 @@ export default function Doctor() {
           <>
             {/* ---------- Tabulka léků ---------- */}
             <h1 className="doc-title">Léky pacienta ({meds.length})</h1>
-            <p className="doc-muted">
+            <p className="doc-muted no-print">
               Kód je jednorázový – data zmizí po zavření nebo obnovení stránky.
             </p>
+
+            {/* ---------- Stažení zprávy ---------- */}
+            <div className="doc-actions no-print">
+              <button type="button" className="doc-button doc-button-secondary" onClick={() => window.print()}>
+                <DownloadIcon size={22} />
+                Stáhnout PDF
+              </button>
+              {/* Soubor pro nemocniční systém (standard FHIR R4) */}
+              <button
+                type="button"
+                className="doc-button doc-button-secondary"
+                onClick={() => downloadFhir(toFhirItems(meds))}
+              >
+                <DownloadIcon size={22} />
+                Stáhnout pro nemocniční systém (FHIR)
+              </button>
+            </div>
 
             <div className="doc-table-wrap">
               <table className="doc-table">

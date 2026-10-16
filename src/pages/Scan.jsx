@@ -11,12 +11,39 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { analyzePhoto } from '../api.js';
 import MedForm from '../components/MedForm.jsx';
+import PhotoHighlights, { boxesForForm } from '../components/PhotoHighlights.jsx';
 import { CameraIcon, WarningIcon } from '../components/Icons.jsx';
-import { medTitle } from '../labels.js';
+import { medName, medTitle } from '../labels.js';
+import { BACKEND_TO_FORM_FIELD, ITEM_TYPES, dosageFromText, dosageText } from '../types.js';
+
+// Uklidňující texty při čtení fotky – střídají se každé 3 sekundy.
+const LOADING_MESSAGES = [
+  'Čtu text na fotce…',
+  'Hledám název léku…',
+  'Kontroluji sílu a dávkování…',
+  'Ještě chvilku, už to skoro mám…',
+];
+
+// Lék od backendu → počáteční hodnoty formuláře
+function formInitial(med) {
+  return {
+    name: medName(med),
+    strength: med.strength ?? '',
+    dosage: dosageFromText(med.frequency, med.amount),
+  };
+}
+
+// Nejistá pole od backendu (frequency, amount…) → pole formuláře (dosage…)
+function formUncertain(med) {
+  return [...new Set((med.uncertain_fields ?? []).map((f) => BACKEND_TO_FORM_FIELD[f]).filter(Boolean))];
+}
 
 export default function Scan() {
   const navigate = useNavigate();
-  const { addMed } = useMeds();
+  const { addMed, profile } = useMeds();
+
+  // Kam jít po přidání léku: poprvé se ještě zeptáme na doplňky stravy.
+  const afterAdd = profile.supplementsAsked ? '/leky' : '/doplnky?krok=1';
 
   // Adresa /vyfotit?rucne=1 otevře rovnou ruční zadání.
   const [searchParams] = useSearchParams();
@@ -25,6 +52,9 @@ export default function Scan() {
   const [photoUrl, setPhotoUrl] = useState(null); // náhled vyfocené fotky
   const [pending, setPending] = useState([]); // léky z fotky, které čekají na potvrzení
   const [unreadable, setUnreadable] = useState(0); // co AI nepřečetla
+  const [allFromPhoto, setAllFromPhoto] = useState([]); // všechny léky z fotky (pro přepis lístku)
+  const [activeField, setActiveField] = useState(null); // pole, které pacient právě upravuje
+  const [loadingIndex, setLoadingIndex] = useState(0); // který uklidňující text ukazujeme
 
   // Odkaz na skrytý <input type="file">, abychom ho mohli "kliknout" z tlačítka.
   const fileInputRef = useRef(null);
@@ -40,6 +70,17 @@ export default function Scan() {
       if (photoUrl) URL.revokeObjectURL(photoUrl);
     };
   }, [photoUrl]);
+
+  // Při načítání střídáme uklidňující texty.
+  useEffect(() => {
+    if (step !== 'loading') return;
+    setLoadingIndex(0);
+    const timer = setInterval(() => {
+      // Poslední text necháme svítit, nezačínáme znovu od začátku.
+      setLoadingIndex((i) => Math.min(i + 1, LOADING_MESSAGES.length - 1));
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [step]);
 
   // Otevře fotoaparát (na mobilu) nebo výběr souboru (na počítači).
   // source = co se fotí; bez něj se fotí totéž co minule.
@@ -68,6 +109,7 @@ export default function Scan() {
         return;
       }
       setPending(result.medications);
+      setAllFromPhoto(result.medications);
       setUnreadable(result.unreadable_items);
       setStep('confirm');
     } catch {
@@ -88,6 +130,7 @@ export default function Scan() {
     // Ostatní údaje od backendu (druh, účinná látka, léková forma) doplníme sami.
     addMed({
       ...values,
+      type: ITEM_TYPES.LEK,
       source: current.source,
       kind: current.kind ?? 'drug',
       active_substance: current.active_substance ?? null,
@@ -98,14 +141,14 @@ export default function Scan() {
     if (rest.length > 0) {
       setPending(rest); // na fotce bylo víc léků → ukážeme další
     } else {
-      navigate('/leky');
+      navigate(afterAdd);
     }
   }
 
   // Pacient zadal lék ručně.
   function handleManual(values) {
-    addMed({ ...values, source: 'manual', kind: 'drug' });
-    navigate('/leky');
+    addMed({ ...values, type: ITEM_TYPES.LEK, source: 'manual', kind: 'drug' });
+    navigate(afterAdd);
   }
 
   return (
@@ -141,9 +184,15 @@ export default function Scan() {
       {step === 'loading' && (
         <>
           <h1>Čtu fotku…</h1>
-          <p className="subtitle">Chvilku to potrvá.</p>
+          <p className="subtitle">Nic nemusíte dělat. Obvykle to trvá do půl minuty.</p>
           <img src={photoUrl} alt="Vaše fotka" className="photo-preview" />
-          <div className="spinner" role="status" aria-label="Načítám" />
+          <div className="loading-box">
+            <div className="spinner" aria-hidden="true" />
+            {/* aria-live = čtečka obrazovky přečte každý nový text */}
+            <p className="loading-text" aria-live="polite">
+              {LOADING_MESSAGES[loadingIndex]}
+            </p>
+          </div>
           <button type="button" className="btn btn-secondary" onClick={cancelLoading}>
             Zrušit
           </button>
@@ -153,12 +202,54 @@ export default function Scan() {
       {step === 'confirm' && pending.length > 0 && (
         <>
           <h1>Zkontrolujte, prosím</h1>
-          <p className="subtitle">Co jsme přečetli z fotky:</p>
+          <p className="subtitle">
+            {pending[0].source === 'note' ? 'Co jsme přečetli z lístku:' : 'Co jsme přečetli z fotky:'}
+          </p>
 
-          <div className="confirm-header">
-            <img src={photoUrl} alt="Vaše fotka" className="photo-thumb" />
-            <p className="confirm-name">{medTitle(pending[0])}</p>
-          </div>
+          {pending[0].source === 'note' ? (
+            // LÍSTEK: fotka poznámky vedle přepsaného textu
+            <div className="note-compare">
+              <PhotoHighlights
+                src={photoUrl}
+                boxes={boxesForForm(pending[0].field_boxes, BACKEND_TO_FORM_FIELD)}
+                activeField={activeField}
+                uncertainFields={formUncertain(pending[0])}
+              />
+              <div className="note-transcript">
+                <h2>Přepis lístku</h2>
+                <ol>
+                  {allFromPhoto.map((m) => {
+                    const isCurrent = m.id === pending[0].id;
+                    const isDone = !pending.some((p) => p.id === m.id);
+                    return (
+                      <li key={m.id} className={isCurrent ? 'note-line note-line-current' : 'note-line'}>
+                        <strong>{medTitle(m)}</strong>
+                        {dosageText(dosageFromText(m.frequency, m.amount)) &&
+                          ` – ${dosageText(dosageFromText(m.frequency, m.amount))}`}
+                        {/* Stav slovy, ne jen barvou */}
+                        {isCurrent && <span className="note-state"> (teď kontrolujete)</span>}
+                        {isDone && <span className="note-state"> (přidáno)</span>}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            </div>
+          ) : (
+            // KRABIČKA: velká fotka, pod ní rozpoznaná pole
+            <PhotoHighlights
+              src={photoUrl}
+              boxes={boxesForForm(pending[0].field_boxes, BACKEND_TO_FORM_FIELD)}
+              activeField={activeField}
+              uncertainFields={formUncertain(pending[0])}
+            />
+          )}
+
+          {allFromPhoto.length > 1 && (
+            <p className="confirm-progress">
+              Lék {allFromPhoto.length - pending.length + 1} z {allFromPhoto.length}
+            </p>
+          )}
 
           {unreadable > 0 && (
             <div className="box box-warning">
@@ -172,10 +263,11 @@ export default function Scan() {
 
           {/* key = při dalším léku z fotky se formulář vytvoří znovu s novými hodnotami */}
           <MedForm
-            key={pending.length}
-            initial={pending[0]}
-            uncertainFields={pending[0].uncertain_fields}
+            key={pending[0].id}
+            initial={formInitial(pending[0])}
+            uncertainFields={formUncertain(pending[0])}
             onSubmit={handleConfirm}
+            onFieldFocus={setActiveField}
           />
           <button type="button" className="btn btn-secondary" onClick={() => openCamera()}>
             Vyfotit znovu

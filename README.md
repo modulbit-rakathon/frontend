@@ -112,13 +112,24 @@ npm run preview  # spustí zkompilovanou verzi (adresa se opět vypíše v termi
 
 ## Testování bez AI
 
-AI je zatím jen napodobená (`src/mock/analyze.js`):
+Focení normálně volá backend (`/api/analyze`). Bez backendu (nebo na ukázku) zapněte mock
+v `.env.local`:
 
-- Každá fotka vrátí další ukázkový lék v pořadí: Warfarin → Ibuprofen → Metformin. Po prvních dvou se objeví interakce.
+```
+VITE_MOCK_API=true
+```
+
+a restartujte `npm run dev`. Mock (`src/mock/analyze.js`):
+
+- Krabička: střídá Warfarin a Ibuprofen (u Ibuprofenu je dávkování „nejisté“ → žluté pole).
+- Lístek od lékaře: vrátí dva léky najednou (Metformin, Anopyrin).
+- Vrací i `field_boxes` (kde na fotce byl text) → rámečky na fotce. Skutečný backend je zatím nevrací.
 - Fotka, která má v názvu `chyba` (např. `chyba.jpg`), ukáže obrazovku „Nepodařilo se přečíst fotku“.
 - Na počítači se místo fotoaparátu otevře výběr souboru – stačí vybrat jakýkoli obrázek.
 
-Léky se ukládají do `localStorage` prohlížeče. Smazat je můžete tlačítkem „Odebrat“ nebo vymazáním dat stránky.
+Data se ukládají do `localStorage` prohlížeče. Smazat je můžete tlačítkem „Odebrat“ nebo vymazáním dat stránky.
+
+**Pacientská část nikde neukazuje interakce** – zadavatel je chce jen pro lékaře (`/doc`).
 
 ## Struktura
 
@@ -127,11 +138,16 @@ src/
   main.jsx              vstupní bod
   App.jsx               obrazovky podle adresy + spodní lišta
   index.css             všechny styly
-  labels.js             sdílené texty (štítky, závažnost)
-  context/MedsContext.jsx   seznam léků (sdílený + localStorage)
+  types.js              DATOVÉ TYPY a konstanty na jednom místě (lék, dávkování, doplňky, onkologie)
+  labels.js             sdílené texty a formátování
+  api.js                volání backendu (+ přepnutí na mock)
+  fhir.js               export do FHIR R4 (pro nemocniční systémy)
+  accessibility.js      velikost písma, čtení nahlas, hlasové zadání
+  context/MedsContext.jsx   seznam položek + profil pacienta (sdílené + localStorage)
   mock/analyze.js       náhrada za AI čtení fotky
-  mock/interactions.js  náhrada za databázi interakcí
-  components/           lišta, ikony, formulář léku, boxy s interakcemi
-  pages/                Domů, Vyfotit, Moje léky, Zpráva
-  pages/Doctor.jsx      lékařský pohled /doc (plánováno)
+  mock/interactions.js  náhrada za databázi interakcí (pacientovi se neukazuje)
+  mock/doctorCheck.js   kontrola interakcí pro lékaře
+  components/           lišta, ikony, formulář léku, dávkování, fotka s rámečky, tlačítka…
+  pages/                Domů, Vyfotit, Moje léky, Zpráva, Doplňky, Onkologie, Sdílení (Pin)
+  pages/Doctor.jsx      lékařský pohled /doc
 ```
