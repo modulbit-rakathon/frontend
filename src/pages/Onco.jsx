@@ -3,7 +3,6 @@
 // Pacient zadá název léčby (s našeptáváním), formu a kdy byla poslední dávka.
 // Položky ukládáme do stejného seznamu jako léky, s type: 'onko'.
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import OncoQuestion from '../components/OncoQuestion.jsx';
 import { CheckIcon } from '../components/Icons.jsx';
@@ -18,13 +17,14 @@ import {
 } from '../types.js';
 import { getLang, t } from '../i18n/index.js';
 import BackButton from '../components/BackButton.jsx';
+import { useAppNavigate } from '../navigation.js';
 
 // Dnešní datum ve tvaru "2026-10-16" (pro max u výběru data).
 // Švédský formát data je shodou okolností přesně RRRR-MM-DD, a to v místním čase.
 const TODAY = new Date().toLocaleDateString('sv-SE');
 
 export default function Onco() {
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const { meds, addMed, removeMed, profile } = useMeds();
   const treatments = itemsOfType(meds, ITEM_TYPES.ONKO);
 

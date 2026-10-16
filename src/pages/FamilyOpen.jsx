@@ -7,7 +7,7 @@
 //
 // Stavy (`step`): 'loading' → 'error' | 'ready' → 'done'
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from '../components/TransitionLink.jsx';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CheckIcon, WarningIcon } from '../components/Icons.jsx';
 import { medName } from '../labels.js';
@@ -15,6 +15,7 @@ import { decodeShare, diffShare, hasLink, isOld, readHash, rememberLink } from '
 import { dateText, dosageText, itemName, oncoFormText, prescriberText, sinceText } from '../types.js';
 import { joinList, localeOf, t, tRich } from '../i18n/index.js';
 import BackButton from '../components/BackButton.jsx';
+import { useAppNavigate } from '../navigation.js';
 
 // Chyby z decodeShare, pro které máme vlastní text
 const ERROR_CODES = ['empty', 'invalid', 'newer', 'unsupported'];
@@ -110,7 +111,7 @@ export default function FamilyOpen() {
 
 // ---------- Blízký otevřel žádost o pomoc ----------
 function OpenRequest({ share, oldWarning }) {
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const { helper, startHelping } = useMeds();
   // Odkaz vytvořený na tomto telefonu – nejspíš ho pacient omylem otevřel sám.
   const [ownLink, setOwnLink] = useState(() => hasLink('sent', share.id));

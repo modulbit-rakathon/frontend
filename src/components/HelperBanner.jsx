@@ -1,8 +1,9 @@
 // Pruh nahoře v režimu pro blízké: je vždy vidět, za koho se léky vyplňují.
 // Barva není jediná informace – je tam i text "Vyplňujete za".
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { t, tRich } from '../i18n/index.js';
+import { Link } from './TransitionLink.jsx';
 
 export default function HelperBanner() {
   const { helper, meds } = useMeds();

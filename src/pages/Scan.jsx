@@ -15,7 +15,7 @@
 //   'queued'  – není internet, fotky čekají ve frontě (viz offline/photoQueue.js)
 //   'manual'  – ruční zadání léku (prázdný formulář)
 import { Fragment, useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { USE_MOCK, analyzePhotos } from '../api.js';
 import { useOffline } from '../offline/OfflineContext.jsx';
@@ -29,6 +29,7 @@ import { draftToItem, draftTodos, makeDraft } from '../review.js';
 import { ITEM_TYPES, PHOTO_KINDS, PHOTO_LIMITS, dosageText } from '../types.js';
 import { getLang, t } from '../i18n/index.js';
 import BackButton from '../components/BackButton.jsx';
+import { useAppNavigate } from '../navigation.js';
 
 // Uklidňující texty při čtení fotek – střídají se každých 5 sekund (viz 'scan.loadingMessages').
 const loadingMessages = () => t('scan.loadingMessages');
@@ -43,7 +44,7 @@ let photoCounter = 0;
 const lower = (text) => text.toLocaleLowerCase(getLang());
 
 export default function Scan() {
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const { addMed, profile } = useMeds();
   const { online, jobs, sendingId, enqueuePhotos, removeJob } = useOffline();
 

@@ -1,12 +1,12 @@
 // Otázka "Léčíte se na onkologii?" se třemi velkými tlačítky.
 // Odpověď uložíme do profilu. Při "Ano" pošleme pacienta zadat léčbu.
-import { useNavigate } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { ONCO_ANSWERS } from '../types.js';
 import { t } from '../i18n/index.js';
+import { useAppNavigate } from '../navigation.js';
 
 export default function OncoQuestion() {
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const { profile, updateProfile } = useMeds();
 
   function answer(key) {

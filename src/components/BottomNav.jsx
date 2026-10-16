@@ -1,6 +1,6 @@
 // Spodní lišta se 4 položkami. NavLink sám pozná, která stránka je aktivní,
 // a přidá jí třídu "active" (zvýrazníme ji v CSS).
-import { NavLink } from 'react-router-dom';
+import { NavLink } from './TransitionLink.jsx';
 import { HomeIcon, CameraIcon, PillIcon, DocumentIcon } from './Icons.jsx';
 import { t } from '../i18n/index.js';
 
@@ -15,9 +15,9 @@ const ITEMS = [
 export default function BottomNav() {
   return (
     <nav className="bottom-nav" aria-label={t('nav.label')}>
-      {ITEMS.map(({ to, label, Icon }) => (
+      {ITEMS.map(({ to, label, Icon }, index) => (
         // "end" u "/" = Domů je aktivní jen přesně na "/", ne na každé stránce
-        <NavLink key={to} to={to} end={to === '/'} className="nav-item">
+        <NavLink key={to} to={to} end={to === '/'} className="nav-item" data-nav-index={index}>
           <span className="nav-icon">
             <Icon />
           </span>

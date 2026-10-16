@@ -1,7 +1,7 @@
 // Obrazovka 4: Zpráva pro lékaře
 // Pacient ji ukáže lékaři nebo ji nasdílí kódem (/pin).
 // "Stáhnout PDF" a export FHIR jsou jen v lékařském pohledu (/doc).
-import { Link } from 'react-router-dom';
+import { Link } from '../components/TransitionLink.jsx';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CameraIcon, MedicIcon } from '../components/Icons.jsx';
 import { medName, sourcesSentence, sourcesText } from '../labels.js';

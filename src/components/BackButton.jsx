@@ -1,9 +1,9 @@
 // Šipka "Zpět" v levém horním rohu obrazovky.
 // Vede vždy na pevně danou "nadřazenou" obrazovku (to), nebo zavolá onClick
 // u kroků uvnitř jedné obrazovky. Je to předvídatelnější než "historie zpět".
-import { useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon } from './Icons.jsx';
 import { t } from '../i18n/index.js';
+import { useAppNavigate } from '../navigation.js';
 
 /**
  * @param {string} [to] – kam se vrátit, např. '/leky'
@@ -11,9 +11,13 @@ import { t } from '../i18n/index.js';
  * @param {string} [label] – vlastní text místo "Zpět"
  */
 export default function BackButton({ to, onClick, label }) {
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   return (
-    <button type="button" className="back-btn no-print" onClick={onClick ?? (() => navigate(to))}>
+    <button
+      type="button"
+      className="back-btn no-print"
+      onClick={onClick ?? (() => navigate(to, { direction: 'back' }))}
+    >
       <ArrowLeftIcon />
       <span>{label ?? t('common.back')}</span>
     </button>

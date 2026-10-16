@@ -188,6 +188,65 @@ ul {
   flex-direction: column;
   gap: 16px;
   padding: 24px 16px calc(var(--nav-height) + 32px);
+  view-transition-name: app-page;
+}
+
+html {
+  view-transition-name: none;
+}
+
+::view-transition-old(app-page),
+::view-transition-new(app-page) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation-fill-mode: both;
+}
+
+::view-transition-old(app-page) {
+  animation-name: page-out-left;
+}
+
+::view-transition-new(app-page) {
+  animation-name: page-in-right;
+}
+
+html[data-nav='back']::view-transition-old(app-page) {
+  animation-name: page-out-right;
+}
+
+html[data-nav='back']::view-transition-new(app-page) {
+  animation-name: page-in-left;
+}
+
+html[data-nav-native='true']::view-transition-old(app-page),
+html[data-nav-native='true']::view-transition-new(app-page) {
+  animation: none;
+}
+
+@keyframes page-out-left {
+  to {
+    transform: translateX(-30vw);
+    opacity: 0.82;
+  }
+}
+
+@keyframes page-in-right {
+  from {
+    transform: translateX(30vw);
+  }
+}
+
+@keyframes page-out-right {
+  to {
+    transform: translateX(30vw);
+    opacity: 0.82;
+  }
+}
+
+@keyframes page-in-left {
+  from {
+    transform: translateX(-30vw);
+  }
 }
 
 .subtitle {
@@ -719,8 +778,20 @@ ul {
   justify-content: center;
   background: #ffffff;
   border-top: 2px solid var(--border);
+  view-transition-name: bottom-nav;
   /* místo pro "bradu" na iPhonech */
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+::view-transition-group(bottom-nav) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(app-page),
+  ::view-transition-new(app-page) {
+    animation: none;
+  }
 }
 
 .nav-item {

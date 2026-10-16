@@ -4,12 +4,13 @@
 //   - nová verze appky → tlačítko "Načíst novou verzi".
 // Když je všechno v pořádku, nezobrazí nic.
 import { useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useOffline } from './OfflineContext.jsx';
 import { CheckIcon, OfflineIcon, RefreshIcon } from '../components/Icons.jsx';
 import './offline.css';
 import { t } from '../i18n/index.js';
+import { Link } from '../components/TransitionLink.jsx';
 
 // Jak často se ptát serveru, jestli není nová verze appky (1 hodina)
 const UPDATE_CHECK_MS = 60 * 60 * 1000;

@@ -2,7 +2,7 @@
 // Každý lék je tlačítko s názvem. Po klepnutí se pod ním rozbalí podrobnosti.
 // Otevřený může být vždy jen jeden lék (ID máme v `openId`).
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '../components/TransitionLink.jsx';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CameraIcon, ChevronIcon, PillIcon } from '../components/Icons.jsx';
 import { medName, sourcesText } from '../labels.js';

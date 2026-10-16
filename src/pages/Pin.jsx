@@ -17,7 +17,7 @@
 //   'offline' – není internet; kód se vytvoří sám, až internet bude
 //   'empty'   – pacient nemá žádné léky, není co sdílet
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from '../components/TransitionLink.jsx';
 import QRCode from 'qrcode';
 import { useMeds } from '../context/MedsContext.jsx';
 import { createSharePin } from '../api.js';

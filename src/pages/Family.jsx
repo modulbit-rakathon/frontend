@@ -5,7 +5,7 @@
 //   - blízký v režimu pro blízké: hotový seznam pošle odkazem zpět.
 // Léky jsou v odkazu za # (viz familyShare.js) – na server se nedostanou.
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from '../components/TransitionLink.jsx';
 import { useMeds } from '../context/MedsContext.jsx';
 import ShareLink from '../components/ShareLink.jsx';
 import { WarningIcon } from '../components/Icons.jsx';
@@ -22,6 +22,7 @@ import {
   shareUrl,
 } from '../familyShare.js';
 import BackButton from '../components/BackButton.jsx';
+import { useAppNavigate } from '../navigation.js';
 
 // Upozornění, které ukážeme před vytvořením každého odkazu.
 function PrivacyNote() {
@@ -139,7 +140,7 @@ function AskForHelp() {
 
 // ---------- Blízký posílá vyplněné léky zpět ----------
 function SendBack() {
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const { helper, meds, profile, endHelping } = useMeds();
   const who = helper.name || t('family.defaultName');
   const [from, setFrom] = useState('');

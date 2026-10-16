@@ -6,15 +6,16 @@
 // Doplňky ukládáme do stejného seznamu jako léky, jen s type: 'doplnek'.
 // Adresa /doplnky?krok=1 = jsme tu jako krok po přidání prvního léku.
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CheckIcon } from '../components/Icons.jsx';
 import { ITEM_TYPES, SUPPLEMENTS, emptyDosage, itemsOfType, supplementStoredName } from '../types.js';
 import { t } from '../i18n/index.js';
 import BackButton from '../components/BackButton.jsx';
+import { useAppNavigate } from '../navigation.js';
 
 export default function Supplements() {
-  const navigate = useNavigate();
+  const navigate = useAppNavigate();
   const [searchParams] = useSearchParams();
   const isStep = searchParams.get('krok') === '1';
 

@@ -1,7 +1,7 @@
 // Obrazovka 1: Domů
 // Pozor: pacientská část NIKDE neukazuje interakce ani varování o lécích –
 // zadavatel je chce jen pro lékaře (/doc).
-import { Link } from 'react-router-dom';
+import { Link } from '../components/TransitionLink.jsx';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CameraIcon, PillIcon, ChevronIcon, SettingsIcon } from '../components/Icons.jsx';
 import { pluralLeky } from '../labels.js';
