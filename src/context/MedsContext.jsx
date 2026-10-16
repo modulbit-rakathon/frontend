@@ -79,6 +79,11 @@ export function MedsProvider({ children }) {
     changeMeds((prev) => prev.filter((m) => m.id !== id));
   }
 
+  // Přepíše údaje položky (ID zůstává stejné).
+  function updateMed(id, changes) {
+    changeMeds((prev) => prev.map((m) => (m.id === id ? normalizeItem({ ...m, ...changes, id }) : m)));
+  }
+
   // Změní jen některé údaje v profilu, např. updateProfile({ onco: 'ano' }).
   function updateProfile(changes) {
     if (helper) setHelper((h) => ({ ...h, profile: { ...h.profile, ...changes } }));
@@ -126,6 +131,7 @@ export function MedsProvider({ children }) {
         meds: activeMeds,
         addMed,
         removeMed,
+        updateMed,
         interactions,
         profile: activeProfile,
         updateProfile,
