@@ -4,8 +4,9 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // Nastavení Vite.
 export default defineConfig(({ mode }) => {
-  // Načteme proměnné ze souboru .env.local (např. VITE_API_URL).
-  const env = loadEnv(mode, process.cwd());
+  // Načteme proměnné ze souboru .env.local (API_URL, API_KEY). Bez prefixu VITE_,
+  // takže se nikdy nedostanou do kódu v prohlížeči.
+  const env = loadEnv(mode, process.cwd(), '');
 
   return {
     plugins: [
@@ -70,10 +71,12 @@ export default defineConfig(({ mode }) => {
       // a Vite to přepošle na backend. Prohlížeč si tak myslí, že mluví
       // se stejnou adresou → nevadí mu CORS a appka funguje i na mobilu
       // otevřeném přes Wi-Fi (http://192.168.x.x:5173).
+      // API klíč přidává proxy, stejně jako nginx v produkci (viz nginx.conf.template).
       proxy: {
         '/api': {
-          target: env.VITE_API_URL,
+          target: env.API_URL,
           changeOrigin: true,
+          headers: { 'X-Api-Key': env.API_KEY },
         },
       },
     },
