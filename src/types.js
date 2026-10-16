@@ -46,6 +46,9 @@ export const SOURCES = {
  * @property {string|null} active_substance – účinná látka (od backendu)
  * @property {string|null} form – léková forma (od backendu)
  * @property {string} [supplementKey] – jen u doplňků: klíč dlaždice (viz SUPPLEMENTS)
+ * @property {('box'|'note'|'manual')[]} [sources] – všechny zdroje (u léku z lístku i krabičky obojí)
+ * @property {'printed'|'handwritten'|null} [note_style] – jen u léku z lístku
+ * @property {string|null} [catalog_id] – id přípravku v katalogu (jen pro nás, backendu se neposílá)
  * @property {'tablets'|'infusion'|'injection'|''} [oncoForm] – jen u onkologické léčby
  * @property {string} [lastDose] – jen u onkologické léčby: datum poslední dávky "2026-10-01"
  */
@@ -55,30 +58,70 @@ export const SOURCES = {
 // ---------------------------------------------------------------
 
 /**
- * @typedef {Object} FieldBox – obdélník na fotce, odkud AI hodnotu přečetla.
- * Souřadnice jsou POMĚRNÉ (0 až 1), ať nezáleží na velikosti fotky:
- * x = 0.5 znamená "od poloviny šířky fotky".
- * @property {number} x – levý okraj
- * @property {number} y – horní okraj
- * @property {number} w – šířka
- * @property {number} h – výška
+ * @typedef {Object} CatalogProduct – přípravek z katalogu léků na serveru (303 přípravků)
+ * @property {string} id – např. "cat_245"
+ * @property {string} name – např. "PRESTARIUM NEO" (katalog píše velkými písmeny)
+ * @property {string} strength – např. "5 mg"
+ * @property {string} form – např. "Potahované tablety"
+ * @property {string} active_substance – např. "Perindopril-arginin (perindoprilum argininum)"
+ * @property {boolean} [supplement] – je to doplněk stravy?
+ * @property {number} [score] – jen u kandidátů: jak dobře sedí (0 až 1)
+ * @property {'name'|'prefix'|'substance'|'word'|'fuzzy'} [match] – jen u kandidátů: podle čeho se našel
  */
 
 /**
- * @typedef {Object} AnalyzedMedication – jeden lék z fotky (tvar podle backendu, docs/api.md)
+ * @typedef {Object} CatalogMatch – jak dopadlo hledání léku v katalogu
+ * @property {'matched'|'needs_confirmation'|'not_found'} status
+ * @property {CatalogProduct} [product] – jen u 'matched': jistá shoda
+ * @property {CatalogProduct[]} [candidates] – jen u 'needs_confirmation': max 3, nejlepší první
+ */
+
+/**
+ * @typedef {Object} Conflict – lístek a krabička říkají něco jiného
+ * @property {'name'|'strength'|'frequency'} field
+ * @property {{ source: 'box'|'note', value: string }[]} values
+ */
+
+/**
+ * @typedef {Object} AnalyzedMedication – jeden lék z fotek (tvar podle backendu, docs/api.md v3).
+ * Backend už lístky s krabičkami sloučil: stejný lék z obou = jedna položka.
  * @property {string} id
- * @property {string} kind
- * @property {string} name
+ * @property {'drug'|'regimen'} kind
+ * @property {string} name – přesně jak byl přečtený (i s překlepy)
  * @property {string|null} active_substance
  * @property {string|null} strength
  * @property {string|null} form
  * @property {string|null} frequency
  * @property {string|null} amount
- * @property {'box'|'note'} source
+ * @property {'box'|'note'} source – nejdůležitější zdroj
+ * @property {('box'|'note')[]} sources – všechny fotky, ze kterých lék je
+ * @property {'printed'|'handwritten'} [note_style] – jen u lístku: tištěný / psaný rukou
  * @property {string[]} uncertain_fields – např. ["frequency"]
- * @property {Object<string, FieldBox>} [field_boxes] – TODO(backend): backend zatím
- *   nevrací. Klíče jako u polí: name, strength, frequency, amount. Vrací ho jen mock.
+ * @property {Conflict[]} [conflicts]
+ * @property {CatalogMatch} [catalog]
  */
+
+/** Stavy párování s katalogem (CatalogMatch.status). */
+export const CATALOG_STATUS = {
+  MATCHED: 'matched',
+  NEEDS_CONFIRMATION: 'needs_confirmation',
+  NOT_FOUND: 'not_found',
+};
+
+/**
+ * Druhy fotek pro POST /api/analyze. `field` = název pole ve formuláři pro backend.
+ * (Backend umí ještě 'regimen' = zpráva s onkologickým režimem, zatím ho nefotíme.)
+ */
+export const PHOTO_KINDS = [
+  { field: 'note', title: 'Lístek od lékaře', add: 'Přidat fotku lístku', hint: 'Seznam léků, recept nebo propouštěcí zpráva.' },
+  { field: 'box', title: 'Krabičky léků', add: 'Přidat fotku krabičky', hint: 'Každou krabičku zvlášť, ať je vidět název a síla.' },
+];
+
+/** Limity backendu pro jedno odeslání fotek. */
+export const PHOTO_LIMITS = {
+  maxCount: 10,
+  maxBytes: 15 * 1024 * 1024, // 15 MB dohromady
+};
 
 /**
  * Pole formuláře, která patří k polím backendu.
@@ -91,7 +134,7 @@ export const BACKEND_TO_FORM_FIELD = {
   amount: 'dosage',
 };
 
-/** Popisky polí formuláře (i pro rámečky na fotce). */
+/** Popisky polí formuláře. */
 export const FORM_FIELD_LABELS = {
   name: 'Název',
   strength: 'Síla',

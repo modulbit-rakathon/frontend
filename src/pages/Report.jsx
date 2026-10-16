@@ -4,7 +4,7 @@
 import { Link } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CameraIcon, MedicIcon } from '../components/Icons.jsx';
-import { SOURCE_LABELS, medName, sourcesSentence } from '../labels.js';
+import { medName, sourcesSentence, sourcesText } from '../labels.js';
 import SpeakButton from '../components/SpeakButton.jsx';
 import {
   ITEM_TYPES,
@@ -119,7 +119,7 @@ export default function Report() {
                     <td>{med.strength || '–'}</td>
                     <td>{dosageText(med.dosage) || '–'}</td>
                     <td>{[sinceText(med.since), prescriberText(med.prescriber)].filter(Boolean).join(', ') || '–'}</td>
-                    <td>{SOURCE_LABELS[med.source]}</td>
+                    <td>{sourcesText(med)}</td>
                   </tr>
                 ))}
               </tbody>

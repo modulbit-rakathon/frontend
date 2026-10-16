@@ -28,7 +28,7 @@ Appka je primárně pro starší uživatele, proto musí mít:
 
 Pacient:
 
-- [ ] vyfocení krabičky nebo lístku a potvrzení údajů od AI
+- [ ] vyfocení lístku a krabiček (až 10 fotek najednou), kontrola v tabulce „Sedí to?“
 - [ ] ruční zadání léku
 - [ ] seznam léků s možnými interakcemi
 - [ ] vygenerování jednorázového kódu pro lékaře
@@ -112,20 +112,25 @@ npm run preview  # spustí zkompilovanou verzi (adresa se opět vypíše v termi
 
 ## Testování bez AI
 
-Focení normálně volá backend (`/api/analyze`). Bez backendu (nebo na ukázku) zapněte mock
-v `.env.local`:
+Focení normálně volá backend (`POST /api/analyze`, kontrakt v3): všechny fotky jdou v jednom
+požadavku (pole `note` = lístek, `box` = krabička), backend léky přečte, vyhledá v katalogu
+a stejný lék z lístku i krabičky spojí. Hledání „jiný lék“ volá `GET /api/catalog?q=…`.
+Bez backendu (nebo na ukázku) zapněte mock v `.env.local`:
 
 ```
 VITE_MOCK_API=true
 ```
 
-a restartujte `npm run dev`. Mock (`src/mock/analyze.js`):
+a restartujte `npm run dev`. Mock (`src/mock/analyze.js` a `src/mock/catalog.js`) vrací
+stejné léky jako mock na backendu:
 
-- Krabička: střídá Warfarin a Ibuprofen (u Ibuprofenu je dávkování „nejisté“ → žluté pole).
-- Lístek od lékaře: vrátí dva léky najednou (Metformin, Anopyrin).
-- Vrací i `field_boxes` (kde na fotce byl text) → rámečky na fotce. Skutečný backend je zatím nevrací.
-- Fotka, která má v názvu `chyba` (např. `chyba.jpg`), ukáže obrazovku „Nepodařilo se přečíst fotku“.
-- Na počítači se místo fotoaparátu otevře výběr souboru – stačí vybrat jakýkoli obrázek.
+- Prestarium Neo: z lístku i krabičky, v katalogu nalezen → „Sedí“.
+- Warfarin Orion: lístek a krabička se liší v síle (5 mg × 3 mg) → pacient vybere, co platí.
+- Paralen 500: v katalogu není → lze vyhledat, nebo nechat.
+- Ibuprofen 400 a Pantomil: pacient vybere přípravek z nabídky, nebo vyhledá jiný.
+- Pošlete-li jen krabičky (nebo jen lístek), vrátí jen léky z nich.
+- Fotka, která má v názvu `chyba` (např. `chyba.jpg`), ukáže obrazovku „Nepodařilo se přečíst fotky“.
+- Na počítači se místo fotoaparátu otevře výběr souboru – stačí vybrat jakékoli obrázky.
 
 Data se ukládají do `localStorage` prohlížeče. Smazat je můžete tlačítkem „Odebrat“ nebo vymazáním dat stránky.
 
@@ -144,10 +149,13 @@ src/
   fhir.js               export do FHIR R4 (pro nemocniční systémy)
   accessibility.js      velikost písma, čtení nahlas, hlasové zadání
   context/MedsContext.jsx   seznam položek + profil pacienta (sdílené + localStorage)
-  mock/analyze.js       náhrada za AI čtení fotky
+  photos.js             zmenšení fotek před odesláním (backend bere max 15 MB)
+  review.js             logika kontroly léků z fotek (co musí pacient vyřešit)
+  mock/analyze.js       náhrada za AI čtení fotek
+  mock/catalog.js       náhrada za hledání v katalogu léků
   mock/interactions.js  náhrada za databázi interakcí (pacientovi se neukazuje)
   mock/doctorCheck.js   kontrola interakcí pro lékaře
-  components/           lišta, ikony, formulář léku, dávkování, fotka s rámečky, tlačítka…
+  components/           lišta, ikony, formulář léku, dávkování, kontrola léku z fotek, hledání v katalogu…
   pages/                Domů, Vyfotit, Moje léky, Zpráva, Doplňky, Onkologie, Sdílení (Pin)
   pages/Doctor.jsx      lékařský pohled /doc
 ```

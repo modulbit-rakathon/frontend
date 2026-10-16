@@ -517,46 +517,6 @@ ul {
 /* =========================================================
    6) FOCENÍ A FORMULÁŘ
    ========================================================= */
-.photo-preview {
-  width: 100%;
-  max-height: 280px;
-  object-fit: contain;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-}
-
-/* Náhled fotky + velký název léku vedle */
-.confirm-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.photo-thumb {
-  width: 40%;
-  max-width: 180px;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  flex-shrink: 0;
-}
-
-.confirm-name {
-  font-size: 30px;
-  font-weight: 800;
-  line-height: 1.2;
-  word-break: break-word;
-}
-
-.confirm-name span {
-  display: block;
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
 /* Točící se kolečko při načítání */
 .spinner {
   width: 72px;
@@ -1643,124 +1603,8 @@ fieldset.field legend + * {
 }
 
 /* =========================================================
-   15) FOCENÍ – FOTKA S RÁMEČKY, LÍSTEK, NAČÍTÁNÍ, KONTROLA POLÍ
+   15) FOCENÍ – NAČÍTÁNÍ, KONTROLA POLÍ
    ========================================================= */
-
-/* Obal fotky: rámečky se umisťují vůči obrázku, proto
-   .photo-frame přesně obepíná fotku (inline-block). */
-.photo-frame-wrap {
-  text-align: center;
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px;
-}
-
-.photo-frame {
-  position: relative;
-  display: inline-block;
-  max-width: 100%;
-}
-
-.photo-frame-img {
-  display: block;
-  max-width: 100%;
-  max-height: 340px;
-  border-radius: 8px;
-}
-
-/* Rámeček kolem přečteného textu */
-.photo-box {
-  position: absolute;
-  border: 3px solid var(--primary);
-  border-radius: 6px;
-  background: rgba(11, 122, 102, 0.12);
-}
-
-/* Nejisté pole – žlutý, čárkovaný (rozdíl je vidět i bez barev) */
-.photo-box-uncertain {
-  border-color: var(--warning-border);
-  border-style: dashed;
-  background: rgba(245, 165, 36, 0.2);
-}
-
-/* Pole, které pacient právě upravuje – silnější rámeček */
-.photo-box-active {
-  border-width: 5px;
-  box-shadow: 0 0 0 4px #ffffff;
-}
-
-/* Popisek nad rámečkem ("Název", "Síla"…) */
-.photo-box-label {
-  position: absolute;
-  left: -3px;
-  bottom: 100%;
-  padding: 0 6px;
-  border-radius: 4px 4px 0 0;
-  background: var(--primary);
-  color: #ffffff;
-  font-size: 18px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.photo-box-uncertain .photo-box-label {
-  background: var(--warning-border);
-}
-
-/* Lístek: fotka vedle přepsaného textu */
-.note-compare {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 12px;
-}
-
-@media (min-width: 520px) {
-  .note-compare {
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-  }
-}
-
-.note-transcript {
-  padding: 12px 16px;
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-}
-
-.note-transcript h2 {
-  font-size: 20px;
-  margin-bottom: 8px;
-}
-
-.note-transcript ol {
-  padding-left: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.note-line {
-  font-size: 18px;
-}
-
-.note-line-current {
-  font-weight: 700;
-  text-decoration: underline;
-  text-decoration-thickness: 3px;
-  text-decoration-color: var(--primary);
-  text-underline-offset: 4px;
-}
-
-.note-state {
-  color: var(--text-muted);
-  font-weight: 600;
-}
-
-.confirm-progress {
-  font-size: 20px;
-  font-weight: 700;
-}
 
 /* Načítání: kolečko + měnící se text */
 .loading-box {
@@ -1796,7 +1640,7 @@ fieldset.field legend + * {
 }
 
 .btn-check {
-  min-height: 48px;
+  min-height: 56px;
   padding: 6px 16px;
   border: 3px solid var(--warning-border);
   border-radius: 12px;
@@ -1968,4 +1812,240 @@ html[data-font='xlarge'] .app {
   font-size: 22px;
   font-weight: 700;
   text-align: center;
+}
+
+/* =========================================================
+   18) FOCENÍ VÍCE FOTEK A KONTROLA "SEDÍ TO?"
+   ========================================================= */
+
+/* Skupina fotek: "1. Lístek od lékaře", "2. Krabičky léků" */
+.photo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.photo-group h2 {
+  font-size: 24px;
+}
+
+.photo-group-count {
+  color: var(--text-muted);
+}
+
+.photo-group-hint {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+/* Náhledy fotek ve mřížce po třech */
+.photo-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.photo-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.photo-item img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+/* Při načítání jen malé náhledy */
+.photo-list-small {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.btn-dashed:disabled {
+  border-color: var(--border);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
+.photo-counter {
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* --- Tabulka "Sedí to?" --- */
+.review-table td {
+  vertical-align: middle;
+}
+
+/* Řádek, kde je co řešit: žlutý pruh vlevo (a k tomu text "Zkontrolovat") */
+.review-row-todo td:first-child {
+  box-shadow: inset 6px 0 0 var(--warning-border);
+}
+
+/* Název léku je tlačítko, které rozbalí podrobnosti */
+.review-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 56px;
+  padding: 4px 4px 4px 10px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.review-toggle strong {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.review-toggle span {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.review-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+}
+
+.review-status-todo {
+  color: var(--warning-text);
+}
+
+.review-status-ok {
+  color: var(--primary-dark);
+}
+
+/* Rozbalený řádek */
+.review-detail-row td {
+  padding: 0 0 16px;
+}
+
+.review-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.review-ok {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 18px;
+  color: var(--primary-dark);
+}
+
+.review-ok svg {
+  flex-shrink: 0;
+}
+
+/* Otázka pro pacienta (Který lék to je? Co platí?) */
+.review-question {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 3px solid var(--warning-border);
+  border-radius: var(--radius);
+  background: var(--warning-bg);
+  font-size: 18px;
+}
+
+.review-question-info {
+  border: 2px solid var(--border);
+  background: #ffffff;
+}
+
+.review-question-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--warning-text);
+}
+
+.review-question-title svg {
+  flex-shrink: 0;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* --- Výběr přípravku / hodnoty a hledání v katalogu --- */
+.catalog-results {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catalog-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 3px solid var(--control-border);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 20px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.catalog-result:hover {
+  border-color: var(--primary);
+}
+
+.catalog-result span {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+.catalog-search {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catalog-search label {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.catalog-status {
+  font-size: 18px;
+  font-weight: 600;
 }

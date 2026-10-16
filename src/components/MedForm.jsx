@@ -1,5 +1,5 @@
 // Formulář s údaji o léku. Používá se:
-//  - po vyfocení (pole jsou předvyplněná z AI, nejistá pole jsou žlutá),
+//  - při kontrole léku z fotek (tlačítko "Opravit" – pole předvyplněná, nejistá jsou žlutá),
 //  - při ručním zadání (pole jsou prázdná).
 //
 // Dávkování se nepíše, ale kliká (komponenta DosageInput).
@@ -21,10 +21,9 @@ const YEARS = Array.from({ length: 31 }, (_, i) => String(THIS_YEAR - i));
  * @param initial – počáteční hodnoty { name, strength, dosage, since, prescriber } (nebo nic)
  * @param uncertainFields – pole formuláře, která AI nepřečetla jistě, např. ["dosage"]
  * @param onSubmit – zavolá se s vyplněnými údaji po kliknutí na "Ano, přidat lék"
- * @param onFieldFocus – (nepovinné) dá vědět, které pole pacient právě upravuje
- *                       ('name' | 'strength' | 'dosage' | null) – kvůli zvýraznění na fotce
+ * @param submitLabel – (nepovinné) text hlavního tlačítka
  */
-export default function MedForm({ initial, uncertainFields = [], onSubmit, onFieldFocus = () => {} }) {
+export default function MedForm({ initial, uncertainFields = [], onSubmit, submitLabel = 'Ano, přidat lék' }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [strength, setStrength] = useState(initial?.strength ?? '');
   const [dosage, setDosage] = useState(initial?.dosage ?? emptyDosage());
@@ -93,13 +92,8 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, onFie
   };
 
   return (
-    // onBlur na celém formuláři: když fokus odejde mimo formulář, zvýraznění na fotce zhasne
-    <form
-      onSubmit={handleSubmit}
-      className="med-form"
-      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && onFieldFocus(null)}
-    >
-      <div className={fieldClass('name')} onFocus={() => onFieldFocus('name')}>
+    <form onSubmit={handleSubmit} className="med-form">
+      <div className={fieldClass('name')}>
         <label htmlFor="field-name">Název léku</label>
         <input
           id="field-name"
@@ -114,7 +108,7 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, onFie
         {hint('name')}
       </div>
 
-      <div className={fieldClass('strength')} onFocus={() => onFieldFocus('strength')}>
+      <div className={fieldClass('strength')}>
         <label htmlFor="field-strength">Síla</label>
         <input
           id="field-strength"
@@ -131,7 +125,6 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, onFie
       <fieldset
         className={fieldClass('dosage')}
         aria-describedby={isUncertain('dosage') ? 'hint-dosage' : undefined}
-        onFocus={() => onFieldFocus('dosage')}
       >
         <legend>Kdy a kolik kusů</legend>
         <DosageInput value={dosage} onChange={change('dosage', setDosage)} />
@@ -197,7 +190,7 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, onFie
 
       <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
         <CheckIcon />
-        Ano, přidat lék
+        {submitLabel}
       </button>
     </form>
   );

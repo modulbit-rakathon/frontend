@@ -7,6 +7,23 @@ export const SOURCE_LABELS = {
   manual: 'ručně',
 };
 
+// Odkud lék je, když ho backend sloučil z více fotek: ["box", "note"] → "z krabičky a z lístku"
+export function sourcesText(med) {
+  const list = med.sources?.length ? med.sources : [med.source];
+  const texts = ['box', 'note', 'manual'].filter((s) => list.includes(s)).map((s) => SOURCE_LABELS[s]);
+  return texts.join(' a ');
+}
+
+// Katalog píše názvy velkými písmeny ("PRESTARIUM NEO") – pro pacienta je
+// převedeme na "Prestarium Neo". Slova s číslicí necháme, jak jsou.
+export function catalogName(name) {
+  return name
+    .toLowerCase()
+    .split(' ')
+    .map((word) => (/\d/.test(word) ? word.toUpperCase() : word.charAt(0).toUpperCase() + word.slice(1)))
+    .join(' ');
+}
+
 // Závažnost interakce → text (barva nikdy nesmí být jediná informace)
 export const SEVERITY_LABELS = {
   high: 'Vysoké riziko',
@@ -17,6 +34,11 @@ export const SEVERITY_LABELS = {
 // Backend někdy pošle sílu už v názvu ("IBUPROFEN 400 mg") – pak ji nepřidáváme podruhé.
 export function medTitle(med) {
   if (!med.strength || med.name.toLowerCase().includes(med.strength.toLowerCase())) {
+    return med.name;
+  }
+  // "Paralen 500" + "500 mg" → číslo už v názvu je, sílu nepřidáváme ("Paralen 500 500 mg" by mátlo)
+  const number = med.strength.match(/^[\d,.]+/)?.[0];
+  if (number && med.name.split(' ').includes(number)) {
     return med.name;
   }
   return `${med.name} ${med.strength}`;
@@ -43,7 +65,9 @@ export function sourcesSentence(items) {
     manual: 'z ručního zadání',
   };
   // Každý zdroj jen jednou a ve stálém pořadí
-  const used = ['box', 'note', 'manual'].filter((s) => items.some((i) => i.source === s));
+  const used = ['box', 'note', 'manual'].filter((s) =>
+    items.some((i) => (i.sources?.length ? i.sources : [i.source]).includes(s)),
+  );
   if (used.length === 0) return '';
 
   const texts = used.map((s) => parts[s]);

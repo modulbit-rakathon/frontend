@@ -1,13 +1,14 @@
 // Volání backendu PillGaze.
 import { ITEM_TYPES, dateText, dosageToBackend, oncoFormText } from './types.js';
-import { analyzePhoto as mockAnalyzePhoto } from './mock/analyze.js';
+import { analyzePhotos as mockAnalyzePhotos } from './mock/analyze.js';
+import { searchCatalog as mockSearchCatalog } from './mock/catalog.js';
 // Adresa a klíč se berou ze souboru frontend/.env.local
 //
 // Při vývoji (npm run dev) voláme jen "/api/..." a Vite to přepošle
 // na backend (viz proxy ve vite.config.js). V hotové appce voláme backend přímo.
 const API_URL = import.meta.env.DEV ? '' : import.meta.env.VITE_API_URL;
 const API_KEY = import.meta.env.VITE_API_KEY;
-// VITE_MOCK_API=true → focení nevolá backend, ale mock (src/mock/analyze.js)
+// VITE_MOCK_API=true → focení a hledání v katalogu nevolá backend, ale mock (src/mock/)
 const USE_MOCK = import.meta.env.VITE_MOCK_API === 'true';
 
 // Společná funkce pro všechna volání: pošle požadavek a zpracuje chyby.
@@ -30,25 +31,45 @@ async function request(path, options) {
 }
 
 /**
- * Pošle fotku na backend a vrátí, co AI přečetla.
- * @param {File} file – fotka
- * @param {'box' | 'note' | 'regimen'} source – co je na fotce
- * @returns {Promise<{ medications: Array, unreadable_items: number }>}
+ * Pošle všechny fotky najednou. Backend je přečte, každý lék vyhledá
+ * v katalogu a stejný lék z lístku i z krabičky sloučí do jedné položky.
+ * @param {{ note: File[], box: File[] }} photos – fotky podle druhu
+ * @returns {Promise<{ medications: import('./types.js').AnalyzedMedication[], unreadable_items: number }>}
+ * Chyby (error.message): 'nothing_found' (na fotkách žádný lék), 'payload_too_large'
+ * (moc fotek / moc velké), 'unsupported_media_type' (není JPEG/PNG), 'rate_limited', 'model_error'.
  */
-export function analyzePhoto(file, source) {
+export function analyzePhotos(photos) {
   // Mock místo backendu (zapíná se v .env.local: VITE_MOCK_API=true)
-  if (USE_MOCK) return mockAnalyzePhoto(file, source);
+  if (USE_MOCK) return mockAnalyzePhotos(photos);
 
-  // Data posíláme jako "formulář" (multipart/form-data) – tak to backend chce.
+  // Data posíláme jako "formulář" (multipart/form-data). Každá fotka jde
+  // do pole podle druhu: "note" = lístek, "box" = krabička. Pole se může opakovat.
   const form = new FormData();
-  form.append('source', source);
-  form.append('image', file);
+  for (const [field, files] of Object.entries(photos)) {
+    files.forEach((file) => form.append(field, file));
+  }
 
   return request('/api/analyze', {
     method: 'POST',
     body: form,
-    // Když backend neodpoví do 120 sekund, vzdáme to.
+    // Ručně psaný lístek může trvat i 40 s. Když backend neodpoví do 120 sekund, vzdáme to.
     signal: AbortSignal.timeout(120000),
+  });
+}
+
+/**
+ * Hledá v katalogu léků podle názvu nebo účinné látky (bez AI, jen v seznamu na serveru).
+ * @param {string} query – aspoň 2 znaky
+ * @param {AbortSignal} [signal] – pro zrušení, když pacient píše dál
+ * @returns {Promise<{ products: import('./types.js').CatalogProduct[] }>} max 20, nejlepší první
+ */
+export function searchCatalog(query, signal) {
+  if (USE_MOCK) return mockSearchCatalog(query);
+
+  // encodeURIComponent = bezpečně zapíše mezery a diakritiku do adresy
+  return request(`/api/catalog?q=${encodeURIComponent(query)}`, {
+    method: 'GET',
+    signal: signal ?? AbortSignal.timeout(15000),
   });
 }
 
@@ -77,6 +98,10 @@ export function createSharePin(meds) {
       ? { frequency: med.lastDose ? `poslední dávka/cyklus ${dateText(med.lastDose)}` : null, amount: null }
       : dosageToBackend(med.dosage)),
     source: med.source,
+    // Z čeho lék je (lístek i krabička) a jestli byl lístek psaný rukou.
+    // Pole catalog, uncertain_fields a conflicts NEposíláme – backend by je odmítl (400).
+    ...(med.sources?.length ? { sources: med.sources } : {}),
+    ...(med.note_style ? { note_style: med.note_style } : {}),
   }));
 
   return request('/api/share', {

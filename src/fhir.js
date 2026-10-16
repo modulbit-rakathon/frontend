@@ -66,7 +66,8 @@ function toFhirDosage(item) {
 /** Poznámky: zdroj údajů a vše, pro co FHIR nemá jednoduché pole. */
 function toFhirNotes(item) {
   const lines = [
-    `Zdroj: ${SOURCE_TEXT[item.source] ?? item.source}`,
+    // U léku z lístku i z krabičky jsou zdroje dva
+    `Zdroj: ${(item.sources?.length ? item.sources : [item.source]).map((s) => SOURCE_TEXT[s] ?? s).join(' + ')}`,
     item.active_substance && `Účinná látka: ${item.active_substance}`,
     item.prescriber && `Předepsal: ${prescriberText(item.prescriber)}`,
     item.oncoForm && `Forma léčby: ${oncoFormText(item.oncoForm)}`,

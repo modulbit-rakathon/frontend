@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CameraIcon, ChevronIcon, PillIcon } from '../components/Icons.jsx';
-import { SOURCE_LABELS, medName } from '../labels.js';
+import { medName, sourcesText } from '../labels.js';
 import SpeakButton from '../components/SpeakButton.jsx';
 import {
   ITEM_TYPES,
@@ -131,7 +131,7 @@ export default function Meds() {
                       </>
                     )}
                     <dt>Zdroj</dt>
-                    <dd>{SOURCE_LABELS[med.source]}</dd>
+                    <dd>{sourcesText(med)}</dd>
                   </dl>
                   <SpeakButton
                     text={[
