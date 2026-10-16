@@ -5,16 +5,12 @@
 //
 // Tahle stránka je pro počítač v ordinaci, ne pro pacienta – proto má
 // vlastní rozložení bez spodní lišty (viz App.jsx).
-//
-// Po načtení léků jde zprávu stáhnout jako PDF (tisk prohlížeče → "Uložit jako PDF")
-// nebo jako soubor FHIR pro nemocniční systém.
-import { useMemo, useState } from 'react';
-import { claimShare } from '../api.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { claimShare, apiErrorMessage } from '../api.js';
+import { useRetryAfter } from '../useRetryAfter.js';
 import { checkMeds } from '../mock/doctorCheck.js';
-import { ChevronIcon, DownloadIcon } from '../components/Icons.jsx';
+import { ChevronIcon } from '../components/Icons.jsx';
 import { medDosage, pluralLeky } from '../labels.js';
-import { downloadFhir } from '../fhir.js';
-import { ITEM_TYPES, dosageFromText } from '../types.js';
 
 // Zdroj léku v "lékařské" podobě (podstatné jméno)
 const SOURCE_NOUNS = { box: 'krabička', note: 'lístek', manual: 'ručně' };
@@ -37,19 +33,6 @@ const ERROR_MESSAGES = {
   invalid_input: 'Kód musí mít 4 číslice.',
 };
 
-// Léky od backendu mají jiný tvar než léky v telefonu pacienta (dávkování je text,
-// chybí "type"). FHIR export čeká tvar z telefonu, tak je převedeme.
-function toFhirItems(meds) {
-  return meds.map((med) => ({
-    ...med,
-    type: med.kind === 'regimen' ? ITEM_TYPES.ONKO : ITEM_TYPES.LEK,
-    source: med.source ?? med.sources?.[0],
-    // Pacient posílá "1-0-1-0 (ráno 1, večer 1)" – závorku uřízneme, aby šlo
-    // dávkování rozložit na ráno/poledne/večer/noc.
-    dosage: dosageFromText(med.frequency?.replace(/\s*\(.*\)$/, ''), med.amount),
-  }));
-}
-
 // Zkratka léku do matice, např. "Warfarin" → "WAR"
 function abbr(name) {
   return name.replace(/[^\p{L}\d]/gu, '').slice(0, 3).toUpperCase();
@@ -63,12 +46,16 @@ export default function Doctor() {
   // takže by o ně lékař přišel třeba jen kvůli omylem zadanému dalšímu kódu.
   const [meds, setMeds] = useState(null);
   const [open, setOpen] = useState(false); // jsou interakce rozbalené?
+  const [retryAfter, setRetryAfter] = useRetryAfter();
+  const controllerRef = useRef(null);
+  useEffect(() => () => controllerRef.current?.abort(), []);
 
   // Interakce přepočítáme jen když se změní seznam léků (useMemo si výsledek pamatuje).
   const { findings, matrix } = useMemo(() => checkMeds(meds ?? []), [meds]);
 
   async function handleSubmit(event) {
     event.preventDefault(); // formulář nemá znovu načíst stránku
+    if (controllerRef.current || retryAfter > 0) return;
 
     if (pin.length !== 4) {
       setErrorMsg(ERROR_MESSAGES.invalid_input);
@@ -77,14 +64,20 @@ export default function Doctor() {
 
     setLoading(true);
     setErrorMsg('');
+    const controller = new AbortController();
+    controllerRef.current = controller;
     try {
-      const data = await claimShare(pin);
+      const data = await claimShare(pin, { signal: controller.signal });
+      if (controller.signal.aborted) return;
       setMeds(data.medications);
       setOpen(false);
     } catch (err) {
-      setErrorMsg(ERROR_MESSAGES[err.message] ?? 'Nepodařilo se spojit se serverem. Zkuste to znovu.');
+      if (controller.signal.aborted) return;
+      setErrorMsg(err.retryAfter ? apiErrorMessage(err) : ERROR_MESSAGES[err.message] ?? apiErrorMessage(err));
+      setRetryAfter(err.retryAfter ?? 0);
     } finally {
-      setLoading(false); // "finally" proběhne vždy – po úspěchu i po chybě
+      if (!controller.signal.aborted) setLoading(false);
+      controllerRef.current = null;
     }
   }
 
@@ -99,7 +92,7 @@ export default function Doctor() {
   return (
     <div className="doc">
       {/* ---------- Hlavička se zadáním kódu ---------- */}
-      <header className="doc-header no-print">
+      <header className="doc-header">
         <span className="doc-brand">Lékař</span>
         <form className="doc-form" onSubmit={handleSubmit}>
           <label htmlFor="doc-pin">Kód pacienta</label>
@@ -113,8 +106,8 @@ export default function Doctor() {
             value={pin}
             onChange={handlePinChange}
           />
-          <button type="submit" className="doc-button" disabled={loading}>
-            {loading ? 'Načítám…' : 'Načíst'}
+          <button type="submit" className="doc-button" disabled={loading || retryAfter > 0}>
+            {loading ? 'Načítám…' : retryAfter > 0 ? `Počkejte ${retryAfter} s` : 'Načíst'}
           </button>
         </form>
       </header>
@@ -134,26 +127,9 @@ export default function Doctor() {
           <>
             {/* ---------- Tabulka léků ---------- */}
             <h1 className="doc-title">Léky pacienta ({meds.length})</h1>
-            <p className="doc-muted no-print">
+            <p className="doc-muted">
               Kód je jednorázový – data zmizí po zavření nebo obnovení stránky.
             </p>
-
-            {/* ---------- Stažení zprávy ---------- */}
-            <div className="doc-actions no-print">
-              <button type="button" className="doc-button doc-button-secondary" onClick={() => window.print()}>
-                <DownloadIcon size={22} />
-                Stáhnout PDF
-              </button>
-              {/* Soubor pro nemocniční systém (standard FHIR R4) */}
-              <button
-                type="button"
-                className="doc-button doc-button-secondary"
-                onClick={() => downloadFhir(toFhirItems(meds))}
-              >
-                <DownloadIcon size={22} />
-                Stáhnout pro nemocniční systém (FHIR)
-              </button>
-            </div>
 
             <div className="doc-table-wrap">
               <table className="doc-table">
@@ -171,6 +147,7 @@ export default function Doctor() {
                     <tr key={med.id}>
                       <td>
                         <strong>{med.name}</strong>
+                        {med.form && <p>{med.form}</p>}
                         {med.kind === 'regimen' && <span className="doc-kind"> (režim)</span>}
                       </td>
                       <td>{med.active_substance || '—'}</td>
