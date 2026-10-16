@@ -9,6 +9,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useOffline } from './OfflineContext.jsx';
 import { CheckIcon, OfflineIcon, RefreshIcon } from '../components/Icons.jsx';
 import './offline.css';
+import { t } from '../i18n/index.js';
 
 // Jak často se ptát serveru, jestli není nová verze appky (1 hodina)
 const UPDATE_CHECK_MS = 60 * 60 * 1000;
@@ -50,15 +51,15 @@ export default function AppStatus({ doctor = false }) {
         <div className="app-status app-status-update" role="status">
           <p className="app-status-title">
             <RefreshIcon />
-            <span>Je připravená nová verze aplikace</span>
+            <span>{t('offline.updateTitle')}</span>
           </p>
-          <p>Vaše léky zůstanou uložené.</p>
+          <p>{t('offline.updateText')}</p>
           <div className="app-status-actions">
             <button type="button" className="btn btn-primary" onClick={() => updateServiceWorker(true)}>
-              Načíst novou verzi
+              {t('offline.updateReload')}
             </button>
             <button type="button" className="btn btn-link" onClick={() => setNeedRefresh(false)}>
-              Teď ne
+              {t('offline.updateLater')}
             </button>
           </div>
         </div>
@@ -68,14 +69,14 @@ export default function AppStatus({ doctor = false }) {
         <div className="app-status app-status-offline" role="status">
           <p className="app-status-title">
             <OfflineIcon />
-            <span>Jste bez internetu</span>
+            <span>{t('offline.title')}</span>
           </p>
           {doctor ? (
-            <p>Načíst léky pacienta jde až po připojení.</p>
+            <p>{t('offline.doctorText')}</p>
           ) : (
             <p>
-              Nevadí. Vaše léky jsou uložené v telefonu a appka funguje dál.
-              {waitingPhotos > 0 && ` Uložené fotky (${waitingPhotos}) pošleme, až bude internet.`}
+              {t('offline.patientText')}
+              {waitingPhotos > 0 && ` ${t('offline.waitingPhotos', { count: waitingPhotos })}`}
             </p>
           )}
         </div>
@@ -83,7 +84,7 @@ export default function AppStatus({ doctor = false }) {
 
       {!doctor && online && sendingId && !onScan && (
         <div className="app-status" role="status">
-          <p>Internet je zpět. Posílám uložené fotky…</p>
+          <p>{t('offline.sendingSaved')}</p>
         </div>
       )}
 
@@ -91,9 +92,9 @@ export default function AppStatus({ doctor = false }) {
         <Link to="/vyfotit?fronta=1" className="app-status app-status-ready">
           <p className="app-status-title">
             <CheckIcon />
-            <span>Fotky jsou zpracované</span>
+            <span>{t('offline.readyTitle')}</span>
           </p>
-          <p>Klepněte sem a zkontrolujte, co jsme přečetli.</p>
+          <p>{t('offline.readyText')}</p>
         </Link>
       )}
     </div>

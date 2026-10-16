@@ -120,16 +120,17 @@ export function createSharePin(meds) {
     kind: med.kind ?? 'drug',
     // TODO(backend): backend nezná typ "doplněk" (kind je jen drug/regimen),
     // tak ho lékaři aspoň připíšeme k názvu.
+    // Texty pro lékaře posíláme vždy česky (lang 'cs'), ať je appka v jakémkoli jazyce.
     name: med.type === ITEM_TYPES.DOPLNEK ? `${med.name} (doplněk stravy)` : med.name,
     active_substance: med.active_substance ?? null,
     strength: med.strength || null,
-    form: med.type === ITEM_TYPES.ONKO ? oncoFormText(med.oncoForm) || null : med.form ?? null,
+    form: med.type === ITEM_TYPES.ONKO ? oncoFormText(med.oncoForm, 'cs') || null : med.form ?? null,
     // Backend zná dávkování jen jako text → "1-0-1-0 (ráno 1, večer 1)"
     // TODO(backend): "Užívám od", "Kdo předepsal" a "poslední dávka" backend zatím
     // neumí přijmout jako samostatná pole. Poslední dávku onkologické léčby
     // proto posíláme jako text v dávkování.
     ...(med.type === ITEM_TYPES.ONKO
-      ? { frequency: med.lastDose ? `poslední dávka/cyklus ${dateText(med.lastDose)}` : null, amount: null }
+      ? { frequency: med.lastDose ? `poslední dávka/cyklus ${dateText(med.lastDose, 'cs')}` : null, amount: null }
       : dosageToBackend(med.dosage)),
     source: med.source,
     // Z čeho lék je (lístek i krabička) a jestli byl lístek psaný rukou.

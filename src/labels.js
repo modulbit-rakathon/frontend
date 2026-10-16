@@ -1,17 +1,19 @@
 // Texty, které se opakují na více místech, máme pohromadě tady.
+// Samotné překlady jsou v src/i18n/.
+import { joinList, t } from './i18n/index.js';
 
 // Odkud lék pochází → štítek na kartě léku
 export const SOURCE_LABELS = {
-  box: 'z krabičky',
-  note: 'z lístku',
-  manual: 'ručně',
+  get box() { return t('source.box'); },
+  get note() { return t('source.note'); },
+  get manual() { return t('source.manual'); },
 };
 
 // Odkud lék je, když ho backend sloučil z více fotek: ["box", "note"] → "z krabičky a z lístku"
 export function sourcesText(med) {
   const list = med.sources?.length ? med.sources : [med.source];
   const texts = ['box', 'note', 'manual'].filter((s) => list.includes(s)).map((s) => SOURCE_LABELS[s]);
-  return texts.join(' a ');
+  return joinList(texts);
 }
 
 // Katalog píše názvy velkými písmeny ("PRESTARIUM NEO") – pro pacienta je
@@ -26,8 +28,8 @@ export function catalogName(name) {
 
 // Závažnost interakce → text (barva nikdy nesmí být jediná informace)
 export const SEVERITY_LABELS = {
-  high: 'Vysoké riziko',
-  medium: 'Střední riziko',
+  get high() { return t('severity.high'); },
+  get medium() { return t('severity.medium'); },
 };
 
 // Název léku + síla, např. "Ibuprofen 400 mg".
@@ -59,21 +61,14 @@ export function medName(med) {
 // Věta do zprávy podle toho, odkud údaje skutečně pocházejí.
 // Např. ["box", "manual"] → "Údaje pocházejí z fotek krabiček a z ručního zadání. Pacient je potvrdil."
 export function sourcesSentence(items) {
-  const parts = {
-    box: 'z fotek krabiček',
-    note: 'z fotky lístku od lékaře',
-    manual: 'z ručního zadání',
-  };
   // Každý zdroj jen jednou a ve stálém pořadí
   const used = ['box', 'note', 'manual'].filter((s) =>
     items.some((i) => (i.sources?.length ? i.sources : [i.source]).includes(s)),
   );
   if (used.length === 0) return '';
 
-  const texts = used.map((s) => parts[s]);
-  const joined =
-    texts.length === 1 ? texts[0] : `${texts.slice(0, -1).join(', ')} a ${texts[texts.length - 1]}`;
-  return `Údaje pocházejí ${joined}. Pacient je potvrdil.`;
+  // "A, B a C" – spojku doplní joinList podle jazyka
+  return t('sources.sentence', { list: joinList(used.map((s) => t(`sources.${s}`))) });
 }
 
 // Dávkování, např. "3× denně · 1 tableta"
@@ -81,9 +76,7 @@ export function medDosage(med) {
   return [med.frequency, med.amount].filter(Boolean).join(' · ');
 }
 
-// Správný tvar slova podle počtu: 1 lék, 2 léky, 5 léků
+// Správný tvar slova podle počtu: 1 lék, 2 léky, 5 léků (podle jazyka, viz 'count.meds')
 export function pluralLeky(count) {
-  if (count === 1) return '1 lék';
-  if (count >= 2 && count <= 4) return `${count} léky`;
-  return `${count} léků`;
+  return t('count.meds', { count });
 }

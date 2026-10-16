@@ -16,36 +16,38 @@ import { ChevronIcon, DownloadIcon } from '../components/Icons.jsx';
 import { medDosage, pluralLeky } from '../labels.js';
 import { downloadFhir } from '../fhir.js';
 import { ITEM_TYPES, dosageFromText } from '../types.js';
+import { getLang, t } from '../i18n/index.js';
+import LanguageSwitch from '../components/LanguageSwitch.jsx';
 
-// Zdroj léku v "lékařské" podobě (podstatné jméno)
-const SOURCE_NOUNS = { box: 'krabička', note: 'lístek', manual: 'ručně' };
+// Zdroj léku v "lékařské" podobě (podstatné jméno): 'box' → "krabička"
+const SOURCE_KEYS = ['box', 'note', 'manual'];
 
 // Závažnost z DDInter: text na kartě, symbol a popis v matici a barva (třída CSS).
 // Barva nikdy není jediná informace – vždy i text nebo symbol.
+// tag a label jsou gettery → vždy v aktuálním jazyce ('doc.level.<klíč>.tag/label').
+function level(key, symbol, css, hasTag = true) {
+  return {
+    symbol,
+    css,
+    get tag() { return hasTag ? t(`doc.level.${key}.tag`) : ''; },
+    get label() { return t(`doc.level.${key}.label`); },
+  };
+}
+
 const LEVELS = {
-  major: { tag: 'Závažná', symbol: '!', label: 'závažná interakce', css: 'high' },
-  moderate: { tag: 'Středně závažná', symbol: '~', label: 'středně závažná interakce', css: 'medium' },
-  minor: { tag: 'Méně závažná', symbol: '·', label: 'méně závažná interakce', css: 'low' },
-  unknown: { tag: 'Závažnost neuvedena', symbol: '?', label: 'interakce bez uvedené závažnosti', css: 'low' },
-  same: { tag: 'Duplicita', symbol: '=', label: 'stejná účinná látka', css: 'same' },
-  none: { tag: '', symbol: '', label: 'v DDInter nenalezeno', css: 'none' },
+  major: level('major', '!', 'high'),
+  moderate: level('moderate', '~', 'medium'),
+  minor: level('minor', '·', 'low'),
+  unknown: level('unknown', '?', 'low'),
+  same: level('same', '=', 'same'),
+  none: level('none', '', 'none', false),
 };
 
-// Proč se položku nepodařilo zkontrolovat
-const UNCHECKED_REASONS = {
-  no_active_substance: 'neznámá účinná látka',
-  not_in_source: 'látka není v DDInter',
-  partly_in_source: 'část látek není v DDInter',
-  unknown_regimen: 'neznámá zkratka režimu',
-};
+// Proč se položku nepodařilo zkontrolovat ('doc.reason.<kód>')
+const UNCHECKED_REASONS = ['no_active_substance', 'not_in_source', 'partly_in_source', 'unknown_regimen'];
 
-// Chybové kódy z backendu → věta pro lékaře
-const ERROR_MESSAGES = {
-  not_found: 'Kód neexistuje nebo už vypršel. Kód platí 3 minuty a jde použít jen jednou – požádejte pacienta o nový.',
-  rate_limited: 'Příliš mnoho špatných pokusů. Zkuste to za chvíli.',
-  invalid_input: 'Kód musí mít 4 číslice.',
-  offline: 'Počítač není připojený k internetu. Po připojení klikněte znovu na „Načíst“.',
-};
+// Chybové kódy z backendu, pro které máme větu pro lékaře ('doc.error.<kód>')
+const ERROR_CODES = ['not_found', 'rate_limited', 'invalid_input', 'offline'];
 
 // Léky od backendu mají jiný tvar než léky v telefonu pacienta (dávkování je text,
 // chybí "type"). FHIR export čeká tvar z telefonu, tak je převedeme.
@@ -68,7 +70,7 @@ function abbr(name) {
 export default function Doctor() {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false); // čekáme na backend?
-  const [errorMsg, setErrorMsg] = useState(''); // text chyby ('' = žádná chyba)
+  const [errorCode, setErrorCode] = useState(''); // kód chyby ('' = žádná chyba)
   // null = zatím nic nenačteno. Při chybě léky NEMAŽEME – kód je jednorázový,
   // takže by o ně lékař přišel třeba jen kvůli omylem zadanému dalšímu kódu.
   const [meds, setMeds] = useState(null);
@@ -90,19 +92,19 @@ export default function Doctor() {
     event.preventDefault(); // formulář nemá znovu načíst stránku
 
     if (pin.length !== 4) {
-      setErrorMsg(ERROR_MESSAGES.invalid_input);
+      setErrorCode('invalid_input');
       return;
     }
 
     setLoading(true);
-    setErrorMsg('');
+    setErrorCode('');
     try {
       const data = await claimShare(pin);
       setMeds(data.medications);
       setOpen(false);
       runCheck(data.medications);
     } catch (err) {
-      setErrorMsg(ERROR_MESSAGES[err.message] ?? 'Nepodařilo se spojit se serverem. Zkuste to znovu.');
+      setErrorCode(ERROR_CODES.includes(err.message) ? err.message : 'network');
     } finally {
       setLoading(false); // "finally" proběhne vždy – po úspěchu i po chybě
     }
@@ -123,9 +125,9 @@ export default function Doctor() {
     <div className="doc">
       {/* ---------- Hlavička se zadáním kódu ---------- */}
       <header className="doc-header no-print">
-        <span className="doc-brand">Lékař</span>
+        <span className="doc-brand">{t('doc.brand')}</span>
         <form className="doc-form" onSubmit={handleSubmit}>
-          <label htmlFor="doc-pin">Kód pacienta</label>
+          <label htmlFor="doc-pin">{t('doc.pinLabel')}</label>
           <input
             id="doc-pin"
             className="doc-pin"
@@ -137,35 +139,31 @@ export default function Doctor() {
             onChange={handlePinChange}
           />
           <button type="submit" className="doc-button" disabled={loading}>
-            {loading ? 'Načítám…' : 'Načíst'}
+            {loading ? t('doc.loading') : t('doc.load')}
           </button>
         </form>
       </header>
 
       <main className="doc-main">
-        {meds === null && !errorMsg && (
-          <p className="doc-muted">Zadejte 4místný kód, který vám nadiktuje pacient.</p>
-        )}
+        {meds === null && !errorCode && <p className="doc-muted">{t('doc.enterCode')}</p>}
 
-        {errorMsg && (
+        {errorCode && (
           <p className="doc-error" role="alert">
-            {errorMsg}
+            {t(`doc.error.${errorCode}`, { button: t('doc.load') })}
           </p>
         )}
 
         {meds !== null && (
           <>
             {/* ---------- Tabulka léků ---------- */}
-            <h1 className="doc-title">Léky pacienta ({meds.length})</h1>
-            <p className="doc-muted no-print">
-              Kód je jednorázový – data zmizí po zavření nebo obnovení stránky.
-            </p>
+            <h1 className="doc-title">{t('doc.medsTitle', { count: meds.length })}</h1>
+            <p className="doc-muted no-print">{t('doc.oneTime')}</p>
 
             {/* ---------- Stažení zprávy ---------- */}
             <div className="doc-actions no-print">
               <button type="button" className="doc-button doc-button-secondary" onClick={() => window.print()}>
                 <DownloadIcon size={22} />
-                Stáhnout PDF
+                {t('doc.pdf')}
               </button>
               {/* Soubor pro nemocniční systém (standard FHIR R4) */}
               <button
@@ -174,7 +172,7 @@ export default function Doctor() {
                 onClick={() => downloadFhir(toFhirItems(meds))}
               >
                 <DownloadIcon size={22} />
-                Stáhnout pro nemocniční systém (FHIR)
+                {t('doc.fhir')}
               </button>
             </div>
 
@@ -182,11 +180,11 @@ export default function Doctor() {
               <table className="doc-table">
                 <thead>
                   <tr>
-                    <th>Lék</th>
-                    <th>Účinná látka</th>
-                    <th>Síla</th>
-                    <th>Dávkování</th>
-                    <th>Zdroj</th>
+                    <th>{t('doc.col.med')}</th>
+                    <th>{t('doc.col.substance')}</th>
+                    <th>{t('doc.col.strength')}</th>
+                    <th>{t('doc.col.dosage')}</th>
+                    <th>{t('doc.col.source')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -194,7 +192,7 @@ export default function Doctor() {
                     <tr key={med.id}>
                       <td>
                         <strong>{med.name}</strong>
-                        {med.kind === 'regimen' && <span className="doc-kind"> (režim)</span>}
+                        {med.kind === 'regimen' && <span className="doc-kind"> {t('doc.regimen')}</span>}
                       </td>
                       <td>
                         {med.kind === 'regimen' ? <RegimenDrugs info={result?.regimens[med.id]} status={check.status} /> : med.active_substance || '—'}
@@ -202,7 +200,11 @@ export default function Doctor() {
                       <td>{med.strength || '—'}</td>
                       <td>{medDosage(med) || '—'}</td>
                       {/* sources[] = lék byl nalezen na více místech (lístek i krabička) */}
-                      <td>{(med.sources ?? [med.source]).map((s) => SOURCE_NOUNS[s]).join(' + ')}</td>
+                      <td>
+                        {(med.sources ?? [med.source])
+                          .map((s) => (SOURCE_KEYS.includes(s) ? t(`doc.source.${s}`) : s))
+                          .join(' + ')}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -211,13 +213,13 @@ export default function Doctor() {
 
             {/* ---------- Rozbalovací lišta s interakcemi ---------- */}
             <section className={open ? 'doc-interactions doc-interactions-open' : 'doc-interactions'}>
-              {check.status === 'loading' && <p className="doc-toggle doc-toggle-static">Načítám interakce…</p>}
+              {check.status === 'loading' && <p className="doc-toggle doc-toggle-static">{t('doc.interLoading')}</p>}
 
               {check.status === 'error' && (
                 <div className="doc-toggle doc-toggle-static" role="alert">
-                  <strong>Interakce se nepodařilo načíst</strong>
+                  <strong>{t('doc.interError')}</strong>
                   <button type="button" className="doc-button doc-button-secondary doc-toggle-retry" onClick={() => runCheck(meds)}>
-                    Zkusit znovu
+                    {t('common.tryAgain')}
                   </button>
                 </div>
               )}
@@ -233,11 +235,11 @@ export default function Doctor() {
                   <span className={open ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
                     <ChevronIcon size={22} />
                   </span>
-                  <strong>Interakce ({findingCount})</strong>
+                  <strong>{t('doc.interactions', { count: findingCount })}</strong>
                   {result.unchecked.length > 0 && (
-                    <span className="doc-muted">· nezkontrolováno: {result.unchecked.length}</span>
+                    <span className="doc-muted">{t('doc.uncheckedCount', { count: result.unchecked.length })}</span>
                   )}
-                  <span className="doc-toggle-hint">{open ? 'Skrýt' : 'Zobrazit'}</span>
+                  <span className="doc-toggle-hint">{open ? t('doc.hide') : t('doc.show')}</span>
                 </button>
               )}
 
@@ -247,8 +249,7 @@ export default function Doctor() {
                   <div className="doc-findings">
                     {findingCount === 0 && (
                       <p className="doc-finding doc-finding-none">
-                        Interakce nenalezeny v databázi {result.checkedAgainst?.name ?? 'DDInter'}. To neznamená, že žádné
-                        nejsou.
+                        {t('doc.none', { db: result.checkedAgainst?.name ?? 'DDInter' })}
                       </p>
                     )}
                     {result.findings.map((f) => (
@@ -262,7 +263,7 @@ export default function Doctor() {
                           <p key={pair.substances} className="doc-finding-meds">
                             {pair.substances}
                             {f.pairs.length > 1 && pair.level !== f.level && (
-                              <span className="doc-kind"> ({LEVELS[pair.level].tag.toLowerCase()})</span>
+                              <span className="doc-kind"> ({LEVELS[pair.level].tag.toLocaleLowerCase(getLang())})</span>
                             )}
                           </p>
                         ))}
@@ -274,18 +275,18 @@ export default function Doctor() {
                         <h3>
                           {nameOf(d.a)} + {nameOf(d.b)}
                         </h3>
-                        <p>Dva přípravky se stejnou účinnou látkou ({d.substance}).</p>
+                        <p>{t('doc.duplicate', { substance: d.substance })}</p>
                       </article>
                     ))}
 
                     {/* Co se zkontrolovat nepodařilo – nikdy to nezamlčíme */}
                     {result.unchecked.length > 0 && (
                       <div className="doc-finding doc-finding-none">
-                        <p className="doc-finding-tag">Nezkontrolováno</p>
+                        <p className="doc-finding-tag">{t('doc.uncheckedTag')}</p>
                         <ul className="doc-unchecked">
                           {result.unchecked.map((u) => (
                             <li key={u.id}>
-                              <strong>{u.name}</strong> – {UNCHECKED_REASONS[u.reason] ?? u.reason}
+                              <strong>{u.name}</strong> – {UNCHECKED_REASONS.includes(u.reason) ? t(`doc.reason.${u.reason}`) : u.reason}
                               {u.substances?.length > 0 && ` (${u.substances.join(', ')})`}
                             </li>
                           ))}
@@ -297,11 +298,11 @@ export default function Doctor() {
                       {result.note}{' '}
                       {result.checkedAgainst && (
                         <>
-                          Zdroj:{' '}
+                          {t('doc.sourceLabel')}{' '}
                           <a href={result.checkedAgainst.url} target="_blank" rel="noreferrer">
                             {result.checkedAgainst.name}
                           </a>{' '}
-                          ({result.checkedAgainst.license}, {result.checkedAgainst.version}). Ověřte s farmaceutem.
+                          ({result.checkedAgainst.license}, {result.checkedAgainst.version}). {t('doc.verify')}
                         </>
                       )}
                     </p>
@@ -310,9 +311,9 @@ export default function Doctor() {
                   {/* Vpravo: matice dvojic */}
                   <div className="doc-matrix-box">
                     <h2>
-                      Matice dvojic{' '}
+                      {t('doc.matrix')}{' '}
                       <span className="doc-muted">
-                        {pluralLeky(meds.length)} = {pairCount} dvojic
+                        {pluralLeky(meds.length)} = {t('doc.pairs', { count: pairCount })}
                       </span>
                     </h2>
                     <div className="doc-matrix-row">
@@ -370,20 +371,26 @@ export default function Doctor() {
           </>
         )}
       </main>
+
+      {/* Jazyk – jen nenápadně dole, hlavička má jen nadpis a kód */}
+      <footer className="doc-footer no-print">
+        <LanguageSwitch variant="doc" />
+      </footer>
     </div>
   );
 }
 
 // Léčiva onkologického režimu podle zkratky (z /api/regimens/resolve)
 function RegimenDrugs({ info, status }) {
-  if (status === 'loading') return <span className="doc-muted">Hledám složení…</span>;
-  if (!info) return <span className="doc-muted">neznámá zkratka</span>;
+  if (status === 'loading') return <span className="doc-muted">{t('doc.regimenLoading')}</span>;
+  if (!info) return <span className="doc-muted">{t('doc.regimenUnknown')}</span>;
   return (
     <>
       {info.drugs.join(', ')}
       <span className="doc-kind">
         {' '}
-        (podle zkratky{info.variants.length > 1 ? `, ${info.variants.length} varianty` : ''},{' '}
+        ({t('doc.byAbbr')}
+        {info.variants.length > 1 ? `, ${t('doc.variants', { count: info.variants.length })}` : ''},{' '}
         <a href={info.source.url} target="_blank" rel="noreferrer">
           HemOnc
         </a>

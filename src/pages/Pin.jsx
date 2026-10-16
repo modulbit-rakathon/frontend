@@ -23,6 +23,7 @@ import { useMeds } from '../context/MedsContext.jsx';
 import { createSharePin } from '../api.js';
 import { OfflineIcon, WarningIcon } from '../components/Icons.jsx';
 import { useOnline } from '../offline/network.js';
+import { t, tRich } from '../i18n/index.js';
 
 // Adresa lékařské stránky (stejný server, na kterém běží appka)
 const DOCTOR_URL = `${window.location.origin}/doc`;
@@ -115,43 +116,43 @@ export default function Pin() {
 
   return (
     <>
-      <h1>Sdílet s lékařem</h1>
+      <h1>{t('pin.title')}</h1>
 
       {step === 'empty' && (
-        <p className="subtitle">Zatím nemáte žádné léky. Nejdřív nějaký přidejte.</p>
+        <p className="subtitle">{t('common.noMedsYet')}</p>
       )}
 
       {step === 'loading' && (
         <>
-          <p className="subtitle">Připravuji kód…</p>
-          <div className="spinner" role="status" aria-label="Načítám" />
+          <p className="subtitle">{t('pin.preparing')}</p>
+          <div className="spinner" role="status" aria-label={t('common.loading')} />
         </>
       )}
 
       {step === 'ready' && (
         <>
-          <p className="subtitle">Ukažte lékaři tuto obrazovku</p>
+          <p className="subtitle">{t('pin.show')}</p>
 
           {qrUrl && (
             <figure className="share-qr">
-              <img src={qrUrl} alt="QR kód, který otevře stránku pro lékaře" />
-              <figcaption>Lékař si QR načte telefonem, nebo otevře {DOCTOR_URL.replace(/^https?:\/\//, '')}</figcaption>
+              <img src={qrUrl} alt={t('pin.qrAlt')} />
+              <figcaption>{t('pin.qrCaption', { url: DOCTOR_URL.replace(/^https?:\/\//, '') })}</figcaption>
             </figure>
           )}
 
-          <p className="share-step">a zadá tento kód:</p>
+          <p className="share-step">{t('pin.enterCode')}</p>
           {/* Čtečka obrazovky přečte kód po jednotlivých číslicích: "1 2 3 4" */}
-          <p className="pin-code" aria-label={`Kód ${share.pin.split('').join(' ')}`}>
+          <p className="pin-code" aria-label={t('pin.codeAria', { digits: share.pin.split('').join(' ') })}>
             {share.pin}
           </p>
 
           {/* aria-live off: odpočet by čtečka jinak hlásila každou sekundu */}
           <p className="pin-expiry">
-            Kód platí ještě <strong>{formatLeft(msLeft)}</strong> min a jde použít jen jednou.
+            {tRich('pin.expiry', { time: <strong>{formatLeft(msLeft)}</strong> })}
           </p>
 
           <button type="button" className="btn btn-secondary" onClick={endSharing}>
-            Ukončit sdílení
+            {t('pin.end')}
           </button>
         </>
       )}
@@ -160,12 +161,12 @@ export default function Pin() {
         <>
           <div className="box box-info" role="status">
             <div className="box-title">
-              <span>Sdílení ukončeno</span>
+              <span>{t('pin.endedTitle')}</span>
             </div>
-            <p>Kód jsme skryli. Pokud ho lékař ještě nezadal, sám přestane platit do pár minut.</p>
+            <p>{t('pin.endedText')}</p>
           </div>
           <button type="button" className="btn btn-primary" onClick={newPin}>
-            Sdílet znovu
+            {t('pin.shareAgain')}
           </button>
         </>
       )}
@@ -175,12 +176,12 @@ export default function Pin() {
           <div className="box box-info">
             <div className="box-title">
               <WarningIcon />
-              <span>Kód už neplatí</span>
+              <span>{t('pin.expiredTitle')}</span>
             </div>
-            <p>Z bezpečnostních důvodů platí kód jen pár minut.</p>
+            <p>{t('pin.expiredText')}</p>
           </div>
           <button type="button" className="btn btn-primary" onClick={newPin}>
-            Vytvořit nový kód
+            {t('pin.newCode')}
           </button>
         </>
       )}
@@ -190,16 +191,16 @@ export default function Pin() {
           <div className="box box-info" role="status">
             <div className="box-title">
               <OfflineIcon />
-              <span>Kód pro lékaře potřebuje internet</span>
+              <span>{t('offline.pinTitle')}</span>
             </div>
-            <p>Teď nejste připojeni. Jakmile internet bude, kód se vytvoří sám.</p>
-            <p>Mezitím můžete lékaři ukázat seznam léků přímo v telefonu.</p>
+            <p>{t('offline.pinText')}</p>
+            <p>{t('offline.pinMeanwhile')}</p>
           </div>
           <Link to="/zprava" className="btn btn-primary">
-            Ukázat lékaři zprávu
+            {t('offline.pinShowReport')}
           </Link>
           <button type="button" className="btn btn-secondary" onClick={newPin}>
-            Zkusit znovu
+            {t('common.tryAgain')}
           </button>
         </>
       )}
@@ -209,12 +210,12 @@ export default function Pin() {
           <div className="box box-warning">
             <div className="box-title">
               <WarningIcon />
-              <span>Kód se nepodařilo vytvořit</span>
+              <span>{t('pin.errorTitle')}</span>
             </div>
-            <p>Zkontrolujte připojení k internetu a zkuste to znovu.</p>
+            <p>{t('common.checkConnection')}</p>
           </div>
           <button type="button" className="btn btn-primary" onClick={newPin}>
-            Zkusit znovu
+            {t('common.tryAgain')}
           </button>
         </>
       )}

@@ -27,6 +27,7 @@ export default defineConfig(({ mode }) => {
           name: 'PillGaze – moje léky',
           short_name: 'PillGaze',
           description: 'Vyfoťte své léky a ukažte jejich seznam lékaři.',
+          // Výchozí jazyk instalované appky; jazyk stránky pak přepíná src/i18n (applyLang).
           lang: 'cs',
           dir: 'ltr',
           start_url: '/',

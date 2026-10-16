@@ -15,21 +15,14 @@ import {
   oncoFormText,
   prescriberText,
 } from './types.js';
+import { t } from './i18n/index.js';
 
 // Denní doba → kód FHIR (EventTiming). HS = před spaním.
 const FHIR_WHEN = { morning: 'MORN', noon: 'NOON', evening: 'EVE', night: 'HS' };
 
-const SOURCE_TEXT = {
-  box: 'fotka krabičky',
-  note: 'fotka lístku od lékaře',
-  manual: 'zadáno ručně pacientem',
-};
-
-const CATEGORY_TEXT = {
-  [ITEM_TYPES.LEK]: 'Lék',
-  [ITEM_TYPES.DOPLNEK]: 'Doplněk stravy / bylinka',
-  [ITEM_TYPES.ONKO]: 'Onkologická léčba',
-};
+// Texty v souboru jsou v jazyce, který má lékař právě zapnutý.
+const SOURCES = ['box', 'note', 'manual'];
+const CATEGORIES = Object.values(ITEM_TYPES); // lek, doplnek, onko
 
 // Náhodné UUID. crypto.randomUUID funguje jen na https/localhost,
 // na mobilu přes http://192.168… ne – proto záložní varianta.
@@ -55,11 +48,11 @@ function toFhirDosage(item) {
   }
   // Stejné "sequence" = dávky platí SOUBĚŽNĚ (ráno i večer každý den).
   // Různá čísla by ve FHIR znamenala "nejdřív tohle, potom tamto".
-  return DOSE_TIMES.filter((t) => d[t.key] > 0).map((t) => ({
+  return DOSE_TIMES.filter((time) => d[time.key] > 0).map((time) => ({
     sequence: 1,
-    text: `${t.short} ${d[t.key]} ks`,
-    timing: { repeat: { frequency: 1, period: 1, periodUnit: 'd', when: [FHIR_WHEN[t.key]] } },
-    doseAndRate: [{ doseQuantity: { value: d[t.key], unit: 'ks' } }],
+    text: `${time.short} ${d[time.key]} ${t('unit.pieces')}`,
+    timing: { repeat: { frequency: 1, period: 1, periodUnit: 'd', when: [FHIR_WHEN[time.key]] } },
+    doseAndRate: [{ doseQuantity: { value: d[time.key], unit: t('unit.pieces') } }],
   }));
 }
 
@@ -67,11 +60,15 @@ function toFhirDosage(item) {
 function toFhirNotes(item) {
   const lines = [
     // U léku z lístku i z krabičky jsou zdroje dva
-    `Zdroj: ${(item.sources?.length ? item.sources : [item.source]).map((s) => SOURCE_TEXT[s] ?? s).join(' + ')}`,
-    item.active_substance && `Účinná látka: ${item.active_substance}`,
-    item.prescriber && `Předepsal: ${prescriberText(item.prescriber)}`,
-    item.oncoForm && `Forma léčby: ${oncoFormText(item.oncoForm)}`,
-    item.lastDose && `Poslední dávka / cyklus: ${dateText(item.lastDose)}`,
+    t('fhir.source', {
+      list: (item.sources?.length ? item.sources : [item.source])
+        .map((s) => (SOURCES.includes(s) ? t(`fhir.source.${s}`) : s))
+        .join(' + '),
+    }),
+    item.active_substance && t('fhir.substance', { value: item.active_substance }),
+    item.prescriber && t('fhir.prescriber', { value: prescriberText(item.prescriber) }),
+    item.oncoForm && t('fhir.oncoForm', { value: oncoFormText(item.oncoForm) }),
+    item.lastDose && t('fhir.lastDose', { date: dateText(item.lastDose) }),
   ];
   return lines.filter(Boolean).map((text) => ({ text }));
 }
@@ -96,7 +93,7 @@ export function buildFhirBundle(items) {
             code: 'patientspecified', // údaj uvádí pacient
           },
         ],
-        text: CATEGORY_TEXT[item.type],
+        text: CATEGORIES.includes(item.type) ? t(`fhir.category.${item.type}`) : undefined,
       },
       medicationCodeableConcept: { text: [item.name, item.strength].filter(Boolean).join(' ') },
       subject: { reference: patientUrl },
