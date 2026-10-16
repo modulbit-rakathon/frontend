@@ -493,6 +493,17 @@ export default {
   'scan.editPhotos': 'Upravit fotky',
   'scan.manualSub': 'Opište údaje z krabičky nebo lístku.',
   'scan.ratherPhoto': 'Raději vyfotit',
+  'camera.close': 'Zavřít',
+  'camera.shutter': 'Vyfotit',
+  'camera.done': 'Hotovo',
+  'camera.taken': 'Vyfoceno: {count}',
+  'camera.lastPhoto': 'Poslední fotka',
+  'camera.starting': 'Zapínám fotoaparát…',
+  'camera.denied': 'Fotoaparát není povolený.',
+  'camera.denied.hint': 'Povolte ho v nastavení prohlížeče, nebo fotku vyberte jinak.',
+  'camera.unavailable': 'Fotoaparát se nepodařilo zapnout.',
+  'camera.unavailable.hint': 'Možná ho používá jiná aplikace. Fotku můžete vybrat jinak.',
+  'camera.fallback': 'Vybrat fotku jinak',
 
   // --- Jednotky ---
   'unit.mb': '{n} MB',
