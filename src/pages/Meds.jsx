@@ -9,6 +9,7 @@ import { CameraIcon, CheckIcon, ChevronIcon, InfoIcon, PillIcon } from '../compo
 import { medName, sourcesText } from '../labels.js';
 import SpeakButton from '../components/SpeakButton.jsx';
 import MedEdit from '../components/MedEdit.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { t } from '../i18n/index.js';
 import {
   ITEM_TYPES,
@@ -29,6 +30,7 @@ export default function Meds() {
   const [openId, setOpenId] = useState(null); // ID rozbaleného léku (null = žádný)
   // ID léku, který se upravuje – vždy jen jeden (formulář má pevná id polí)
   const [editingId, setEditingId] = useState(null);
+  const [toRemove, setToRemove] = useState(null); // lék, u kterého se ptáme "Opravdu odebrat?"
 
   // V jednom seznamu jsou léky i doplňky – rozdělíme je podle typu.
   const meds = itemsOfType(items, ITEM_TYPES.LEK);
@@ -65,10 +67,9 @@ export default function Meds() {
     setEditingId(null);
   }
 
-  function handleRemove(med) {
-    if (window.confirm(t('meds.confirmRemove', { name: med.name }))) {
-      removeMed(med.id);
-    }
+  function confirmRemove() {
+    removeMed(toRemove.id);
+    setToRemove(null);
   }
 
   return (
@@ -175,7 +176,7 @@ export default function Meds() {
                   <button type="button" className="btn btn-secondary" onClick={() => setEditingId(med.id)}>
                     {t('meds.edit')}
                   </button>
-                  <button type="button" className="btn-text" onClick={() => handleRemove(med)}>
+                  <button type="button" className="btn-text" onClick={() => setToRemove(med)}>
                     {t('common.remove')}
                   </button>
                 </div>
@@ -218,6 +219,17 @@ export default function Meds() {
           <Link to="/onkologie">{t('meds.change')}</Link>
         </p>
       )}
+
+      <ConfirmDialog
+        open={Boolean(toRemove)}
+        title={t('meds.confirmRemove', { name: toRemove ? medName(toRemove) : '' })}
+        text={t('meds.confirmRemoveText')}
+        confirmLabel={t('common.remove')}
+        cancelLabel={t('meds.keep')}
+        danger
+        onConfirm={confirmRemove}
+        onCancel={() => setToRemove(null)}
+      />
     </>
   );
 }

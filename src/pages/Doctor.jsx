@@ -5,12 +5,16 @@
 // je rozbalovací lišta s nálezy a maticí dvojic.
 // Onkologická léčba (režimy) má vlastní lištu mezi tabulkou léků a interakcemi.
 //
+// Dokud není načtený žádný pacient, ptáme se na kód v okně přes celou stránku
+// (CodeDialog). Další kód jde zadat v hlavičce, tlačítkem „Zavřít pacienta“
+// se načtený pacient zahodí a okno s kódem se ukáže znovu.
+//
 // Tahle stránka je pro počítač v ordinaci, ne pro pacienta – proto má
 // vlastní rozložení bez spodní lišty (viz App.jsx).
 //
 // Po načtení léků jde zprávu stáhnout jako PDF (generuje backend, POST /api/report/pdf)
 // nebo jako soubor FHIR pro nemocniční systém.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { claimShare, downloadReportPdf } from '../api.js';
 import { LEVEL_RANK, checkMeds, pickShared } from '../doctorCheck.js';
 import { ChevronIcon, DownloadIcon } from '../components/Icons.jsx';
@@ -19,6 +23,7 @@ import { downloadFhir } from '../fhir.js';
 import { ITEM_TYPES, dosageFromText } from '../types.js';
 import { getLang, t } from '../i18n/index.js';
 import LanguageSwitch from '../components/LanguageSwitch.jsx';
+import ConfirmDialog from '../components/ConfirmDialog.jsx';
 
 // Zdroj léku v "lékařské" podobě (podstatné jméno): 'box' → "krabička"
 const SOURCE_KEYS = ['box', 'note', 'manual'];
@@ -93,15 +98,31 @@ export default function Doctor() {
   // Kontrola interakcí: status 'loading' | 'done' | 'error', result = výsledek checkMeds
   const [check, setCheck] = useState({ status: 'loading', result: null });
   const [pdfState, setPdfState] = useState('idle'); // 'idle' | 'loading' | 'error'
+  const [confirmDiscard, setConfirmDiscard] = useState(false); // ptáme se na zavření pacienta?
+  // Pořadí kontroly interakcí – výsledek staré kontroly (předchozí pacient)
+  // nesmí přepsat výsledek pro nového.
+  const checkRun = useRef(0);
 
   // Spustí kontrolu interakcí na pozadí (preload) – po rozbalení lišty je už hotová.
   async function runCheck(list) {
+    const run = ++checkRun.current;
     setCheck({ status: 'loading', result: null });
     try {
-      setCheck({ status: 'done', result: await checkMeds(list) });
+      const result = await checkMeds(list);
+      if (run === checkRun.current) setCheck({ status: 'done', result });
     } catch {
-      setCheck({ status: 'error', result: null });
+      if (run === checkRun.current) setCheck({ status: 'error', result: null });
     }
+  }
+
+  // Zahodí načteného pacienta → znovu se ukáže okno s kódem
+  function discardPatient() {
+    checkRun.current++;
+    setMeds(null);
+    setPin('');
+    setErrorCode('');
+    setCheck({ status: 'loading', result: null });
+    setPdfState('idle');
   }
 
   async function handleSubmit(event) {
@@ -117,6 +138,7 @@ export default function Doctor() {
     try {
       const data = await claimShare(pin);
       setMeds(data.medications);
+      setPin('');
       setOpen(false);
       setOncoOpen(true);
       setSupplementsOpen(true);
@@ -164,31 +186,65 @@ export default function Doctor() {
 
   return (
     <div className="doc">
-      {/* ---------- Hlavička se zadáním kódu ---------- */}
+      {/* První kód: okno přes celou stránku, dokud není načtený žádný pacient */}
+      <CodeDialog
+        open={meds === null}
+        pin={pin}
+        loading={loading}
+        errorCode={errorCode}
+        onPinChange={handlePinChange}
+        onSubmit={handleSubmit}
+      />
+
+      <ConfirmDialog
+        open={confirmDiscard}
+        title={t('doc.discardTitle')}
+        text={t('doc.discardText')}
+        confirmLabel={t('doc.discard')}
+        cancelLabel={t('doc.discardKeep')}
+        danger
+        onConfirm={() => {
+          setConfirmDiscard(false);
+          discardPatient();
+        }}
+        onCancel={() => setConfirmDiscard(false)}
+      />
+
+      {/* ---------- Hlavička se zadáním dalšího kódu ---------- */}
       <header className="doc-header no-print">
         <span className="doc-brand">{t('doc.brand')}</span>
-        <form className="doc-form" onSubmit={handleSubmit}>
-          <label htmlFor="doc-pin">{t('doc.pinLabel')}</label>
-          <input
-            id="doc-pin"
-            className="doc-pin"
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            placeholder="0000"
-            value={pin}
-            onChange={handlePinChange}
-          />
-          <button type="submit" className="doc-button" disabled={loading}>
-            {loading ? t('doc.loading') : t('doc.load')}
-          </button>
-        </form>
+        {meds !== null && (
+          <>
+            <form className="doc-form" onSubmit={handleSubmit}>
+              <label htmlFor="doc-pin">{t('doc.pinLabel')}</label>
+              <input
+                id="doc-pin"
+                className="doc-pin"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="0000"
+                value={pin}
+                onChange={handlePinChange}
+              />
+              <button type="submit" className="doc-button" disabled={loading}>
+                {loading ? t('doc.loading') : t('doc.load')}
+              </button>
+            </form>
+            <button
+              type="button"
+              className="doc-button doc-button-secondary doc-discard"
+              onClick={() => setConfirmDiscard(true)}
+            >
+              {t('doc.discard')}
+            </button>
+          </>
+        )}
       </header>
 
       <main className="doc-main">
-        {meds === null && !errorCode && <p className="doc-muted">{t('doc.enterCode')}</p>}
-
-        {errorCode && (
+        {/* Chyba prvního kódu se ukazuje přímo v okně s kódem */}
+        {meds !== null && errorCode && (
           <p className="doc-error" role="alert">
             {t(`doc.error.${errorCode}`, { button: t('doc.load') })}
           </p>
@@ -510,11 +566,88 @@ export default function Doctor() {
         )}
       </main>
 
-      {/* Jazyk – jen nenápadně dole, hlavička má jen nadpis a kód */}
-      <footer className="doc-footer no-print">
-        <LanguageSwitch variant="doc" />
-      </footer>
+      {/* Jazyk – jen nenápadně dole, hlavička má jen nadpis a kód.
+          Bez pacienta je přepínač v okně s kódem. */}
+      {meds !== null && (
+        <footer className="doc-footer no-print">
+          <LanguageSwitch variant="doc" />
+        </footer>
+      )}
     </div>
+  );
+}
+
+// Okno pro první kód. Nejde zavřít (Esc ani klepnutím vedle) – bez kódu
+// stránka nemá co ukázat. Zbytek stránky je pod oknem neovladatelný,
+// proto je přepínač jazyka i tady.
+function CodeDialog({ open, pin, loading, errorCode, onPinChange, onSubmit }) {
+  const ref = useRef(null);
+  const inputRef = useRef(null);
+  const [closing, setClosing] = useState(false);
+
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) {
+      setClosing(false);
+      dialog.showModal();
+      inputRef.current?.focus();
+    } else if (!open && dialog.open) {
+      // Po načtení pacienta okno krátce zmizí (stejně jako ConfirmDialog)
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        dialog.close();
+        return;
+      }
+      setClosing(true);
+      const timer = setTimeout(() => {
+        dialog.close();
+        setClosing(false);
+      }, 160);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  // Po chybě vrátíme fokus do pole, ať jde kód rovnou přepsat
+  useEffect(() => {
+    if (errorCode) inputRef.current?.select();
+  }, [errorCode]);
+
+  return (
+    <dialog
+      ref={ref}
+      className={closing ? 'confirm-dialog doc-code-dialog confirm-dialog-closing' : 'confirm-dialog doc-code-dialog'}
+      aria-labelledby="doc-code-title"
+      aria-describedby="doc-code-text"
+      onCancel={(e) => e.preventDefault()}
+    >
+      <form className="confirm-body" onSubmit={onSubmit}>
+        <h2 id="doc-code-title">{t('doc.pinLabel')}</h2>
+        <p id="doc-code-text">{t('doc.enterCode')}</p>
+        <input
+          ref={inputRef}
+          className="doc-pin doc-code-pin"
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="0000"
+          aria-labelledby="doc-code-title"
+          aria-invalid={Boolean(errorCode)}
+          value={pin}
+          onChange={onPinChange}
+        />
+        {errorCode && (
+          <p className="doc-error" role="alert">
+            {t(`doc.error.${errorCode}`, { button: t('doc.load') })}
+          </p>
+        )}
+        <div className="confirm-actions">
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? t('doc.loading') : t('doc.load')}
+          </button>
+        </div>
+        <LanguageSwitch variant="doc" />
+      </form>
+    </dialog>
   );
 }
 
