@@ -8,6 +8,7 @@ export default {
   // --- Společné ---
   'common.back': 'Zpět',
   'common.remove': 'Odebrat',
+  'common.undo': 'Vrátit',
   'common.done': 'Hotovo',
   'common.tryAgain': 'Zkusit znovu',
   'common.optional': '(nepovinné)',
@@ -361,6 +362,7 @@ export default {
   'meds.emptyTitle': 'Zatím tu nejsou žádné léky',
   'meds.emptyText': 'Začněte vyfocením krabičky nebo lístku od lékaře.',
   'meds.confirmRemove': 'Opravdu odebrat lék {name}?',
+  'meds.removed': 'Lék odebrán',
   'meds.oncoNone': 'Zatím nezadáno.',
   'meds.oncoAdd': 'Zadat léčbu',
   'meds.oncoEdit': 'Upravit léčbu',

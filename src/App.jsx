@@ -19,6 +19,8 @@ import { useLang } from './i18n/index.js';
 import Settings from './pages/Settings.jsx';
 import InstallGate from './install/InstallGate.jsx';
 import { isMobile, isStandalone } from './install/installPrompt.js';
+import { useMeds } from './context/MedsContext.jsx';
+import { t } from './i18n/index.js';
 
 // Na mobilu v prohlížeči appku nepustíme – nejdřív ji pacient přidá na plochu.
 // Zjišťujeme jednou při startu: z plochy se appka spouští znovu od začátku.
@@ -26,6 +28,7 @@ const mustInstall = isMobile() && !isStandalone();
 
 export default function App() {
   const location = useLocation();
+  const { lastRemoved, undoRemoveMed } = useMeds();
   // Po změně jazyka se překreslí celá appka (všechny texty jdou přes t()).
   useLang();
 
@@ -59,6 +62,14 @@ export default function App() {
       <main className="page">
         {/* Režim pro blízké: pruh "Vyplňujete za: …" */}
         <HelperBanner />
+        {lastRemoved && (
+          <div className="box box-info undo-notice" role="status">
+            <span>{t('meds.removed')}</span>
+            <button type="button" className="btn-text" onClick={undoRemoveMed}>
+              {t('common.undo')}
+            </button>
+          </div>
+        )}
         <Routes>
           <Route path="/" element={<Home />} />
           {/* key = každé kliknutí na "Vyfotit" začne focení znovu od začátku */}

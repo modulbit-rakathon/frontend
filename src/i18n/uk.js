@@ -8,6 +8,7 @@ export default {
   // --- Společné ---
   'common.back': 'Назад',
   'common.remove': 'Видалити',
+  'common.undo': 'Повернути',
   'common.done': 'Готово',
   'common.tryAgain': 'Спробувати ще раз',
   'common.optional': '(необов’язково)',
@@ -367,6 +368,7 @@ export default {
   'meds.emptyTitle': 'Тут поки немає жодних ліків',
   'meds.emptyText': 'Почніть із фото упаковки або призначення лікаря.',
   'meds.confirmRemove': 'Справді видалити препарат {name}?',
+  'meds.removed': 'Препарат видалено',
   'meds.oncoNone': 'Поки не вказано.',
   'meds.oncoAdd': 'Вказати лікування',
   'meds.oncoEdit': 'Змінити лікування',

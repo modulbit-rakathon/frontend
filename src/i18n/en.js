@@ -7,6 +7,7 @@ export default {
   // --- Společné ---
   'common.back': 'Back',
   'common.remove': 'Remove',
+  'common.undo': 'Undo',
   'common.done': 'Done',
   'common.tryAgain': 'Try again',
   'common.optional': '(optional)',
@@ -357,6 +358,7 @@ export default {
   'meds.emptyTitle': 'No medicines here yet',
   'meds.emptyText': 'Start by photographing a medicine box or a note from your doctor.',
   'meds.confirmRemove': 'Really remove {name}?',
+  'meds.removed': 'Medicine removed',
   'meds.oncoNone': 'Not entered yet.',
   'meds.oncoAdd': 'Enter treatment',
   'meds.oncoEdit': 'Edit treatment',

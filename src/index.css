@@ -375,6 +375,12 @@ ul {
   color: var(--text);
 }
 
+.undo-notice {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
 /* Box, který je celý odkazem (upozornění na Domů) */
 .box-row {
   flex-direction: row;

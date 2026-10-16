@@ -10,6 +10,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { findInteractions } from '../mock/interactions.js';
 import { EMPTY_PROFILE, normalizeItem } from '../types.js';
+import { restoreRemovedItem } from './medsList.js';
 
 const STORAGE_KEY = 'pillgaze-meds';
 const PROFILE_KEY = 'pillgaze-profile';
@@ -48,6 +49,7 @@ export function MedsProvider({ children }) {
   const [profile, setProfile] = useState(() => ({ ...EMPTY_PROFILE, ...load(PROFILE_KEY, {}) }));
   // Režim pro blízké: { name, requestId, meds, profile, base } nebo null
   const [helper, setHelper] = useState(() => load(HELPER_KEY, null));
+  const [lastRemoved, setLastRemoved] = useState(null);
 
   // Pokaždé, když se data změní, uložíme je.
   useEffect(() => save(STORAGE_KEY, meds), [meds]);
@@ -69,6 +71,9 @@ export function MedsProvider({ children }) {
     else setMeds(update);
   }
 
+  const activeMeds = helper ? helper.meds : meds;
+  const activeProfile = helper ? helper.profile : profile;
+
   // Přidá novou položku na konec seznamu.
   function addMed(med) {
     changeMeds((prev) => [...prev, normalizeItem({ ...med, id: makeId() })]);
@@ -76,7 +81,20 @@ export function MedsProvider({ children }) {
 
   // Odebere položku podle ID.
   function removeMed(id) {
+    const index = activeMeds.findIndex((m) => m.id === id);
+    if (index === -1) return;
+    setLastRemoved({ item: activeMeds[index], index, fromHelper: Boolean(helper) });
     changeMeds((prev) => prev.filter((m) => m.id !== id));
+  }
+
+  // Vrátí poslední odebranou položku na původní místo ve stejném seznamu.
+  function undoRemoveMed() {
+    if (!lastRemoved) return;
+    const { fromHelper, item, index } = lastRemoved;
+    const restore = (previous) => restoreRemovedItem(previous, { item, index });
+    if (fromHelper) setHelper((h) => (h ? { ...h, meds: restore(h.meds) } : h));
+    else setMeds(restore);
+    setLastRemoved(null);
   }
 
   // Přepíše údaje položky (ID zůstává stejné).
@@ -92,6 +110,7 @@ export function MedsProvider({ children }) {
 
   // Začne vyplňovat za blízkého (data z odkazu, viz FamilyOpen.jsx).
   function startHelping({ name, requestId, items, onco }) {
+    setLastRemoved(null);
     setHelper({
       name,
       requestId,
@@ -103,6 +122,7 @@ export function MedsProvider({ children }) {
 
   // Ukončí režim pro blízké a smaže rozpracovaný seznam z tohoto zařízení.
   function endHelping() {
+    setLastRemoved(null);
     setHelper(null);
   }
 
@@ -117,10 +137,6 @@ export function MedsProvider({ children }) {
     if (onco) setProfile((prev) => ({ ...prev, onco }));
   }
 
-  // V režimu pro blízké obrazovky pracují s jeho seznamem.
-  const activeMeds = helper ? helper.meds : meds;
-  const activeProfile = helper ? helper.profile : profile;
-
   // Interakce spočítáme vždy znovu z aktuálního seznamu léků.
   // (Pacientská část je NEZOBRAZUJE – jsou jen pro lékaře.)
   const interactions = findInteractions(activeMeds);
@@ -131,6 +147,8 @@ export function MedsProvider({ children }) {
         meds: activeMeds,
         addMed,
         removeMed,
+        lastRemoved,
+        undoRemoveMed,
         updateMed,
         interactions,
         profile: activeProfile,
