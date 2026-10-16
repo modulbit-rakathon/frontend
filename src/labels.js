@@ -7,6 +7,17 @@ export const SOURCE_LABELS = {
   manual: 'ručně',
 };
 
+export const FIELD_LABELS = {
+  name: 'Název léku',
+  active_substance: 'Účinná látka',
+  strength: 'Síla',
+  form: 'Léková forma',
+  frequency: 'Jak často',
+  amount: 'Kolik najednou',
+};
+
+export const NOTE_STYLE_LABELS = { printed: 'tištěný text', handwritten: 'ručně psaný text' };
+
 // Závažnost interakce → text (barva nikdy nesmí být jediná informace)
 export const SEVERITY_LABELS = {
   high: 'Vysoké riziko',

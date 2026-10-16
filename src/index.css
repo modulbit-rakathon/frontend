@@ -619,6 +619,56 @@ ul {
   font-weight: 400;
 }
 
+.field .field-confirmation {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  cursor: pointer;
+}
+
+.field .field-confirmation input {
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
+
+.catalog-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  list-style: none;
+  padding: 8px 0;
+}
+
+.catalog-options .btn {
+  font-size: 18px;
+  text-align: left;
+  justify-content: flex-start;
+}
+
+.med-evidence {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.med-evidence summary,
+.catalog-search summary {
+  min-height: 56px;
+  padding: 12px 0;
+  cursor: pointer;
+}
+
+.med-evidence dl {
+  display: block;
+}
+
+.med-evidence dd {
+  margin: 0 0 8px;
+}
+
 /* Pole, které AI nepřečetla jistě – žluté + text "Zkontrolujte" */
 .field-uncertain {
   background: var(--warning-bg);

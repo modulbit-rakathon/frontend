@@ -3,17 +3,25 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview --host"
+    "preview": "vite preview --host",
+    "test": "node --test test/*.test.js",
+    "test:e2e": "playwright test",
+    "test:backend": "playwright test --config playwright.backend.config.js"
   },
   "dependencies": {
+    "@pillgaze/core": "file:vendor/pillgaze-core-0.6.1.tgz",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@vitejs/plugin-react": "^4.3.4",
     "vite": "^5.4.11"
   }

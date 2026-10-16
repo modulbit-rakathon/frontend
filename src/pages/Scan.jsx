@@ -9,18 +9,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
-import { analyzePhoto } from '../api.js';
+import { analyzePhoto, apiErrorMessage } from '../api.js';
+import { loadCatalog, preparePhoto } from '../core.js';
 import MedForm from '../components/MedForm.jsx';
 import { CameraIcon, WarningIcon } from '../components/Icons.jsx';
 import { medTitle } from '../labels.js';
 
 export default function Scan() {
   const navigate = useNavigate();
-  const { addMed } = useMeds();
+  const { meds, addMed, addAnalysis, updateMed } = useMeds();
 
   // Adresa /vyfotit?rucne=1 otevře rovnou ruční zadání.
   const [searchParams] = useSearchParams();
-  const [step, setStep] = useState(searchParams.get('rucne') ? 'manual' : 'pick');
+  const editId = searchParams.get('upravit');
+  const [step, setStep] = useState(editId ? 'edit' : searchParams.get('rucne') ? 'manual' : 'pick');
+  const [error, setError] = useState('');
 
   const [photoUrl, setPhotoUrl] = useState(null); // náhled vyfocené fotky
   const [pending, setPending] = useState([]); // léky z fotky, které čekají na potvrzení
@@ -33,6 +36,12 @@ export default function Scan() {
   const photoSourceRef = useRef('box');
   // Číslo aktuálního požadavku – díky němu umíme ignorovat zrušené čtení.
   const requestIdRef = useRef(0);
+  const controllerRef = useRef(null);
+
+  useEffect(() => () => {
+    requestIdRef.current++;
+    controllerRef.current?.abort();
+  }, []);
 
   // Když se fotka změní (nebo odejdeme z obrazovky), uvolníme starý náhled z paměti.
   useEffect(() => {
@@ -56,43 +65,50 @@ export default function Scan() {
 
     setPhotoUrl(URL.createObjectURL(file));
     setStep('loading');
+    setError('');
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
 
     const requestId = ++requestIdRef.current;
     try {
-      const result = await analyzePhoto(file, photoSourceRef.current);
+      await loadCatalog();
+      if (requestId !== requestIdRef.current) return;
+      const raw = await analyzePhoto(file, photoSourceRef.current, { signal: controller.signal });
+      const result = await preparePhoto(raw);
       // Pacient mezitím dal "Zrušit" nebo vyfotil jinou fotku → výsledek zahodíme.
       if (requestId !== requestIdRef.current) return;
 
-      if (result.medications.length === 0) {
+      // Persist the whole batch before reviewing its first row: navigation must not hide omissions.
+      const drafts = addAnalysis(result);
+      setUnreadable(result.unreadable_count);
+      if (drafts.length === 0) {
+        setError(result.unreadable_count > 0
+          ? `Nepřečtených položek: ${result.unreadable_count}. Doplňte je ručně a zkontrolujte seznam.`
+          : 'Na fotce nebyl rozpoznán žádný lék.');
         setStep('error');
         return;
       }
-      setPending(result.medications);
-      setUnreadable(result.unreadable_items);
+      setPending(drafts);
       setStep('confirm');
-    } catch {
+    } catch (failure) {
       if (requestId !== requestIdRef.current) return;
+      setError(failure instanceof TypeError
+        ? 'Výsledek nelze zpracovat. Zkontrolujte připojení; pokud se chyba opakuje, ověřte katalog a formát odpovědi backendu.'
+        : apiErrorMessage(failure));
       setStep('error');
     }
   }
 
   function cancelLoading() {
     requestIdRef.current++; // tím "zneplatníme" běžící čtení
+    controllerRef.current?.abort();
     setStep('pick');
   }
 
   // Pacient potvrdil lék z fotky.
-  function handleConfirm(values) {
-    const current = pending[0];
-    // Formulář vrací jen to, co pacient vidí (název, síla, dávkování).
-    // Ostatní údaje od backendu (druh, účinná látka, léková forma) doplníme sami.
-    addMed({
-      ...values,
-      source: current.source,
-      kind: current.kind ?? 'drug',
-      active_substance: current.active_substance ?? null,
-      form: current.form ?? null,
-    });
+  function handleConfirm(saved, original) {
+    updateMed(saved, original);
 
     const rest = pending.slice(1);
     if (rest.length > 0) {
@@ -103,8 +119,8 @@ export default function Scan() {
   }
 
   // Pacient zadal lék ručně.
-  function handleManual(values) {
-    addMed({ ...values, source: 'manual', kind: 'drug' });
+  function handleManual(saved) {
+    addMed(saved);
     navigate('/leky');
   }
 
@@ -114,7 +130,7 @@ export default function Scan() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png"
         capture="environment"
         onChange={handleFileChange}
         hidden
@@ -172,9 +188,8 @@ export default function Scan() {
 
           {/* key = při dalším léku z fotky se formulář vytvoří znovu s novými hodnotami */}
           <MedForm
-            key={pending.length}
+            key={pending[0].id}
             initial={pending[0]}
-            uncertainFields={pending[0].uncertain_fields}
             onSubmit={handleConfirm}
           />
           <button type="button" className="btn btn-secondary" onClick={() => openCamera()}>
@@ -189,6 +204,7 @@ export default function Scan() {
       {step === 'error' && (
         <>
           <h1>Nepodařilo se přečíst fotku</h1>
+          {error && <p className="box box-warning" role="alert">{error}</p>}
           {photoUrl && <img src={photoUrl} alt="Vaše fotka" className="photo-preview" />}
           <div className="box box-info">
             <p>
@@ -219,6 +235,18 @@ export default function Scan() {
             <CameraIcon />
             Raději vyfotit
           </button>
+        </>
+      )}
+
+      {step === 'edit' && (
+        <>
+          <h1>Zkontrolujte údaje</h1>
+          {meds.find(med => med.id === editId) ? (
+            <MedForm key={editId} initial={meds.find(med => med.id === editId)} editing onSubmit={(saved, original) => {
+              updateMed(saved, original);
+              navigate('/leky');
+            }} />
+          ) : <p className="box box-warning" role="alert">Tento lék už není v seznamu.</p>}
         </>
       )}
     </>

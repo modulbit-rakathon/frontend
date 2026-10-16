@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CameraIcon, DownloadIcon, MedicIcon, WarningIcon } from '../components/Icons.jsx';
 import { SOURCE_LABELS, SEVERITY_LABELS, medDosage } from '../labels.js';
+import ReviewNotice from '../components/ReviewNotice.jsx';
+import MedicationEvidence from '../components/MedicationEvidence.jsx';
 
 export default function Report() {
   const { meds, interactions } = useMeds();
@@ -17,6 +19,7 @@ export default function Report() {
     return (
       <>
         <h1>Zpráva pro lékaře</h1>
+        <ReviewNotice />
         <p className="subtitle">Zatím nemáte žádné léky. Nejdřív nějaký přidejte.</p>
         <Link to="/vyfotit" className="btn btn-primary">
           <CameraIcon />
@@ -32,6 +35,7 @@ export default function Report() {
         <h1>Zpráva pro lékaře</h1>
         <p className="subtitle">Ukažte ji při návštěvě</p>
       </div>
+      <ReviewNotice />
 
       {/* "Papír" se zprávou – tahle část se vytiskne */}
       <article className="report-paper">
@@ -77,10 +81,12 @@ export default function Report() {
                   <tr key={med.id}>
                     <td>
                       <strong>{med.name}</strong>
+                      <p>{[med.active_substance, med.form].filter(Boolean).join(' · ')}</p>
+                      <MedicationEvidence med={med} />
                     </td>
                     <td>{med.strength || '–'}</td>
                     <td>{medDosage(med) || '–'}</td>
-                    <td>{SOURCE_LABELS[med.source]}</td>
+                    <td>{(med.sources ?? [med.source]).map(source => SOURCE_LABELS[source]).join(' + ')}</td>
                   </tr>
                 ))}
               </tbody>
@@ -89,8 +95,8 @@ export default function Report() {
         </section>
 
         <p className="report-note">
-          Údaje rozpoznány z fotek a potvrzeny pacientem. Kontrola interakcí vychází jen z naší
-          databáze a nemusí být úplná.
+          Seznam sestavený pacientem; případné nevyřešené údaje jsou označené výše.
+          Nejde o lékařsky ověřenou medikaci. Kontrola interakcí vychází jen z ukázkové databáze a nemusí být úplná.
         </p>
       </article>
 

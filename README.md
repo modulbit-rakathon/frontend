@@ -6,6 +6,39 @@ Pacient vyfotí krabičku léku nebo lístek od lékaře, AI rozpozná údaje, p
 
 Stack: React + Vite, react-router-dom, obyčejné CSS (`src/index.css`).
 
+## Napojení core a backendu
+
+Frontend používá **`@pillgaze/core` 0.6.1**, přiložený ve
+`vendor/pillgaze-core-0.6.1.tgz`. Instalace nepotřebuje přístup k soukromému npm registru.
+Verzujte archiv, `package.json` i `package-lock.json` společně.
+
+Tok je skutečně zapojený: `POST /api/analyze` → core → kontrola ve formuláři →
+místní seznam → `createSharePayload` → `POST /api/share` → `/doc` →
+`POST /api/share/claim`. API odpovídá
+[backendovému kontraktu v2](https://github.com/modulbit-rakathon/backend/blob/73f620b8f838158290256f4cf505353bc89be4b2/docs/api.md).
+Vzhled, navigace a lékařská obrazovka vycházejí z Jonášovy verze `b796b33`;
+nové prvky používají stejné styly.
+
+- SÚKL katalog (21 226 variant) se načte až při zpracování nebo úpravě léku.
+  Psaní názvu nabídne kandidáty; chybný OCR název zůstává původní, dokud pacient sám nevybere variantu.
+- Formulář uchovává všech šest údajů, původní OCR, zdroje, styl zápisu a historii.
+  Zaškrtnutí „Zkontrolováno“ je výslovné, nikoli automatický důsledek uložení.
+  Neznámý údaj může zůstat prázdný; nepředvyplňujeme obvyklé dávkování.
+- „Moje léky“ umožňuje novou kontrolu a volitelné sloučení výslovně vybraných
+  záznamů téhož léku. Původní podklady se zachovají, rozpory se nezamlčí.
+- Celá dávka z fotky se uloží jako návrhy ještě před kontrolou prvního léku.
+  Odchod ze stránky ani reload nesmaže ostatní řádky nebo počet nepřečtených položek.
+  Chybějící položky musí pacient doplnit a výslovně potvrdit kontrolu původního podkladu.
+- PIN nelze vytvořit s nezkontrolovanými údaji, rozpory nebo nepřečtenými položkami.
+  Po síti odejde pouze povolený JSON, nikdy `_core` ani interní kandidáti.
+- Záznamy jsou v `localStorage` pod `pillgaze-state-v1`; staré `pillgaze-meds`
+  se zachovají a vyžadují novou kontrolu. Chyby a plné úložiště se zobrazí, neignorují.
+  Data jsou místní zdravotní údaje, nikoli anonymní jen proto, že neobsahují jméno.
+  Na sdíleném zařízení je po použití smažte.
+
+Katalog není důkaz klinické zaměnitelnosti ani dostupnosti léčiva. Interakce jsou
+stále **ukázková, neověřená data**; toto propojení z nich nedělá klinický nástroj.
+
 ## Kritéria
 
 ### Pacientská část (mobil)
@@ -28,16 +61,17 @@ Appka je primárně pro starší uživatele, proto musí mít:
 
 Pacient:
 
-- [ ] vyfocení krabičky nebo lístku a potvrzení údajů od AI
-- [ ] ruční zadání léku
-- [ ] seznam léků s možnými interakcemi
-- [ ] vygenerování jednorázového kódu pro lékaře
+- [x] vyfocení krabičky nebo lístku a kontrola údajů od API
+- [x] ruční zadání a hledání v katalogu SÚKL
+- [x] seznam léků, úpravy a potvrzené sloučení
+- [x] vygenerování jednorázového kódu pro lékaře
+- [ ] klinicky ověřená kontrola interakcí (zatím pouze ukázka)
 
 Lékař (`/doc`):
 
-- [ ] zadání jednorázového kódu od pacienta
-- [ ] tabulka léků (lék, účinná látka, síla, dávkování, zdroj)
-- [ ] interakce léků v rozbalovací liště pod tabulkou
+- [x] zadání jednorázového kódu od pacienta
+- [x] tabulka léků (lék, účinná látka, síla, forma, dávkování, zdroje)
+- [x] ukázkové interakce v rozbalovací liště pod tabulkou
 
 ## Lékařský pohled `/doc`
 
@@ -81,13 +115,27 @@ Všechny nálezy mají stejný formát:
 
 ## Jak appku spustit
 
-Potřebujete [Node.js](https://nodejs.org/) verze 18 nebo novější.
+Potřebujete [Node.js](https://nodejs.org/) verze 20 nebo novější.
 
 ```bash
 cd frontend
-npm install      # jen poprvé – stáhne knihovny
+npm ci           # nainstaluje přesné verze včetně přiloženého core
+cp .env.example .env.local
+# Do .env.local doplňte APP_API_URL a APP_API_KEY od Vítka.
 npm run dev      # spustí vývojový server
 ```
+
+Klíč patří pouze do **serverové** proměnné `APP_API_KEY`, ne do JavaScriptu,
+`VITE_API_KEY` nebo commitu. Vite dev/preview proxy ho přidává na serveru;
+prohlížeč volá stejný origin `/api`. Starší názvy `VITE_API_URL` / `VITE_API_KEY`
+proxy dočasně přijímá kvůli kompatibilitě, ale přejmenujte je na `APP_*`.
+Bez konfigurace API vrátí čitelnou chybu, ne mockový úspěch.
+
+Pro skutečné nasazení `dist/` nastavte na hostingu **same-origin serverovou proxy
+`/api/*`** na Vítkův backend s hlavičkou `X-Api-Key`. Prostý statický hosting ani
+nastavení `APP_API_KEY` až při buildu nestačí. Vite preview není produkční server.
+Proxy musí mít odpovídající přístupová a rate-limit pravidla; samotné schování
+klíče neřeší veřejný přístup k aplikaci.
 
 V terminálu se vypíše něco takového:
 
@@ -110,15 +158,44 @@ npm run build    # vytvoří složku dist/
 npm run preview  # spustí zkompilovanou verzi (adresa se opět vypíše v terminálu)
 ```
 
+SÚKL je oddělený lazy chunk přibližně 11 MB / 1,13 MB gzip.
+Zapněte HTTP kompresi a cache verzovaných assetů. Velikostní warning při buildu
+je očekávaný; lékařské `/doc` tento katalog nepotřebuje.
+
 ## Testování bez AI
 
-AI je zatím jen napodobená (`src/mock/analyze.js`):
+```bash
+npm test
+npx playwright install chromium  # jednou na testovacím počítači
+npm run test:e2e
+```
 
-- Každá fotka vrátí další ukázkový lék v pořadí: Warfarin → Ibuprofen → Metformin. Po prvních dvou se objeví interakce.
-- Fotka, která má v názvu `chyba` (např. `chyba.jpg`), ukáže obrazovku „Nepodařilo se přečíst fotku“.
-- Na počítači se místo fotoaparátu otevře výběr souboru – stačí vybrat jakýkoli obrázek.
+Unit testy používají skutečný přiložený core a celý SÚKL.
+Browser testy spouštějí produkční build na `127.0.0.1:52726` a nahrazují jen API
+syntetickými odpověďmi. Pokrývají opravu OCR, explicitní výběr, metadata, obnovu
+stavu, PIN a `/doc`, neúplné fotky, sloučení, zrušení uploadu, plné/poškozené
+úložiště, souběžné úpravy, výpadek katalogu, chybné JSON a `Retry-After`.
 
-Léky se ukládají do `localStorage` prohlížeče. Smazat je můžete tlačítkem „Odebrat“ nebo vymazáním dat stránky.
+Pro kontrolu proti **skutečným Go handlerům**, bez modelu a skutečných pacientských fotek:
+
+```bash
+# Terminál 1, ve Vítkově backendu, s odpovídající verzí Go:
+MOCK_AI=true APP_API_KEY=local-test PORT=8080 \
+  ALLOWED_ORIGIN=http://127.0.0.1:52726 go run ./cmd/server
+
+# Terminál 2, v tomto frontendu:
+PILLGAZE_TEST_BACKEND_URL=http://127.0.0.1:8080 \
+  APP_API_KEY=local-test npm run test:backend
+```
+
+Test kontroluje skutečný multipart upload, pacientovo potvrzení, přesný share
+JSON, načtení v odděleném prohlížeči lékaře a odmítnutí již použitého PINu.
+Kontrola běží jen proti localhostu a nemění backend. Ověřená revize backendu:
+`73f620b8f838158290256f4cf505353bc89be4b2`.
+
+To není ověření živého OCR modelu, klinické správnosti ani produkčního nasazení.
+Před demem navíc projděte skutečnou fotku z mobilu a předání lékaři proti
+nasazenému API. Bez platného API klíče tento poslední krok nelze provést.
 
 ## Struktura
 
@@ -128,10 +205,15 @@ src/
   App.jsx               obrazovky podle adresy + spodní lišta
   index.css             všechny styly
   labels.js             sdílené texty (štítky, závažnost)
+  api.js                skutečný HTTP transport analyze/share/claim
+  core.js               lazy SÚKL a příprava údajů přes core
+  medicationStore.js    validace a migrace místního stavu
   context/MedsContext.jsx   seznam léků (sdílený + localStorage)
-  mock/analyze.js       náhrada za AI čtení fotky
+  mock/analyze.js       stará ukázka, aplikace ji nepoužívá
   mock/interactions.js  náhrada za databázi interakcí
   components/           lišta, ikony, formulář léku, boxy s interakcemi
   pages/                Domů, Vyfotit, Moje léky, Zpráva
-  pages/Doctor.jsx      lékařský pohled /doc (plánováno)
+  pages/Doctor.jsx      skutečné jednorázové načtení /doc
+vendor/                 verzovaný instalační balíček core
+test/                   unit a browser integrační testy
 ```

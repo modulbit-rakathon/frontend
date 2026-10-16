@@ -3,24 +3,36 @@ import react from '@vitejs/plugin-react';
 
 // Nastavení Vite.
 export default defineConfig(({ mode }) => {
-  // Načteme proměnné ze souboru .env.local (např. VITE_API_URL).
-  const env = loadEnv(mode, process.cwd());
+  const env = loadEnv(mode, process.cwd(), '');
+  const target = env.APP_API_URL || env.VITE_API_URL;
+  const apiKey = env.APP_API_KEY || env.VITE_API_KEY;
+  const proxy = target && apiKey ? {
+    '/api': {
+      target, changeOrigin: true,
+      configure(server) {
+        server.on('proxyReq', request => request.setHeader('X-Api-Key', apiKey));
+      },
+    },
+  } : undefined;
+  const missingConfiguration = server => {
+    server.middlewares.use('/api', (_request, response) => {
+      response.statusCode = 503;
+      response.setHeader('Content-Type', 'application/json');
+      response.end(JSON.stringify({ error: { code: 'proxy_not_configured' } }));
+    });
+  };
 
   return {
     // Podpora Reactu (JSX, rychlé obnovování při vývoji).
-    plugins: [react()],
+    plugins: [react(), ...(!proxy ? [{
+      name: 'missing-api-configuration',
+      configureServer: missingConfiguration,
+      configurePreviewServer: missingConfiguration,
+    }] : [])],
 
     server: {
-      // PROXY: při vývoji appka volá "/api/..." na svém vlastním serveru
-      // a Vite to přepošle na backend. Prohlížeč si tak myslí, že mluví
-      // se stejnou adresou → nevadí mu CORS a appka funguje i na mobilu
-      // otevřeném přes Wi-Fi (http://192.168.x.x:5173).
-      proxy: {
-        '/api': {
-          target: env.VITE_API_URL,
-          changeOrigin: true,
-        },
-      },
+      proxy,
     },
+    preview: { proxy },
   };
 });

@@ -5,8 +5,9 @@
 //
 // Tahle stránka je pro počítač v ordinaci, ne pro pacienta – proto má
 // vlastní rozložení bez spodní lišty (viz App.jsx).
-import { useMemo, useState } from 'react';
-import { claimShare } from '../api.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { claimShare, apiErrorMessage } from '../api.js';
+import { useRetryAfter } from '../useRetryAfter.js';
 import { checkMeds } from '../mock/doctorCheck.js';
 import { ChevronIcon } from '../components/Icons.jsx';
 import { medDosage, pluralLeky } from '../labels.js';
@@ -45,12 +46,16 @@ export default function Doctor() {
   // takže by o ně lékař přišel třeba jen kvůli omylem zadanému dalšímu kódu.
   const [meds, setMeds] = useState(null);
   const [open, setOpen] = useState(false); // jsou interakce rozbalené?
+  const [retryAfter, setRetryAfter] = useRetryAfter();
+  const controllerRef = useRef(null);
+  useEffect(() => () => controllerRef.current?.abort(), []);
 
   // Interakce přepočítáme jen když se změní seznam léků (useMemo si výsledek pamatuje).
   const { findings, matrix } = useMemo(() => checkMeds(meds ?? []), [meds]);
 
   async function handleSubmit(event) {
     event.preventDefault(); // formulář nemá znovu načíst stránku
+    if (controllerRef.current || retryAfter > 0) return;
 
     if (pin.length !== 4) {
       setErrorMsg(ERROR_MESSAGES.invalid_input);
@@ -59,14 +64,20 @@ export default function Doctor() {
 
     setLoading(true);
     setErrorMsg('');
+    const controller = new AbortController();
+    controllerRef.current = controller;
     try {
-      const data = await claimShare(pin);
+      const data = await claimShare(pin, { signal: controller.signal });
+      if (controller.signal.aborted) return;
       setMeds(data.medications);
       setOpen(false);
     } catch (err) {
-      setErrorMsg(ERROR_MESSAGES[err.message] ?? 'Nepodařilo se spojit se serverem. Zkuste to znovu.');
+      if (controller.signal.aborted) return;
+      setErrorMsg(err.retryAfter ? apiErrorMessage(err) : ERROR_MESSAGES[err.message] ?? apiErrorMessage(err));
+      setRetryAfter(err.retryAfter ?? 0);
     } finally {
-      setLoading(false); // "finally" proběhne vždy – po úspěchu i po chybě
+      if (!controller.signal.aborted) setLoading(false);
+      controllerRef.current = null;
     }
   }
 
@@ -95,8 +106,8 @@ export default function Doctor() {
             value={pin}
             onChange={handlePinChange}
           />
-          <button type="submit" className="doc-button" disabled={loading}>
-            {loading ? 'Načítám…' : 'Načíst'}
+          <button type="submit" className="doc-button" disabled={loading || retryAfter > 0}>
+            {loading ? 'Načítám…' : retryAfter > 0 ? `Počkejte ${retryAfter} s` : 'Načíst'}
           </button>
         </form>
       </header>
@@ -136,6 +147,7 @@ export default function Doctor() {
                     <tr key={med.id}>
                       <td>
                         <strong>{med.name}</strong>
+                        {med.form && <p>{med.form}</p>}
                         {med.kind === 'regimen' && <span className="doc-kind"> (režim)</span>}
                       </td>
                       <td>{med.active_substance || '—'}</td>

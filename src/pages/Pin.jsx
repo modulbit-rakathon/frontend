@@ -8,21 +8,32 @@
 //   'error'   – nepodařilo se ho získat
 //   'empty'   – pacient nemá žádné léky, není co sdílet
 import { useEffect, useState } from 'react';
+import { createSharePayload, getShareIssues } from '@pillgaze/core';
 import { useMeds } from '../context/MedsContext.jsx';
-import { createSharePin } from '../api.js';
+import { createSharePin, apiErrorMessage } from '../api.js';
 import { WarningIcon } from '../components/Icons.jsx';
+import ReviewNotice from '../components/ReviewNotice.jsx';
+import { useRetryAfter } from '../useRetryAfter.js';
 
 export default function Pin() {
-  const { meds } = useMeds();
+  const { meds, unreadableCount, storageError } = useMeds();
 
   const [step, setStep] = useState('loading');
   const [share, setShare] = useState(null); // { pin, expires_at }
   // Zvýšením tohohle čísla spustíme nové načtení PINu (tlačítko "Zkusit znovu" / "Nový PIN").
   const [attempt, setAttempt] = useState(0);
+  const [error, setError] = useState('');
+  const [retryAfter, setRetryAfter] = useRetryAfter();
 
   useEffect(() => {
     // Když pacient odejde z obrazovky dřív, než PIN dorazí, výsledek zahodíme.
     let cancelled = false;
+    const controller = new AbortController();
+    setShare(null);
+    if (storageError || getShareIssues(meds, { unreadableCount }).some(issue => issue.code !== 'item_count')) {
+      setStep('blocked');
+      return;
+    }
 
     // Bez léků není co sdílet (backend by prázdný seznam odmítl).
     if (meds.length === 0) {
@@ -31,23 +42,31 @@ export default function Pin() {
     }
 
     setStep('loading');
-    createSharePin(meds)
+    if (meds.length > 50) {
+      setStep('blocked');
+      return;
+    }
+    const payload = createSharePayload(meds, { unreadableCount });
+    // Defer the side effect so StrictMode's initial cleanup does not allocate an extra PIN.
+    const timer = setTimeout(() => createSharePin(payload, { signal: controller.signal })
       .then((result) => {
         if (cancelled) return;
         setShare(result);
         setStep('ready');
       })
-      .catch(() => {
+      .catch(failure => {
         if (cancelled) return;
+        setError(apiErrorMessage(failure));
+        setRetryAfter(failure.retryAfter ?? 0);
         setStep('error');
-      });
+      }), 0);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
+      controller.abort();
     };
-    // Léky schválně nedáváme do závislostí – PIN chceme jen při otevření nebo na požádání.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attempt]);
+  }, [attempt, meds, unreadableCount, storageError]);
 
   // Když PIN vyprší, přepneme obrazovku na 'expired' (lékař by ho už nemohl použít).
   useEffect(() => {
@@ -61,12 +80,13 @@ export default function Pin() {
   }, [step, share]);
 
   function newPin() {
-    setAttempt((n) => n + 1);
+    if (retryAfter === 0) setAttempt((n) => n + 1);
   }
 
   return (
     <>
       <h1>Sdílet s lékařem</h1>
+      {step === 'blocked' && <ReviewNotice />}
 
       {step === 'empty' && (
         <p className="subtitle">Zatím nemáte žádné léky. Nejdřív nějaký přidejte.</p>
@@ -121,10 +141,10 @@ export default function Pin() {
               <WarningIcon />
               <span>Kód se nepodařilo vytvořit</span>
             </div>
-            <p>Zkontrolujte připojení k internetu a zkuste to znovu.</p>
+            <p role="alert">{error}</p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={newPin}>
-            Zkusit znovu
+          <button type="button" className="btn btn-primary" onClick={newPin} disabled={retryAfter > 0}>
+            {retryAfter > 0 ? `Zkusit znovu za ${retryAfter} s` : 'Zkusit znovu'}
           </button>
         </>
       )}

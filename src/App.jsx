@@ -8,6 +8,7 @@ import Meds from './pages/Meds.jsx';
 import Report from './pages/Report.jsx';
 import Pin from './pages/Pin.jsx';
 import Doctor from './pages/Doctor.jsx';
+import { StorageNotice } from './components/ReviewNotice.jsx';
 
 export default function App() {
   const location = useLocation();
@@ -21,6 +22,7 @@ export default function App() {
   return (
     <div className="app">
       <main className="page">
+        <StorageNotice />
         <Routes>
           <Route path="/" element={<Home />} />
           {/* key = každé kliknutí na "Vyfotit" začne focení znovu od začátku */}

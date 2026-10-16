@@ -1,91 +1,95 @@
-// Volání backendu PillGaze.
-// Adresa a klíč se berou ze souboru frontend/.env.local
-//
-// Při vývoji (npm run dev) voláme jen "/api/..." a Vite to přepošle
-// na backend (viz proxy ve vite.config.js). V hotové appce voláme backend přímo.
-const API_URL = import.meta.env.DEV ? '' : import.meta.env.VITE_API_URL;
-const API_KEY = import.meta.env.VITE_API_KEY;
+// /api stays same-origin. The server-side proxy supplies X-Api-Key, never the browser bundle.
+import { getShareIssues } from '@pillgaze/core';
 
-// Společná funkce pro všechna volání: pošle požadavek a zpracuje chyby.
-async function request(path, options) {
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: { 'X-Api-Key': API_KEY, ...options.headers },
-  });
-
-  // Odpověď se pokusíme přečíst jako JSON. Když to nejde
-  // (např. server spadl a poslal HTML stránku), necháme data prázdná.
-  const data = await res.json().catch(() => null);
-
-  // res.ok = false znamená chybu (400, 401, 502…). Backend posílá { error: { code, message } }.
-  if (!res.ok) {
-    throw new Error(data?.error?.code ?? `http_${res.status}`);
+export class ApiError extends Error {
+  constructor(code, status = 0, retryAfter = 0) {
+    super(code);
+    this.status = status;
+    this.retryAfter = retryAfter;
   }
-
-  return data;
 }
 
-/**
- * Pošle fotku na backend a vrátí, co AI přečetla.
- * @param {File} file – fotka
- * @param {'box' | 'note' | 'regimen'} source – co je na fotce
- * @returns {Promise<{ medications: Array, unreadable_items: number }>}
- */
-export function analyzePhoto(file, source) {
-  // Data posíláme jako "formulář" (multipart/form-data) – tak to backend chce.
+async function request(path, { signal, timeout = 15000, ...options } = {}) {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) abort();
+  else signal?.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(abort, timeout);
+  try {
+    const response = await fetch(path, { ...options, signal: controller.signal });
+    const retryHeader = response.headers.get('Retry-After');
+    const retryAfter = retryHeader === null ? 0 : /^\d+$/.test(retryHeader)
+      ? Number(retryHeader) : Math.max(0, Math.ceil((Date.parse(retryHeader) - Date.now()) / 1000)) || 0;
+    let data;
+    try {
+      data = await response.json();
+    } catch (error) {
+      if (controller.signal.aborted) throw error;
+      throw new ApiError(response.ok ? 'invalid_response' : `http_${response.status}`, response.status, retryAfter);
+    }
+    if (!response.ok) {
+      throw new ApiError(data?.error?.code ?? `http_${response.status}`, response.status, retryAfter);
+    }
+    if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+      throw new ApiError('invalid_response', response.status);
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', abort);
+  }
+}
+
+export function analyzePhoto(file, source, { signal } = {}) {
+  if (!['box', 'note', 'regimen'].includes(source)) throw new ApiError('invalid_input');
+  if (!file || !['image/jpeg', 'image/png'].includes(file.type)) throw new ApiError('unsupported_media_type');
+  if (file.size === 0 || file.size > 10 * 1024 * 1024) throw new ApiError('invalid_image_size');
   const form = new FormData();
   form.append('source', source);
   form.append('image', file);
-
-  return request('/api/analyze', {
-    method: 'POST',
-    body: form,
-    // Když backend neodpoví do 120 sekund, vzdáme to.
-    signal: AbortSignal.timeout(120000),
-  });
+  return request('/api/analyze', { method: 'POST', body: form, signal, timeout: 120000 });
 }
 
-/**
- * Pošle seznam léků na backend a ten vrátí PIN pro lékaře.
- * @param {Array} meds – léky pacienta (z useMeds)
- * @returns {Promise<{ pin: string, expires_at: string, expires_in: number }>}
- */
-export function createSharePin(meds) {
-  // Backend chce u každého léku "id" a "kind". Starší léky uložené
-  // v prohlížeči "kind" nemají, tak jim dáme výchozí "drug" (lék).
-  const medications = meds.map((med) => ({
-    id: med.id,
-    kind: med.kind ?? 'drug',
-    name: med.name,
-    active_substance: med.active_substance ?? null,
-    strength: med.strength || null,
-    form: med.form ?? null,
-    frequency: med.frequency || null,
-    amount: med.amount || null,
-    source: med.source,
-  }));
-
-  return request('/api/share', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ medications }),
-    signal: AbortSignal.timeout(15000),
+export async function createSharePin(payload, { signal } = {}) {
+  const data = await request('/api/share', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload), signal,
   });
+  if (typeof data.pin !== 'string' || !/^\d{4}$/.test(data.pin)
+      || typeof data.expires_at !== 'string' || !Number.isFinite(Date.parse(data.expires_at))
+      || !Number.isSafeInteger(data.expires_in) || data.expires_in <= 0) {
+    throw new ApiError('invalid_response');
+  }
+  return data;
 }
 
-/**
- * Aplikace lékaře: vyzvedne léky pacienta podle PINu.
- * PIN je jednorázový – po úspěšném vyzvednutí ho backend smaže.
- * @param {string} pin – 4 číslice
- * @returns {Promise<{ medications: Array }>}
- * Chyby (error.message): 'not_found' (špatný nebo vypršelý PIN),
- * 'rate_limited' (moc špatných pokusů), 'invalid_input' (PIN nemá 4 číslice).
- */
-export function claimShare(pin) {
-  return request('/api/share/claim', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pin }),
-    signal: AbortSignal.timeout(15000),
+export async function claimShare(pin, { signal } = {}) {
+  if (typeof pin !== 'string' || !/^\d{4}$/.test(pin)) throw new ApiError('invalid_input');
+  const data = await request('/api/share/claim', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin }), signal,
   });
+  // A consumed PIN cannot be retried. Validate without loading the large catalogue.
+  const invalid = getShareIssues(data.medications).some(issue =>
+    ['invalid_medication', 'item_count', 'required', 'duplicate_id', 'too_long', 'invalid_unicode'].includes(issue.code));
+  if (invalid) throw new ApiError('invalid_response');
+  return data;
+}
+
+export function apiErrorMessage(error) {
+  if (error?.retryAfter > 0) return `Příliš mnoho požadavků. Zkuste to za ${error.retryAfter} sekund.`;
+  if (error?.name === 'AbortError') return 'Požadavek byl zrušen nebo server neodpověděl včas.';
+  const messages = {
+    invalid_response: 'Server vrátil neplatná data. Zkuste to znovu; u jednorázového kódu může být potřeba nový PIN.',
+    unsupported_media_type: 'Použijte fotku ve formátu JPEG nebo PNG.',
+    invalid_image_size: 'Fotka musí mít velikost od 1 bajtu do 10 MB.',
+    invalid_input: 'Zkontrolujte zadané údaje.',
+    unauthorized: 'Připojení k backendu nemá platný API klíč. Kontaktujte správce aplikace.',
+    http_401: 'Připojení k backendu nemá platný API klíč. Kontaktujte správce aplikace.',
+    proxy_not_configured: 'Serverová proxy nemá nastavený backend a API klíč.',
+    not_found: 'Kód neexistuje, vypršel nebo už byl použit. Požádejte pacienta o nový.',
+    rate_limited: 'Příliš mnoho požadavků. Počkejte chvíli a zkuste to znovu.',
+    no_medications: 'Na fotce nebyl rozpoznán žádný lék.',
+  };
+  return messages[error?.message] ?? 'Požadavek se nepodařil. Zkontrolujte připojení a zkuste to znovu.';
 }
