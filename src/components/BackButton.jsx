@@ -4,6 +4,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon } from './Icons.jsx';
 import { t } from '../i18n/index.js';
+import { setNavDirection } from '../navTransition.js';
 
 /**
  * @param {string} [to] – kam se vrátit, např. '/leky'
@@ -12,8 +13,12 @@ import { t } from '../i18n/index.js';
  */
 export default function BackButton({ to, onClick, label }) {
   const navigate = useNavigate();
+  function goBack() {
+    setNavDirection('back'); // animace jako při návratu
+    navigate(to);
+  }
   return (
-    <button type="button" className="back-btn no-print" onClick={onClick ?? (() => navigate(to))}>
+    <button type="button" className="back-btn no-print" onClick={onClick ?? goBack}>
       <ArrowLeftIcon />
       <span>{label ?? t('common.back')}</span>
     </button>

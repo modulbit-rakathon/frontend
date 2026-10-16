@@ -2680,3 +2680,80 @@ html[data-font='xlarge'] .nav-icon {
   margin-top: auto;
   padding-top: 16px;
 }
+
+/* =========================================================
+   PŘECHODY MEZI OBRAZOVKAMI (View Transitions, src/navTransition.js)
+   Dopředu: nová obrazovka přijede zprava přes starou, stará uhne o 30 %
+   doleva a lehce ztmavne. Zpět: obráceně. Spodní lišta stojí na místě.
+   ========================================================= */
+.bottom-nav {
+  view-transition-name: bottom-nav;
+}
+
+/* Lišta se nehýbe – jen se okamžitě vymění (změna aktivní záložky). */
+::view-transition-group(bottom-nav),
+::view-transition-old(bottom-nav),
+::view-transition-new(bottom-nav) {
+  animation: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation-fill-mode: both;
+  mix-blend-mode: normal;
+}
+
+html[data-nav='forward']::view-transition-old(root) {
+  animation-name: nav-push-under;
+}
+
+html[data-nav='forward']::view-transition-new(root) {
+  animation-name: nav-slide-in-right;
+}
+
+/* Zpět: odcházející obrazovka je navrchu a odjede doprava. */
+html[data-nav='back']::view-transition-old(root) {
+  animation-name: nav-slide-out-right;
+  z-index: 1;
+}
+
+html[data-nav='back']::view-transition-new(root) {
+  animation-name: nav-pull-from-under;
+}
+
+@keyframes nav-slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes nav-slide-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes nav-push-under {
+  to {
+    transform: translateX(-30%);
+    filter: brightness(0.82);
+  }
+}
+
+@keyframes nav-pull-from-under {
+  from {
+    transform: translateX(-30%);
+    filter: brightness(0.82);
+  }
+}
+
+/* JS při omezeném pohybu přechod vůbec nespouští; tohle je pojistka. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

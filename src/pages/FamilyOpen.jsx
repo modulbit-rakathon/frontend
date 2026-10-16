@@ -14,6 +14,7 @@ import { medName } from '../labels.js';
 import { decodeShare, diffShare, hasLink, isOld, readHash, rememberLink } from '../familyShare.js';
 import { dateText, dosageText, itemName, oncoFormText, prescriberText, sinceText } from '../types.js';
 import { joinList, localeOf, t, tRich } from '../i18n/index.js';
+import { setNavDirection } from '../navTransition.js';
 import BackButton from '../components/BackButton.jsx';
 
 // Chyby z decodeShare, pro které máme vlastní text
@@ -84,7 +85,7 @@ export default function FamilyOpen() {
           </div>
           <p>{t(`family.open.error.${errorCode}`)}</p>
         </div>
-        <Link to="/" className="btn btn-primary">
+        <Link to="/" className="btn btn-primary" onClick={() => setNavDirection('back')}>
           {t('family.backHome')}
         </Link>
       </>
@@ -127,7 +128,7 @@ function OpenRequest({ share, oldWarning }) {
         <BackButton to="/" />
         <h1>{t('family.req.ownTitle')}</h1>
         <p className="subtitle">{t('family.req.ownText')}</p>
-        <Link to="/" className="btn btn-primary">
+        <Link to="/" className="btn btn-primary" onClick={() => setNavDirection('back')}>
           {t('family.backHome')}
         </Link>
         {/* Např. jeden tablet pro celou rodinu – i to jde, vlastní léky zůstanou beze změny */}
@@ -238,7 +239,7 @@ function OpenResponse({ share, oldWarning }) {
         <p className="subtitle">
           {tRich('family.res.selfText', { name: <strong>{helper.name || t('family.defaultName')}</strong> })}
         </p>
-        <Link to="/blizky" className="btn btn-primary" replace>
+        <Link to="/blizky" className="btn btn-primary" replace onClick={() => setNavDirection('back')}>
           {t('family.res.back')}
         </Link>
       </>

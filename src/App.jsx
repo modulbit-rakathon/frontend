@@ -1,7 +1,6 @@
 // Hlavní komponenta: určuje, která obrazovka se ukáže pro kterou adresu,
 // a pod ni vždy přidá spodní lištu.
-import { useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import BottomNav from './components/BottomNav.jsx';
 import HelperBanner from './components/HelperBanner.jsx';
 import Home from './pages/Home.jsx';
@@ -22,22 +21,19 @@ import InstallGate from './install/InstallGate.jsx';
 import { isMobile, isStandalone } from './install/installPrompt.js';
 import { useMeds } from './context/MedsContext.jsx';
 import { t } from './i18n/index.js';
+import { useTransitionLocation } from './navTransition.js';
 
 // Na mobilu v prohlížeči appku nepustíme – nejdřív ji pacient přidá na plochu.
 // Zjišťujeme jednou při startu: z plochy se appka spouští znovu od začátku.
 const mustInstall = isMobile() && !isStandalone();
 
 export default function App() {
-  const location = useLocation();
+  // Adresa, která se právě vykresluje – přechod na novou je animovaný
+  // a řeší i scroll (nahoru / obnovení při návratu), viz navTransition.js.
+  const location = useTransitionLocation();
   const { lastRemoved, undoRemoveMed } = useMeds();
   // Po změně jazyka se překreslí celá appka (všechny texty jdou přes t()).
   useLang();
-
-  // Po přechodu na jinou obrazovku začneme nahoře (jinak by zůstala
-  // odscrollovaná pozice z předchozí obrazovky).
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
 
   // Lékařský pohled je pro počítač v ordinaci – vlastní rozložení,
   // bez úzkého mobilního rámečku a bez spodní lišty pacienta.
@@ -71,7 +67,7 @@ export default function App() {
             </button>
           </div>
         )}
-        <Routes>
+        <Routes location={location}>
           <Route path="/" element={<Home />} />
           {/* key = každé kliknutí na "Vyfotit" začne focení znovu od začátku */}
           <Route path="/vyfotit" element={<Scan key={location.key} />} />

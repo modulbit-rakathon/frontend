@@ -28,6 +28,7 @@ import { shrinkPhoto, sizeText } from '../photos.js';
 import { draftToItem, draftTodos, makeDraft } from '../review.js';
 import { ITEM_TYPES, PHOTO_KINDS, PHOTO_LIMITS, dosageText } from '../types.js';
 import { getLang, t } from '../i18n/index.js';
+import { animateStep, setNavDirection } from '../navTransition.js';
 import BackButton from '../components/BackButton.jsx';
 
 // Uklidňující texty při čtení fotek – střídají se každých 5 sekund (viz 'scan.loadingMessages').
@@ -285,7 +286,12 @@ export default function Scan() {
   // vrátíme ho tam, odkud přišel; jinak zpět na focení.
   function backFromManual() {
     if (searchParams.get('rucne') && window.history.state?.idx > 0) navigate(-1);
-    else setStep('pick');
+    else backToPick();
+  }
+
+  // Šipka zpět mezi kroky focení – animuje se jako návrat na předchozí obrazovku.
+  function backToPick() {
+    animateStep('back', () => setStep('pick'));
   }
 
   const remaining = drafts.filter((d) => draftTodos(d) > 0).length;
@@ -416,7 +422,7 @@ export default function Scan() {
 
       {step === 'review' && (
         <>
-          <BackButton onClick={() => setStep('pick')} />
+          <BackButton onClick={backToPick} />
           <h1>{t('scan.reviewTitle')}</h1>
           <p className="subtitle">{t('scan.reviewSub')}</p>
 
@@ -544,7 +550,14 @@ export default function Scan() {
               <p>{t('offline.queuedAfter')}</p>
             </div>
           )}
-          <button type="button" className="btn btn-secondary" onClick={() => navigate('/')}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => {
+              setNavDirection('back');
+              navigate('/');
+            }}
+          >
             {t('offline.backHome')}
           </button>
           <button type="button" className="btn btn-link" onClick={() => setStep('manual')}>
@@ -555,7 +568,7 @@ export default function Scan() {
 
       {step === 'error' && (
         <>
-          <BackButton onClick={() => setStep('pick')} />
+          <BackButton onClick={backToPick} />
           <h1>{t('scan.errorTitle')}</h1>
           <div className="box box-info">
             <p>

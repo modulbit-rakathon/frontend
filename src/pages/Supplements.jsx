@@ -11,6 +11,7 @@ import { useMeds } from '../context/MedsContext.jsx';
 import { CheckIcon } from '../components/Icons.jsx';
 import { ITEM_TYPES, SUPPLEMENTS, emptyDosage, itemsOfType, supplementStoredName } from '../types.js';
 import { t } from '../i18n/index.js';
+import { setNavDirection } from '../navTransition.js';
 import BackButton from '../components/BackButton.jsx';
 
 export default function Supplements() {
@@ -137,7 +138,14 @@ export default function Supplements() {
         </ul>
       )}
 
-      <button type="button" className="btn btn-primary" onClick={() => navigate(backTo)}>
+      <button
+        type="button"
+        className="btn btn-primary"
+        onClick={() => {
+          setNavDirection('back');
+          navigate(backTo);
+        }}
+      >
         {isStep && supplements.length === 0 ? t('supp.noneOfThese') : t('common.done')}
       </button>
     </>

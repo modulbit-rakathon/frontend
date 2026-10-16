@@ -18,6 +18,7 @@ import {
   oncoSuggestions,
 } from '../types.js';
 import { getLang, t } from '../i18n/index.js';
+import { setNavDirection } from '../navTransition.js';
 import BackButton from '../components/BackButton.jsx';
 
 // Dnešní datum ve tvaru "2026-10-16" (pro max u výběru data).
@@ -148,7 +149,14 @@ export default function Onco() {
             </button>
           </form>
 
-          <button type="button" className="btn btn-secondary" onClick={() => navigate(backTo)}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => {
+              setNavDirection('back');
+              navigate(backTo);
+            }}
+          >
             {t('common.done')}
           </button>
         </>
