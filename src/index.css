@@ -2090,3 +2090,108 @@ html[data-font='xlarge'] .app {
   font-size: 18px;
   font-weight: 600;
 }
+
+/* =========================================================
+   19) REŽIM PRO BLÍZKÉ (/blizky, /pomoc)
+   ========================================================= */
+/* Pruh "Vyplňujete za: …" – nahoře na každé obrazovce */
+.helper-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 3px solid var(--warning-border);
+  border-radius: var(--radius);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 20px;
+}
+
+.helper-banner-sub {
+  display: block;
+  font-size: 18px;
+}
+
+.helper-banner-btn {
+  min-height: 56px;
+  font-size: 20px;
+}
+
+.family-steps {
+  margin: 8px 0 16px;
+  padding-left: 28px;
+  font-size: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.family-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.family-list {
+  padding-left: 28px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.family-review h2 {
+  font-size: 22px;
+  margin: 8px 0;
+}
+
+.family-checks {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field .family-choice {
+  align-items: flex-start;
+}
+
+.family-choice > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.family-details {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.family-end {
+  align-self: center;
+  margin-top: 8px;
+}
+
+.share-link {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.share-link-status {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary-dark);
+  text-align: center;
+}
+
+.share-link-text {
+  width: 100%;
+  min-height: 120px;
+  padding: 8px 12px;
+  border: 2px solid var(--text-muted);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}

@@ -10,7 +10,7 @@ import OncoQuestion from '../components/OncoQuestion.jsx';
 import FontSizeSwitch from '../components/FontSizeSwitch.jsx';
 
 export default function Home() {
-  const { meds: items, profile } = useMeds();
+  const { meds: items, profile, helper } = useMeds();
   const meds = itemsOfType(items, ITEM_TYPES.LEK);
 
   return (
@@ -42,6 +42,13 @@ export default function Home() {
       <Link to="/zprava" className="btn btn-secondary">
         Zpráva pro lékaře
       </Link>
+
+      {/* Režim pro blízké – v něm už o pomoc nežádáme */}
+      {!helper && (
+        <Link to="/blizky" className="btn btn-link">
+          Požádat blízkého o pomoc
+        </Link>
+      )}
 
       <FontSizeSwitch />
     </>

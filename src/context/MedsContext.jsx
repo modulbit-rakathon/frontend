@@ -3,12 +3,17 @@
 //   - seznam položek pacienta (léky, doplňky, onkologická léčba – rozlišené podle `type`),
 //   - profil (odpovědi na otázky, např. "Léčíte se na onkologii?").
 // Obojí ukládáme do localStorage, takže zůstane i po zavření prohlížeče.
+//
+// Režim pro blízké (viz familyShare.js): když tu někdo vyplňuje léky za jiného
+// člověka, `meds` a `profile` ukazují JEHO seznam (uložený zvlášť pod HELPER_KEY).
+// Vlastní léky na tomto telefonu tím zůstanou beze změny.
 import { createContext, useContext, useEffect, useState } from 'react';
 import { findInteractions } from '../mock/interactions.js';
 import { EMPTY_PROFILE, normalizeItem } from '../types.js';
 
 const STORAGE_KEY = 'pillgaze-meds';
 const PROFILE_KEY = 'pillgaze-profile';
+const HELPER_KEY = 'pillgaze-helper';
 
 const MedsContext = createContext(null);
 
@@ -41,32 +46,98 @@ export function MedsProvider({ children }) {
   // normalizeItem doplní pole, která položky uložené starší verzí appky nemají.
   const [meds, setMeds] = useState(() => load(STORAGE_KEY, []).map(normalizeItem));
   const [profile, setProfile] = useState(() => ({ ...EMPTY_PROFILE, ...load(PROFILE_KEY, {}) }));
+  // Režim pro blízké: { name, requestId, meds, profile, base } nebo null
+  const [helper, setHelper] = useState(() => load(HELPER_KEY, null));
 
   // Pokaždé, když se data změní, uložíme je.
   useEffect(() => save(STORAGE_KEY, meds), [meds]);
   useEffect(() => save(PROFILE_KEY, profile), [profile]);
+  useEffect(() => {
+    if (helper) save(HELPER_KEY, helper);
+    else {
+      try {
+        localStorage.removeItem(HELPER_KEY);
+      } catch {
+        // nevadí
+      }
+    }
+  }, [helper]);
+
+  // Změna seznamu jde buď do vlastních léků, nebo do léků toho, za koho vyplňujeme.
+  function changeMeds(update) {
+    if (helper) setHelper((h) => ({ ...h, meds: update(h.meds) }));
+    else setMeds(update);
+  }
 
   // Přidá novou položku na konec seznamu.
   function addMed(med) {
-    setMeds((prev) => [...prev, normalizeItem({ ...med, id: makeId() })]);
+    changeMeds((prev) => [...prev, normalizeItem({ ...med, id: makeId() })]);
   }
 
   // Odebere položku podle ID.
   function removeMed(id) {
-    setMeds((prev) => prev.filter((m) => m.id !== id));
+    changeMeds((prev) => prev.filter((m) => m.id !== id));
   }
 
   // Změní jen některé údaje v profilu, např. updateProfile({ onco: 'ano' }).
   function updateProfile(changes) {
-    setProfile((prev) => ({ ...prev, ...changes }));
+    if (helper) setHelper((h) => ({ ...h, profile: { ...h.profile, ...changes } }));
+    else setProfile((prev) => ({ ...prev, ...changes }));
   }
+
+  // Začne vyplňovat za blízkého (data z odkazu, viz FamilyOpen.jsx).
+  function startHelping({ name, requestId, items, onco }) {
+    setHelper({
+      name,
+      requestId,
+      meds: items,
+      profile: { ...EMPTY_PROFILE, onco: onco ?? '' },
+      base: items.map((i) => i.id), // co přišlo v žádosti – podle toho pacient pozná, co se odebralo
+    });
+  }
+
+  // Ukončí režim pro blízké a smaže rozpracovaný seznam z tohoto zařízení.
+  function endHelping() {
+    setHelper(null);
+  }
+
+  // Import odpovědi od blízkého – VŽDY do vlastních léků (ne do režimu pro blízké).
+  // Pacient předem vybral, co chce: add = nové, replace = změněné, remove = ID k odebrání.
+  function importShared({ add = [], replace = [], remove = [], onco }) {
+    const replaceById = new Map(replace.map((r) => [r.id, r]));
+    setMeds((prev) => [
+      ...prev.filter((m) => !remove.includes(m.id)).map((m) => (replaceById.has(m.id) ? normalizeItem(replaceById.get(m.id)) : m)),
+      ...add.map((m) => normalizeItem({ ...m, id: makeId() })),
+    ]);
+    if (onco) setProfile((prev) => ({ ...prev, onco }));
+  }
+
+  // V režimu pro blízké obrazovky pracují s jeho seznamem.
+  const activeMeds = helper ? helper.meds : meds;
+  const activeProfile = helper ? helper.profile : profile;
 
   // Interakce spočítáme vždy znovu z aktuálního seznamu léků.
   // (Pacientská část je NEZOBRAZUJE – jsou jen pro lékaře.)
-  const interactions = findInteractions(meds);
+  const interactions = findInteractions(activeMeds);
 
   return (
-    <MedsContext.Provider value={{ meds, addMed, removeMed, interactions, profile, updateProfile }}>
+    <MedsContext.Provider
+      value={{
+        meds: activeMeds,
+        addMed,
+        removeMed,
+        interactions,
+        profile: activeProfile,
+        updateProfile,
+        // režim pro blízké
+        helper,
+        ownMeds: meds,
+        ownProfile: profile,
+        startHelping,
+        endHelping,
+        importShared,
+      }}
+    >
       {children}
     </MedsContext.Provider>
   );
