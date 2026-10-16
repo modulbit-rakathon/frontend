@@ -11,6 +11,7 @@ import Pin from './pages/Pin.jsx';
 import Doctor from './pages/Doctor.jsx';
 import Supplements from './pages/Supplements.jsx';
 import Onco from './pages/Onco.jsx';
+import AppStatus from './offline/AppStatus.jsx';
 
 export default function App() {
   const location = useLocation();
@@ -24,11 +25,18 @@ export default function App() {
   // Lékařský pohled je pro počítač v ordinaci – vlastní rozložení,
   // bez úzkého mobilního rámečku a bez spodní lišty pacienta.
   if (location.pathname.startsWith('/doc')) {
-    return <Doctor />;
+    return (
+      <>
+        <AppStatus doctor />
+        <Doctor />
+      </>
+    );
   }
 
   return (
     <div className="app">
+      {/* Bez internetu / fotky ve frontě / nová verze appky */}
+      <AppStatus />
       <main className="page">
         <Routes>
           <Route path="/" element={<Home />} />

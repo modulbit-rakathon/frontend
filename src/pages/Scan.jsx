@@ -12,11 +12,14 @@
 //   'loading' – čekáme na backend
 //   'review'  – tabulka s léky ke kontrole
 //   'error'   – fotky se nepodařilo přečíst
+//   'queued'  – není internet, fotky čekají ve frontě (viz offline/photoQueue.js)
 //   'manual'  – ruční zadání léku (prázdný formulář)
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
-import { analyzePhotos } from '../api.js';
+import { USE_MOCK, analyzePhotos } from '../api.js';
+import { useOffline } from '../offline/OfflineContext.jsx';
+import { photosByField } from '../offline/photoQueue.js';
 import MedForm from '../components/MedForm.jsx';
 import ReviewDetail from '../components/ReviewDetail.jsx';
 import { CameraIcon, CheckIcon, WarningIcon } from '../components/Icons.jsx';
@@ -39,6 +42,7 @@ const ERROR_TEXTS = {
   payload_too_large: 'Fotek je moc nebo jsou moc velké.',
   unsupported_media_type: 'Tento formát fotky neumíme přečíst.',
   rate_limited: 'Moc pokusů za sebou. Zkuste to prosím za minutu.',
+  offline: 'Teď nejste připojeni k internetu, a fotky se tak nedají přečíst.',
 };
 
 // Jednoduché unikátní id pro fotku
@@ -54,6 +58,7 @@ function pluralFotky(count) {
 export default function Scan() {
   const navigate = useNavigate();
   const { addMed, profile } = useMeds();
+  const { online, jobs, sendingId, enqueuePhotos, removeJob } = useOffline();
 
   // Fotku zprávy z onkologie nabízíme jen pacientům, kteří se tam léčí.
   const photoKinds = PHOTO_KINDS.filter((kind) => !kind.onco || profile.onco === 'ano');
@@ -76,6 +81,8 @@ export default function Scan() {
   const [editingId, setEditingId] = useState(null); // u kterého léku je otevřený formulář
   const [errorCode, setErrorCode] = useState('');
   const [loadingIndex, setLoadingIndex] = useState(0); // který uklidňující text ukazujeme
+  // Úloha z fronty fotek, ke které patří tahle obrazovka (čeká na internet / přečtená)
+  const [jobId, setJobId] = useState(null);
 
   // Odkazy na skryté <input type="file">, abychom je mohli "kliknout" z tlačítek:
   // jeden otevře rovnou fotoaparát, druhý galerii/soubory.
@@ -91,6 +98,23 @@ export default function Scan() {
 
   // Při odchodu z obrazovky uvolníme náhledy fotek z paměti.
   useEffect(() => () => photosRef.current.forEach((p) => URL.revokeObjectURL(p.url)), []);
+
+  // Fronta fotek: čekali jsme na internet a fotky jsou přečtené → rovnou je ukážeme.
+  // Adresa /vyfotit?fronta=1 (z lišty nahoře) otevře první přečtenou úlohu.
+  const openQueueRef = useRef(Boolean(searchParams.get('fronta')));
+  useEffect(() => {
+    if (step === 'queued') {
+      const job = jobs.find((j) => j.id === jobId);
+      if (job && job.status !== 'waiting') openJob(job);
+    } else if (openQueueRef.current) {
+      const job = jobs.find((j) => j.status !== 'waiting');
+      if (job) {
+        openQueueRef.current = false;
+        openJob(job);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobs]);
 
   // Při načítání střídáme uklidňující texty.
   useEffect(() => {
@@ -154,14 +178,22 @@ export default function Scan() {
       return;
     }
 
+    // Fotky posíláme znovu → starou úlohu z fronty už nepotřebujeme.
+    if (jobId) {
+      removeJob(jobId);
+      setJobId(null);
+    }
+
+    // Bez internetu fotky rovnou uložíme do fronty (mock internet nepotřebuje).
+    if (!online && !USE_MOCK) {
+      queuePhotos();
+      return;
+    }
+
     setStep('loading');
     const requestId = ++requestIdRef.current;
     try {
-      const result = await analyzePhotos({
-        note: photos.filter((p) => p.field === 'note').map((p) => p.file),
-        box: photos.filter((p) => p.field === 'box').map((p) => p.file),
-        regimen: photos.filter((p) => p.field === 'regimen').map((p) => p.file),
-      });
+      const result = await analyzePhotos(photosByField(photos));
       // Pacient mezitím dal "Zrušit" → výsledek zahodíme.
       if (requestId !== requestIdRef.current) return;
 
@@ -170,16 +202,58 @@ export default function Scan() {
         setStep('error');
         return;
       }
-      const newDrafts = result.medications.map(makeDraft);
-      setDrafts(newDrafts);
-      setUnreadable(result.unreadable_items);
-      // Rozbalíme rovnou řádky, u kterých je co řešit
-      setOpenIds(newDrafts.filter((d) => draftTodos(d) > 0).map((d) => d.id));
-      setEditingId(null);
-      setStep('review');
+      showResult(result);
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
+      // Internet vypadl až při odesílání → fotky také počkají ve frontě.
+      if (error.message === 'offline') {
+        queuePhotos();
+        return;
+      }
       setErrorCode(error.message);
+      setStep('error');
+    }
+  }
+
+  // Přečtené léky ukážeme v tabulce "Sedí to?".
+  function showResult(result) {
+    const newDrafts = result.medications.map(makeDraft);
+    setDrafts(newDrafts);
+    setUnreadable(result.unreadable_items);
+    // Rozbalíme rovnou řádky, u kterých je co řešit
+    setOpenIds(newDrafts.filter((d) => draftTodos(d) > 0).map((d) => d.id));
+    setEditingId(null);
+    setStep('review');
+  }
+
+  // Uloží fotky do fronty; pošlou se samy, až bude internet (viz OfflineContext).
+  async function queuePhotos() {
+    try {
+      const id = await enqueuePhotos(photos.map((p) => ({ field: p.field, file: p.file })));
+      setJobId(id);
+      setStep('queued');
+    } catch {
+      // Fotky nejde uložit (třeba anonymní okno) → aspoň vysvětlíme proč.
+      setErrorCode('offline');
+      setStep('error');
+    }
+  }
+
+  // Otevře úlohu z fronty: vrátí fotky na obrazovku a ukáže výsledek nebo chybu.
+  function openJob(job) {
+    photosRef.current.forEach((p) => URL.revokeObjectURL(p.url));
+    setPhotos(
+      job.photos.map((p) => ({ id: ++photoCounter, field: p.field, file: p.file, url: URL.createObjectURL(p.file) })),
+    );
+    if (job.status === 'ready') {
+      // Úlohu smažeme až po uložení léků – kdyby pacient odešel, výsledek mu zůstane.
+      setJobId(job.id);
+      showResult(job.result);
+    } else {
+      // Chyba: fotky už jsou zpátky na obrazovce, úlohu ve frontě nepotřebujeme.
+      removeJob(job.id);
+      setJobId(null);
+      setErrorCode(job.errorCode);
       setStep('error');
     }
   }
@@ -208,11 +282,13 @@ export default function Scan() {
 
   function saveAll() {
     drafts.forEach((d) => addMed(draftToItem(d)));
+    if (jobId) removeJob(jobId); // výsledek z fronty je uložený
     navigate(afterAdd);
   }
 
   // Pacient zadal lék ručně.
   function handleManual(values) {
+    // (Fotky ve frontě necháme – pošlou se samy a pacient je zkontroluje později.)
     addMed({ ...values, type: ITEM_TYPES.LEK, source: 'manual', kind: 'drug' });
     navigate(afterAdd);
   }
@@ -296,6 +372,15 @@ export default function Scan() {
                 <WarningIcon />
                 <span>{pickMessage}</span>
               </div>
+            </div>
+          )}
+
+          {!online && !USE_MOCK && (
+            <div className="box box-info">
+              <p>
+                <strong>Jste bez internetu.</strong> Fotky klidně nafoťte a odešlete. Uložíme je v telefonu
+                a pošleme samy, až bude internet.
+              </p>
             </div>
           )}
 
@@ -438,6 +523,38 @@ export default function Scan() {
           </button>
           <button type="button" className="btn btn-secondary" onClick={() => setStep('pick')}>
             Upravit fotky a poslat znovu
+          </button>
+          <button type="button" className="btn btn-link" onClick={() => setStep('manual')}>
+            Zadat lék ručně
+          </button>
+        </>
+      )}
+
+      {step === 'queued' && (
+        <>
+          <h1>Fotky počkají na internet</h1>
+          {online && sendingId === jobId ? (
+            <div className="loading-box">
+              <div className="spinner" aria-hidden="true" />
+              <p className="loading-text" aria-live="polite">
+                Internet je zpět. Posílám fotky…
+              </p>
+            </div>
+          ) : (
+            <div className="box box-info" role="status">
+              <div className="box-title">
+                <CheckIcon />
+                <span>Fotky jsou uložené v telefonu</span>
+              </div>
+              <p>
+                Teď nejste připojeni k internetu. Až internet bude, pošleme fotky samy. Nic nemusíte dělat,
+                stačí mít appku otevřenou (nebo ji později znovu otevřít).
+              </p>
+              <p>Až budou fotky přečtené, ukážeme vám je ke kontrole.</p>
+            </div>
+          )}
+          <button type="button" className="btn btn-secondary" onClick={() => navigate('/')}>
+            Zpět domů
           </button>
           <button type="button" className="btn btn-link" onClick={() => setStep('manual')}>
             Zadat lék ručně

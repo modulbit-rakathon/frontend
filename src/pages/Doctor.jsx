@@ -44,6 +44,7 @@ const ERROR_MESSAGES = {
   not_found: 'Kód neexistuje nebo už vypršel. Kód platí 3 minuty a jde použít jen jednou – požádejte pacienta o nový.',
   rate_limited: 'Příliš mnoho špatných pokusů. Zkuste to za chvíli.',
   invalid_input: 'Kód musí mít 4 číslice.',
+  offline: 'Počítač není připojený k internetu. Po připojení klikněte znovu na „Načíst“.',
 };
 
 // Léky od backendu mají jiný tvar než léky v telefonu pacienta (dávkování je text,

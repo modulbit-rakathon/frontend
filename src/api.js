@@ -2,6 +2,8 @@
 import { ITEM_TYPES, dateText, dosageToBackend, oncoFormText } from './types.js';
 import { analyzePhotos as mockAnalyzePhotos } from './mock/analyze.js';
 import { searchCatalog as mockSearchCatalog } from './mock/catalog.js';
+import { reportNetworkFailure, reportNetworkSuccess } from './offline/network.js';
+import { rememberProducts, searchRemembered } from './offline/catalogCache.js';
 // Adresa a klíč se berou ze souboru frontend/.env.local
 //
 // Při vývoji (npm run dev) voláme jen "/api/..." a Vite to přepošle
@@ -9,14 +11,28 @@ import { searchCatalog as mockSearchCatalog } from './mock/catalog.js';
 const API_URL = import.meta.env.DEV ? '' : import.meta.env.VITE_API_URL;
 const API_KEY = import.meta.env.VITE_API_KEY;
 // VITE_MOCK_API=true → focení a hledání v katalogu nevolá backend, ale mock (src/mock/)
-const USE_MOCK = import.meta.env.VITE_MOCK_API === 'true';
+export const USE_MOCK = import.meta.env.VITE_MOCK_API === 'true';
 
 // Společná funkce pro všechna volání: pošle požadavek a zpracuje chyby.
+// Bez internetu vrátí chybu 'offline' (obrazovky pak ukážou vlídnou hlášku).
 async function request(path, options) {
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: { 'X-Api-Key': API_KEY, ...options.headers },
-  });
+  // Prohlížeč ví, že internet není → nemá smysl čekat.
+  if (!navigator.onLine) throw new Error('offline');
+
+  let res;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: { 'X-Api-Key': API_KEY, ...options.headers },
+    });
+  } catch (error) {
+    // Zrušení (pacient píše dál) a vypršení času necháme, jak jsou.
+    if (error.name === 'AbortError' || error.name === 'TimeoutError') throw error;
+    // Jinak se nepodařilo spojit se serverem (není signál, Wi-Fi bez internetu…).
+    reportNetworkFailure();
+    throw new Error('offline');
+  }
+  reportNetworkSuccess();
 
   // Odpověď se pokusíme přečíst jako JSON. Když to nejde
   // (např. server spadl a poslal HTML stránku), necháme data prázdná.
@@ -36,7 +52,8 @@ async function request(path, options) {
  * @param {{ note: File[], box: File[] }} photos – fotky podle druhu
  * @returns {Promise<{ medications: import('./types.js').AnalyzedMedication[], unreadable_items: number }>}
  * Chyby (error.message): 'nothing_found' (na fotkách žádný lék), 'payload_too_large'
- * (moc fotek / moc velké), 'unsupported_media_type' (není JPEG/PNG), 'rate_limited', 'model_error'.
+ * (moc fotek / moc velké), 'unsupported_media_type' (není JPEG/PNG), 'rate_limited', 'model_error',
+ * 'offline' (není internet – Scan fotky uloží do fronty, viz offline/photoQueue.js).
  */
 export function analyzePhotos(photos) {
   // Mock místo backendu (zapíná se v .env.local: VITE_MOCK_API=true)
@@ -54,6 +71,12 @@ export function analyzePhotos(photos) {
     body: form,
     // Ručně psaný lístek může trvat i 40 s. Když backend neodpoví do 120 sekund, vzdáme to.
     signal: AbortSignal.timeout(120000),
+  }).then((data) => {
+    // Přípravky z katalogu si zapamatujeme pro hledání bez internetu.
+    data?.medications?.forEach((med) =>
+      rememberProducts([med.catalog?.product, ...(med.catalog?.candidates ?? [])].filter(Boolean)),
+    );
+    return data;
   });
 }
 
@@ -61,7 +84,8 @@ export function analyzePhotos(photos) {
  * Hledá v katalogu léků podle názvu nebo účinné látky (bez AI, jen v seznamu na serveru).
  * @param {string} query – aspoň 2 znaky
  * @param {AbortSignal} [signal] – pro zrušení, když pacient píše dál
- * @returns {Promise<{ products: import('./types.js').CatalogProduct[] }>} max 20, nejlepší první
+ * @returns {Promise<{ products: import('./types.js').CatalogProduct[], offline?: boolean }>} max 20, nejlepší první;
+ *   offline = true → bez internetu, výsledky jen z dřív viděných přípravků
  */
 export function searchCatalog(query, signal) {
   if (USE_MOCK) return mockSearchCatalog(query);
@@ -70,7 +94,17 @@ export function searchCatalog(query, signal) {
   return request(`/api/catalog?q=${encodeURIComponent(query)}`, {
     method: 'GET',
     signal: signal ?? AbortSignal.timeout(15000),
-  });
+  })
+    .then((data) => {
+      rememberProducts(data?.products);
+      return data;
+    })
+    .catch((error) => {
+      // Bez internetu hledáme v přípravcích, které appka už viděla (viz offline/catalogCache.js).
+      // offline: true → CatalogSearch řekne pacientovi, že výsledky nemusí být úplné.
+      if (error.message === 'offline') return { products: searchRemembered(query), offline: true };
+      throw error;
+    });
 }
 
 /**

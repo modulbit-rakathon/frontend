@@ -1,0 +1,62 @@
+/* Lišta nahoře: bez internetu, fronta fotek, nová verze appky (src/offline/AppStatus.jsx).
+   Barvy bereme z proměnných v src/index.css. */
+
+.app-status {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 16px 16px 0;
+  padding: 14px 18px;
+  border: 3px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 18px;
+  text-decoration: none;
+}
+
+.app-status-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.app-status-title svg {
+  flex-shrink: 0;
+}
+
+/* Bez internetu – žlutá jako ostatní upozornění, ale text uklidňuje */
+.app-status-offline {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+  color: var(--warning-text);
+}
+
+/* Fotky jsou přečtené – celé pole je odkaz */
+.app-status-ready {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+.app-status-ready:hover {
+  border-color: var(--primary-dark);
+}
+
+.app-status-update {
+  border-color: var(--primary);
+}
+
+.app-status-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+/* Lékařský pohled je na počítači – menší písmo, lišta jen jako řádek */
+.app-status-area-doc .app-status {
+  font-size: 16px;
+  margin: 12px 24px 0;
+}

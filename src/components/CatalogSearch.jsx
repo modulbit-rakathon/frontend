@@ -22,6 +22,8 @@ export default function CatalogSearch({ onPick, initialQuery = '', idPrefix }) {
   // 'short' = málo znaků, 'loading', 'done', 'error'
   const [status, setStatus] = useState('short');
   const [products, setProducts] = useState([]);
+  // true = bez internetu, hledali jsme jen v přípravcích uložených v telefonu
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     const q = query.trim();
@@ -42,6 +44,7 @@ export default function CatalogSearch({ onPick, initialQuery = '', idPrefix }) {
       searchCatalog(q, controller.signal)
         .then((data) => {
           setProducts(data.products);
+          setOffline(Boolean(data.offline));
           setStatus('done');
         })
         .catch(() => {
@@ -74,8 +77,12 @@ export default function CatalogSearch({ onPick, initialQuery = '', idPrefix }) {
       <p className="catalog-status" aria-live="polite">
         {status === 'short' && `Napište aspoň ${MIN_LENGTH} písmena.`}
         {status === 'loading' && 'Hledám…'}
-        {status === 'done' && products.length === 0 && 'Nic jsme nenašli. Zkuste jiný název.'}
-        {status === 'done' && products.length > 0 && `Nalezeno: ${products.length}. Klepněte na správný lék.`}
+        {status === 'done' && !offline && products.length === 0 && 'Nic jsme nenašli. Zkuste jiný název.'}
+        {status === 'done' && offline && products.length === 0 &&
+          'Jste bez internetu, celý seznam léků teď prohledat nejde. Lék můžete nechat, jak je přečtený.'}
+        {status === 'done' && offline && products.length > 0 &&
+          'Jste bez internetu. Hledám jen v lécích, které už appka zná.'}
+        {status === 'done' && products.length > 0 && ` Nalezeno: ${products.length}. Klepněte na správný lék.`}
         {status === 'error' && 'Hledání se nepovedlo. Zkontrolujte internet a zkuste to znovu.'}
       </p>
 
