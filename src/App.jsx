@@ -7,9 +7,16 @@ import Scan from './pages/Scan.jsx';
 import Meds from './pages/Meds.jsx';
 import Report from './pages/Report.jsx';
 import Pin from './pages/Pin.jsx';
+import Doctor from './pages/Doctor.jsx';
 
 export default function App() {
   const location = useLocation();
+
+  // Lékařský pohled je pro počítač v ordinaci – vlastní rozložení,
+  // bez úzkého mobilního rámečku a bez spodní lišty pacienta.
+  if (location.pathname.startsWith('/doc')) {
+    return <Doctor />;
+  }
 
   return (
     <div className="app">
@@ -20,9 +27,9 @@ export default function App() {
           <Route path="/vyfotit" element={<Scan key={location.key} />} />
           <Route path="/leky" element={<Meds />} />
           <Route path="/zprava" element={<Report />} />
+          <Route path="/pin" element={<Pin />} />
           {/* Neznámá adresa → pošleme uživatele domů */}
           <Route path="*" element={<Navigate to="/" replace />} />
-          <Route path= "/pin" element={<Pin />} />
         </Routes>
       </main>
       <BottomNav />

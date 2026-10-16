@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "createdAt": "2026-10-16T15:42:57.636Z",
+        "reason": "brand font: ../design/README.md (PillGaze design repo) prescribes Plus Jakarta Sans as the project typeface"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/index.css"
+        ],
+        "createdAt": "2026-10-16T15:42:57.655Z",
+        "reason": "user-supplied /doc mockup (rozbalené interakce) shows finding cards with a thick severity-colored left border"
+      }
+    ]
+  }
+}

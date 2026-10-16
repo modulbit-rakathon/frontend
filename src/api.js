@@ -72,3 +72,20 @@ export function createSharePin(meds) {
     signal: AbortSignal.timeout(15000),
   });
 }
+
+/**
+ * Aplikace lékaře: vyzvedne léky pacienta podle PINu.
+ * PIN je jednorázový – po úspěšném vyzvednutí ho backend smaže.
+ * @param {string} pin – 4 číslice
+ * @returns {Promise<{ medications: Array }>}
+ * Chyby (error.message): 'not_found' (špatný nebo vypršelý PIN),
+ * 'rate_limited' (moc špatných pokusů), 'invalid_input' (PIN nemá 4 číslice).
+ */
+export function claimShare(pin) {
+  return request('/api/share/claim', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin }),
+    signal: AbortSignal.timeout(15000),
+  });
+}
