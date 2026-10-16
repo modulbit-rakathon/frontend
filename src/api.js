@@ -4,12 +4,10 @@ import { analyzePhotos as mockAnalyzePhotos } from './mock/analyze.js';
 import { searchCatalog as mockSearchCatalog } from './mock/catalog.js';
 import { reportNetworkFailure, reportNetworkSuccess } from './offline/network.js';
 import { rememberProducts, searchRemembered } from './offline/catalogCache.js';
-// Adresa a klíč se berou ze souboru frontend/.env.local
-//
-// Při vývoji (npm run dev) voláme jen "/api/..." a Vite to přepošle
-// na backend (viz proxy ve vite.config.js). V hotové appce voláme backend přímo.
-const API_URL = import.meta.env.DEV ? '' : import.meta.env.VITE_API_URL;
-const API_KEY = import.meta.env.VITE_API_KEY;
+// Voláme jen "/api/..." na stejné adrese, kde běží appka. Na backend to přepošle
+// proxy a ta přidá i API klíč, takže klíč nikdy není v prohlížeči:
+// při vývoji Vite (vite.config.js), v produkci nginx (nginx.conf.template).
+
 // VITE_MOCK_API=true → focení a hledání v katalogu nevolá backend, ale mock (src/mock/)
 export const USE_MOCK = import.meta.env.VITE_MOCK_API === 'true';
 
@@ -21,10 +19,7 @@ async function request(path, options) {
 
   let res;
   try {
-    res = await fetch(`${API_URL}${path}`, {
-      ...options,
-      headers: { 'X-Api-Key': API_KEY, ...options.headers },
-    });
+    res = await fetch(path, options);
   } catch (error) {
     // Zrušení (pacient píše dál) a vypršení času necháme, jak jsou.
     if (error.name === 'AbortError' || error.name === 'TimeoutError') throw error;

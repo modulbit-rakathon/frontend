@@ -91,12 +91,44 @@ V terminálu se vypíše něco takového:
 
 Server zastavíte v terminálu klávesami `Ctrl + C`. Změny v kódu se v prohlížeči projeví samy.
 
+### Napojení na backend (`.env.local`)
+
+Adresa backendu a API klíč patří do souboru `frontend/.env.local` (není v gitu):
+
+```
+API_URL=https://pillgaze-team92.azurewebsites.net
+API_KEY=...
+```
+
+Pro backend spuštěný u sebe dejte `API_URL=http://localhost:8080` a `API_KEY` stejný jako `APP_API_KEY` v `backend/.env`.
+Po změně `.env.local` restartujte `npm run dev`.
+
+Jak to funguje: appka volá jen `/api/...` na své vlastní adrese. Vite (proxy ve `vite.config.js`)
+požadavek přepošle na `API_URL` a sám přidá hlavičku `X-Api-Key`. Klíč tak nikdy není v kódu
+v prohlížeči, a protože prohlížeč mluví jen se svou adresou, neřeší se ani CORS (funguje to i na mobilu přes `Network`).
+
+Proměnné záměrně **nemají** prefix `VITE_`: Vite by je jinak mohl vložit do kódu pro prohlížeč.
+Starší `.env.local` s `VITE_API_URL` / `VITE_API_KEY` stačí přejmenovat.
+
 ### Produkční build
 
 ```bash
 npm run build    # vytvoří složku dist/
 npm run preview  # spustí zkompilovanou verzi (adresa se opět vypíše v terminálu)
 ```
+
+`npm run preview` používá stejnou proxy jako `npm run dev`.
+
+### Nasazení (Azure)
+
+```bash
+set -a; . ./.env.local; set +a
+./deploy.sh
+```
+
+Na serveru dělá totéž co Vite proxy nginx (`nginx.conf.template`): `/api/...` přepošle na backend
+a přidá klíč. `API_URL` a `API_KEY` jsou v nastavení App Service, ne v buildu, takže výměna klíče
+nepotřebuje nový build. Backend se nasazuje jako první (`backend/deploy.sh`), frontend používá jeho registr i plán.
 
 ## Testování bez AI
 
