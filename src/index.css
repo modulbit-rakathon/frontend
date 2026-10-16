@@ -832,6 +832,11 @@ ul {
   bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 12px);
   z-index: 5;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+  /* Jen tak široké jako text (ne přes celou šířku jako ostatní .btn), uprostřed */
+  width: auto;
+  align-self: center;
+  padding: 12px 28px;
+  border-radius: 999px;
 }
 
 /* =========================================================
