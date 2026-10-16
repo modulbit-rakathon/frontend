@@ -1,5 +1,19 @@
 # Pillgaze Frontend
 
+## Kritéria
+
+Protože naše aplikace je primárně pro starší uživatele, musíme se držet určitých parametrů. Naše aplikace musí mít:
+
+- velká barevná tlačítka
+- velký text
+- rychlé a jednoduché ovládání
+
+Funkce:
+
+- [ ] export pdfka
+- [ ] přihlášení lékaře přes jednorázový kód
+- [ ] reakce léků na sebe
+
 Frontend projektu **Pillgaze** – mobilní webová appka. Pacient vyfotí krabičku léku, AI rozpozná údaje, pacient je potvrdí, lék se přidá do seznamu, zobrazí se možné interakce a vygeneruje se zpráva pro lékaře.
 
 Stack: React + Vite, react-router-dom, obyčejné CSS (`src/index.css`).
