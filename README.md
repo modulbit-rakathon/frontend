@@ -124,6 +124,27 @@ Data se ukládají do `localStorage` prohlížeče. Smazat je můžete tlačítk
 
 **Pacientská část nikde neukazuje interakce** – zadavatel je chce jen pro lékaře (`/doc`).
 
+## Bez internetu (PWA)
+
+Appku jde přidat na plochu telefonu a funguje i bez signálu (třeba v čekárně).
+Zajišťuje to `vite-plugin-pwa` (Workbox, nastavení ve `vite.config.js`):
+
+- Service worker si při první návštěvě uloží celou appku (HTML, JS, CSS, písma, ikony).
+  Jakákoli adresa appky se bez internetu otevře z uložené kopie.
+- Léky a profil jsou v `localStorage`, takže seznam léků, zpráva, ruční zadání,
+  doplňky a onkologie fungují bez internetu.
+- Fotky bez internetu se uloží do IndexedDB (`src/offline/photoQueue.js`) a odešlou se samy,
+  jakmile je internet zpět a appka je otevřená. Pacient je pak zkontroluje jako obvykle.
+- Hledání v katalogu bez internetu hledá jen v přípravcích, které appka už viděla
+  (`src/offline/catalogCache.js`). Kód pro lékaře (`/pin`) a `/doc` potřebují internet.
+- Volání `/api/...` service worker nikdy neukládá.
+- Nová verze: appka ukáže „Je připravená nová verze aplikace“ a načte ji až po klepnutí.
+
+Při vývoji (`npm run dev`) je service worker vypnutý. Vyzkoušet ho jde přes
+`npm run build && npm run preview`. Na serveru musí appka běžet přes **HTTPS**
+(výjimka je jen `localhost`) a soubory `sw.js` a `index.html` se nesmí dlouho cachovat
+(`Cache-Control: no-cache`), jinak se nová verze neprojeví.
+
 ## Struktura
 
 ```text
@@ -140,6 +161,7 @@ src/
   photos.js             zmenšení fotek před odesláním (backend bere max 15 MB)
   review.js             logika kontroly léků z fotek (co musí pacient vyřešit)
   doctorCheck.js        interakce pro lékaře: rozklad onko režimů + /api/interactions (DDInter)
+  offline/              PWA: stav internetu, fronta fotek, záloha katalogu, lišta „bez internetu“
   mock/analyze.js       náhrada za AI čtení fotek
   mock/catalog.js       náhrada za hledání v katalogu léků
   mock/interactions.js  náhrada za databázi interakcí (pacientovi se neukazuje)

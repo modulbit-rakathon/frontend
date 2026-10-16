@@ -55,6 +55,38 @@ export default {
   'voice.error.unknown': 'Voice input didn’t work. Please try again, or type it instead.',
   'voice.listening': 'Listening… (tap to stop)',
 
+  // --- Offline ---
+  'offline.title': 'You are offline',
+  'offline.patientText': 'No problem. Your medicines are saved on this phone and the app keeps working.',
+  'offline.waitingPhotos': {
+    one: 'We will send {count} saved photo once you are back online.',
+    other: 'We will send {count} saved photos once you are back online.',
+  },
+  'offline.doctorText': "The patient's medicines can be loaded once you are connected.",
+  'offline.sendingSaved': 'You are back online. Sending saved photos…',
+  'offline.readyTitle': 'Your photos have been processed',
+  'offline.readyText': 'Tap here to check what we read.',
+  'offline.updateTitle': 'A new version of the app is ready',
+  'offline.updateText': 'Your medicines will stay saved.',
+  'offline.updateReload': 'Load new version',
+  'offline.updateLater': 'Not now',
+  'offline.scanHint': 'Go ahead and take the photos and send them. We will keep them on this phone and send them for you once you are back online.',
+  'offline.queuedTitle': 'Your photos will wait for the internet',
+  'offline.queuedSaved': 'Photos are saved on this phone',
+  'offline.queuedText':
+    'You are not connected to the internet right now. Once you are, we will send the photos for you. You do not need to do anything, just keep the app open (or open it again later).',
+  'offline.queuedAfter': 'When the photos have been read, we will show them to you to check.',
+  'offline.sending': 'You are back online. Sending photos…',
+  'offline.backHome': 'Back to home',
+  'offline.pinTitle': 'The code for your doctor needs the internet',
+  'offline.pinText': 'You are offline right now. The code will be created automatically once you are back online.',
+  'offline.pinMeanwhile': 'In the meantime, you can show your doctor the list of medicines right on your phone.',
+  'offline.pinShowReport': 'Show the report to your doctor',
+  'offline.catalogPartial': 'You are offline. Searching only the medicines the app already knows.',
+  'offline.catalogNone': 'You are offline, so the full medicine list cannot be searched now. You can keep the medicine as it was read.',
+  'scan.error.offline': 'You are not connected to the internet right now, so the photos cannot be read.',
+  'doc.error.offline': 'This computer is not connected to the internet. Once connected, click “{button}” again.',
+
   // --- Spodní lišta ---
   'nav.label': 'Main menu',
   'nav.home': 'Home',

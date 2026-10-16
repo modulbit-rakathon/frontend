@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { MedsProvider } from './context/MedsContext.jsx';
+import { OfflineProvider } from './offline/OfflineContext.jsx';
 import './index.css';
 import './ripple.js'; // vlna při klepnutí na tlačítka
 import { applyFontSize, loadFontSize } from './accessibility.js';
@@ -19,7 +20,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       {/* MedsProvider = sdílí seznam léků se všemi obrazovkami */}
       <MedsProvider>
-        <App />
+        {/* OfflineProvider = hlídá internet a posílá fotky, které na něj čekaly */}
+        <OfflineProvider>
+          <App />
+        </OfflineProvider>
       </MedsProvider>
     </BrowserRouter>
   </React.StrictMode>

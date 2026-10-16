@@ -47,7 +47,7 @@ const LEVELS = {
 const UNCHECKED_REASONS = ['no_active_substance', 'not_in_source', 'partly_in_source', 'unknown_regimen'];
 
 // Chybové kódy z backendu, pro které máme větu pro lékaře ('doc.error.<kód>')
-const ERROR_CODES = ['not_found', 'rate_limited', 'invalid_input'];
+const ERROR_CODES = ['not_found', 'rate_limited', 'invalid_input', 'offline'];
 
 // Léky od backendu mají jiný tvar než léky v telefonu pacienta (dávkování je text,
 // chybí "type"). FHIR export čeká tvar z telefonu, tak je převedeme.
@@ -149,7 +149,7 @@ export default function Doctor() {
 
         {errorCode && (
           <p className="doc-error" role="alert">
-            {t(`doc.error.${errorCode}`)}
+            {t(`doc.error.${errorCode}`, { button: t('doc.load') })}
           </p>
         )}
 

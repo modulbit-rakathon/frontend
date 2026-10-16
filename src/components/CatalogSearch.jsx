@@ -23,6 +23,8 @@ export default function CatalogSearch({ onPick, initialQuery = '', idPrefix }) {
   // 'short' = málo znaků, 'loading', 'done', 'error'
   const [status, setStatus] = useState('short');
   const [products, setProducts] = useState([]);
+  // true = bez internetu, hledali jsme jen v přípravcích uložených v telefonu
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     const q = query.trim();
@@ -43,6 +45,7 @@ export default function CatalogSearch({ onPick, initialQuery = '', idPrefix }) {
       searchCatalog(q, controller.signal)
         .then((data) => {
           setProducts(data.products);
+          setOffline(Boolean(data.offline));
           setStatus('done');
         })
         .catch(() => {
@@ -75,7 +78,9 @@ export default function CatalogSearch({ onPick, initialQuery = '', idPrefix }) {
       <p className="catalog-status" aria-live="polite">
         {status === 'short' && t('catalog.short', { count: MIN_LENGTH })}
         {status === 'loading' && t('catalog.loading')}
-        {status === 'done' && products.length === 0 && t('catalog.none')}
+        {status === 'done' && !offline && products.length === 0 && t('catalog.none')}
+        {status === 'done' && offline && products.length === 0 && t('offline.catalogNone')}
+        {status === 'done' && offline && products.length > 0 && `${t('offline.catalogPartial')} `}
         {status === 'done' && products.length > 0 && t('catalog.found', { count: products.length })}
         {status === 'error' && t('catalog.error')}
       </p>

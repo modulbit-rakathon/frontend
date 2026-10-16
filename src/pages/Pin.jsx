@@ -14,12 +14,15 @@
 //   'expired' – kód už neplatí, nabídneme nový
 //   'ended'   – pacient sdílení ukončil
 //   'error'   – nepodařilo se ho získat
+//   'offline' – není internet; kód se vytvoří sám, až internet bude
 //   'empty'   – pacient nemá žádné léky, není co sdílet
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import QRCode from 'qrcode';
 import { useMeds } from '../context/MedsContext.jsx';
 import { createSharePin } from '../api.js';
-import { WarningIcon } from '../components/Icons.jsx';
+import { OfflineIcon, WarningIcon } from '../components/Icons.jsx';
+import { useOnline } from '../offline/network.js';
 import { t, tRich } from '../i18n/index.js';
 
 // Adresa lékařské stránky (stejný server, na kterém běží appka)
@@ -35,6 +38,7 @@ function formatLeft(ms) {
 
 export default function Pin() {
   const { meds } = useMeds();
+  const online = useOnline();
 
   const [step, setStep] = useState('loading');
   const [share, setShare] = useState(null); // { pin, expires_at, expires_in }
@@ -67,9 +71,9 @@ export default function Pin() {
         setShare(result);
         setStep('ready');
       })
-      .catch(() => {
+      .catch((error) => {
         if (cancelled) return;
-        setStep('error');
+        setStep(error.message === 'offline' ? 'offline' : 'error');
       });
 
     return () => {
@@ -90,6 +94,11 @@ export default function Pin() {
     }, 1000);
     return () => clearInterval(timer);
   }, [step, share]);
+
+  // Internet je zpět → kód vytvoříme sami, pacient nemusí nic mačkat.
+  useEffect(() => {
+    if (online && step === 'offline') setAttempt((n) => n + 1);
+  }, [online, step]);
 
   function newPin() {
     setAttempt((n) => n + 1);
@@ -173,6 +182,25 @@ export default function Pin() {
           </div>
           <button type="button" className="btn btn-primary" onClick={newPin}>
             {t('pin.newCode')}
+          </button>
+        </>
+      )}
+
+      {step === 'offline' && (
+        <>
+          <div className="box box-info" role="status">
+            <div className="box-title">
+              <OfflineIcon />
+              <span>{t('offline.pinTitle')}</span>
+            </div>
+            <p>{t('offline.pinText')}</p>
+            <p>{t('offline.pinMeanwhile')}</p>
+          </div>
+          <Link to="/zprava" className="btn btn-primary">
+            {t('offline.pinShowReport')}
+          </Link>
+          <button type="button" className="btn btn-secondary" onClick={newPin}>
+            {t('common.tryAgain')}
           </button>
         </>
       )}

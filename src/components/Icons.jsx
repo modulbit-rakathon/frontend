@@ -109,3 +109,28 @@ export function MedicIcon({ size }) {
     </Svg>
   );
 }
+
+// Přeškrtnutá Wi-Fi = bez internetu
+export function OfflineIcon({ size }) {
+  return (
+    <Svg size={size}>
+      <path d="M2 8.8a15 15 0 0 1 4.2-2.6" />
+      <path d="M10.7 5.1A15 15 0 0 1 22 8.8" />
+      <path d="M5 12.6a10 10 0 0 1 5.2-2.5" />
+      <path d="M16.9 11.1A10 10 0 0 1 19 12.6" />
+      <path d="M8.5 16.4a5 5 0 0 1 7 0" />
+      <path d="M12 20h.01" />
+      <path d="M3 3l18 18" />
+    </Svg>
+  );
+}
+
+// Šipka v kruhu = načíst znovu (nová verze appky)
+export function RefreshIcon({ size }) {
+  return (
+    <Svg size={size}>
+      <path d="M20 11a8 8 0 1 0-2.3 5.7" />
+      <path d="M20 4v7h-7" />
+    </Svg>
+  );
+}
