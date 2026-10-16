@@ -113,10 +113,10 @@ export const CATALOG_STATUS = {
  * (Backend umí ještě 'regimen' = zpráva s onkologickým režimem, zatím ho nefotíme.)
  */
 export const PHOTO_KINDS = [
-  { field: 'note', title: 'Lístek od lékaře', add: 'Přidat fotku lístku', hint: 'Seznam léků, recept nebo propouštěcí zpráva.' },
-  { field: 'box', title: 'Krabičky léků', add: 'Přidat fotku krabičky', hint: 'Každou krabičku zvlášť, ať je vidět název a síla.' },
+  { field: 'note', title: 'Lístek od lékaře', add: 'Vyfotit lístek', hint: 'Seznam léků, recept nebo propouštěcí zpráva.' },
+  { field: 'box', title: 'Krabičky léků', add: 'Vyfotit krabičku', hint: 'Každou krabičku zvlášť, ať je vidět název a síla.' },
   // Jen pro pacienty, kteří se léčí na onkologii (profile.onco === 'ano')
-  { field: 'regimen', title: 'Zpráva z onkologie', add: 'Přidat fotku zprávy', hint: 'Část, kde je název léčby, např. FOLFOX.', onco: true },
+  { field: 'regimen', title: 'Zpráva z onkologie', add: 'Vyfotit zprávu', hint: 'Část, kde je název léčby, např. FOLFOX.', onco: true },
 ];
 
 /** Limity backendu pro jedno odeslání fotek. */

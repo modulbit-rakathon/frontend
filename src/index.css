@@ -1906,6 +1906,17 @@ html[data-font='xlarge'] .app {
   cursor: not-allowed;
 }
 
+.photo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn-link:disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 .photo-counter {
   font-size: 20px;
   font-weight: 700;

@@ -77,7 +77,9 @@ export default function Scan() {
   const [errorCode, setErrorCode] = useState('');
   const [loadingIndex, setLoadingIndex] = useState(0); // který uklidňující text ukazujeme
 
-  // Odkaz na skrytý <input type="file">, abychom ho mohli "kliknout" z tlačítka.
+  // Odkazy na skryté <input type="file">, abychom je mohli "kliknout" z tlačítek:
+  // jeden otevře rovnou fotoaparát, druhý galerii/soubory.
+  const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
   // Jaký druh fotky pacient právě přidává ('note', 'box' nebo 'regimen').
   const photoFieldRef = useRef('box');
@@ -103,12 +105,12 @@ export default function Scan() {
 
   // ---------- 1) Sbírání fotek ----------
 
-  // Otevře výběr fotky. Na mobilu nabídne fotoaparát i galerii
+  // Otevře fotoaparát (useCamera) nebo výběr z galerie
   // (z galerie jde vybrat víc fotek najednou).
-  function openPicker(field) {
+  function openPicker(field, useCamera) {
     photoFieldRef.current = field;
     setPickMessage('');
-    fileInputRef.current.click();
+    (useCamera ? cameraInputRef : fileInputRef).current.click();
   }
 
   async function handleFiles(event) {
@@ -219,8 +221,10 @@ export default function Scan() {
 
   return (
     <>
-      {/* Skrytý vstup pro fotky. multiple = z galerie jde vybrat víc fotek najednou.
+      {/* Skryté vstupy pro fotky. capture="environment" = na mobilu rovnou zadní fotoaparát.
+          multiple = z galerie jde vybrat víc fotek najednou.
           image/* (ne jen jpeg/png): fotky z iPhonu (HEIC) převede shrinkPhoto na JPEG. */}
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFiles} hidden />
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFiles} hidden />
 
       {step === 'pick' && (
@@ -258,15 +262,26 @@ export default function Scan() {
                   </ul>
                 )}
 
-                <button
-                  type="button"
-                  className="btn btn-dashed"
-                  onClick={() => openPicker(kind.field)}
-                  disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
-                >
-                  <CameraIcon />
-                  {kind.add}
-                </button>
+                <div className="photo-actions">
+                  <button
+                    type="button"
+                    className="btn btn-dashed"
+                    onClick={() => openPicker(kind.field, true)}
+                    disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
+                  >
+                    <CameraIcon />
+                    {kind.add}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-link"
+                    aria-label={`Vybrat z galerie – ${kind.title.toLowerCase()}`}
+                    onClick={() => openPicker(kind.field, false)}
+                    disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
+                  >
+                    Vybrat z galerie
+                  </button>
+                </div>
               </section>
             );
           })}
