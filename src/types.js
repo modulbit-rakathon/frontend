@@ -347,10 +347,10 @@ export function itemsOfType(items, type) {
 
 /**
  * @typedef {Object} Profile
- * @property {boolean} supplementsAsked – už jsme se ptali na doplňky?
+ * @property {boolean} extrasAsked – už jsme se po přidání léků ptali na onkologii a doplňky?
  * @property {''|'ano'|'ne'|'nechci'} onco – "Léčíte se na onkologii?" ('' = zatím neodpověděl)
  */
-export const EMPTY_PROFILE = { supplementsAsked: false, onco: '' };
+export const EMPTY_PROFILE = { extrasAsked: false, onco: '' };
 
 // ---------------------------------------------------------------
 // Převod starých / backendových dat na Item

@@ -732,6 +732,14 @@ ul {
   color: var(--text-muted);
 }
 
+/* "Nasdílet lékaři" ve zprávě – drží se nad spodní lištou při posouvání */
+.report-share {
+  position: sticky;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 12px);
+  z-index: 5;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+}
+
 /* =========================================================
    8) SPODNÍ LIŠTA
    ========================================================= */
@@ -2205,6 +2213,17 @@ html[data-font='xlarge'] .app {
 .catalog-result span {
   font-size: 18px;
   color: var(--text-muted);
+}
+
+/* Návrhy z katalogu pod názvem léku při ručním zadání */
+.catalog-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catalog-suggestions:not(:empty) {
+  margin-top: 4px;
 }
 
 .catalog-search {

@@ -4,8 +4,8 @@
 // Nic nehodnotíme ani nevarujeme, jen sbíráme údaje pro lékaře.
 //
 // Doplňky ukládáme do stejného seznamu jako léky, jen s type: 'doplnek'.
-// Adresa /doplnky?krok=1 = jsme tu jako krok po přidání prvního léku.
-import { useEffect, useState } from 'react';
+// Adresa /doplnky?krok=1 = jsme tu jako krok po přidání prvních léků (z /dalsi).
+import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CheckIcon } from '../components/Icons.jsx';
@@ -17,18 +17,14 @@ export default function Supplements() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isStep = searchParams.get('krok') === '1';
+  // Jako krok se vracíme na otázku "Užíváte ještě něco dalšího?"
+  const backTo = isStep ? '/dalsi' : '/leky';
 
-  const { meds, addMed, removeMed, updateProfile } = useMeds();
+  const { meds, addMed, removeMed } = useMeds();
   const supplements = itemsOfType(meds, ITEM_TYPES.DOPLNEK);
 
   const [otherOpen, setOtherOpen] = useState(false); // je otevřené pole "Jiné"?
   const [otherText, setOtherText] = useState('');
-
-  // Jakmile pacient tuhle obrazovku jednou uvidí, už se po přidání léku znovu neptáme.
-  useEffect(() => {
-    updateProfile({ supplementsAsked: true });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Vytvoří položku doplňku ve stejném tvaru jako lék.
   function makeSupplement(name, supplementKey) {
@@ -67,7 +63,7 @@ export default function Supplements() {
 
   return (
     <>
-      <BackButton to="/leky" />
+      <BackButton to={backTo} />
       <h1>{t('supp.title')}</h1>
       <p className="subtitle">{t('common.supplementsMatter')}</p>
 
@@ -141,7 +137,7 @@ export default function Supplements() {
         </ul>
       )}
 
-      <button type="button" className="btn btn-primary" onClick={() => navigate('/leky')}>
+      <button type="button" className="btn btn-primary" onClick={() => navigate(backTo)}>
         {isStep && supplements.length === 0 ? t('supp.noneOfThese') : t('common.done')}
       </button>
     </>

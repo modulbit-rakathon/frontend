@@ -12,6 +12,7 @@ import Pin from './pages/Pin.jsx';
 import Doctor from './pages/Doctor.jsx';
 import Supplements from './pages/Supplements.jsx';
 import Onco from './pages/Onco.jsx';
+import AddMore from './pages/AddMore.jsx';
 import AppStatus from './offline/AppStatus.jsx';
 import Family from './pages/Family.jsx';
 import FamilyOpen from './pages/FamilyOpen.jsx';
@@ -79,6 +80,8 @@ export default function App() {
           <Route path="/pin" element={<Pin />} />
           <Route path="/doplnky" element={<Supplements />} />
           <Route path="/onkologie" element={<Onco />} />
+          {/* Po přidání prvních léků: "Užíváte ještě něco dalšího?" */}
+          <Route path="/dalsi" element={<AddMore />} />
           {/* Režim pro blízké: vytvoření odkazu / otevření odkazu (data jsou za #) */}
           <Route path="/blizky" element={<Family />} />
           <Route path="/pomoc" element={<FamilyOpen />} />

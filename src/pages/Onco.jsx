@@ -2,8 +2,9 @@
 //
 // Pacient zadá název léčby (s našeptáváním), formu a kdy byla poslední dávka.
 // Položky ukládáme do stejného seznamu jako léky, s type: 'onko'.
+// Adresa /onkologie?krok=1 = jsme tu jako krok po přidání prvních léků (z /dalsi).
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import OncoQuestion from '../components/OncoQuestion.jsx';
 import { CheckIcon } from '../components/Icons.jsx';
@@ -25,6 +26,9 @@ const TODAY = new Date().toLocaleDateString('sv-SE');
 
 export default function Onco() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Jako krok se vracíme na otázku "Užíváte ještě něco dalšího?"
+  const backTo = searchParams.get('krok') === '1' ? '/dalsi' : '/leky';
   const { meds, addMed, removeMed, profile } = useMeds();
   const treatments = itemsOfType(meds, ITEM_TYPES.ONKO);
 
@@ -56,7 +60,7 @@ export default function Onco() {
 
   return (
     <>
-      <BackButton to="/leky" />
+      <BackButton to={backTo} />
       <h1>{t('common.oncoTreatment')}</h1>
 
       {/* Dokud pacient neodpověděl "Ano", ukážeme nejdřív otázku */}
@@ -144,7 +148,7 @@ export default function Onco() {
             </button>
           </form>
 
-          <button type="button" className="btn btn-secondary" onClick={() => navigate('/leky')}>
+          <button type="button" className="btn btn-secondary" onClick={() => navigate(backTo)}>
             {t('common.done')}
           </button>
         </>

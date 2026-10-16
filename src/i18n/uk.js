@@ -331,6 +331,9 @@ export default {
   'form.medName': 'Назва препарату',
   'form.namePlaceholder': 'напр. Ibuprofen',
   'form.voiceName': 'Сказати назву вголос',
+  'form.suggestTitle': 'Можливо, ви мали на увазі один із цих препаратів? Торкніться, щоб вибрати.',
+  'form.fromCatalog': 'Препарат із бази даних',
+  'form.fromCatalogSubstance': 'Препарат із бази даних, діюча речовина: {substance}',
   'form.strengthPlaceholder': 'напр. 400 мг',
   'form.whenHowMany': 'Коли й скільки штук',
   'form.since': 'Приймаю з',
@@ -385,6 +388,9 @@ export default {
   'meds.supplementsEdit': 'Змінити добавки',
   'meds.oncoAnswer': 'Онкологічне лікування:',
   'meds.change': 'Змінити',
+  'meds.reviewTitle': 'Будь ласка, перевірте весь список',
+  'meds.reviewText': 'Чи приймаєте ви досі всі ліки нижче? Ті, які вже не приймаєте, видаліть. Змінилося дозування? Торкніться препарату й виправте його.',
+  'meds.reviewOk': 'Список правильний',
   'meds.edit': 'Редагувати',
   'meds.recheckText': 'Ви змінили назву або силу. Виберіть лік зі списку, щоб лікар бачив правильну діючу речовину.',
   'meds.saveWithoutCatalog': 'Зберегти без вибору зі списку',
@@ -439,6 +445,16 @@ export default {
   'report.speakOnco': 'Онкологічне лікування: {list}.',
   'report.speakMeds': 'Ліки, які приймає пацієнт: {list}.',
   'report.speakSupplements': 'Харчові добавки й трави: {list}.',
+
+  // --- Після додавання перших ліків (/dalsi) ---
+  'more.saved': 'Ліки збережено.',
+  'more.title': 'Чи приймаєте ви ще щось?',
+  'more.subtitle': 'Щоб лікар бачив усе, що ви приймаєте.',
+  'more.oncoSub': 'Хіміотерапія, імунотерапія, гормональна терапія…',
+  'more.suppSub': 'Вітаміни, трави, чаї, мінерали…',
+  'more.entered': 'Введено: {count}',
+  'more.nothing': 'Більше нічого не приймаю',
+  'more.continue': 'Продовжити',
 
   // --- Doplňky stravy (/doplnky) ---
   'supp.title': 'Чи приймаєте ви щось із цього?',

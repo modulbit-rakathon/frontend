@@ -1,10 +1,11 @@
 // Obrazovka 3: Moje léky
 // Každý lék je tlačítko s názvem. Po klepnutí se pod ním rozbalí podrobnosti.
 // Otevřený může být vždy jen jeden lék (ID máme v `openId`).
+// Adresa /leky?kontrola=1 = pacient právě přidal další léky → vyzveme ho ke kontrole seznamu.
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
-import { CameraIcon, ChevronIcon, PillIcon } from '../components/Icons.jsx';
+import { CameraIcon, CheckIcon, ChevronIcon, InfoIcon, PillIcon } from '../components/Icons.jsx';
 import { medName, sourcesText } from '../labels.js';
 import SpeakButton from '../components/SpeakButton.jsx';
 import MedEdit from '../components/MedEdit.jsx';
@@ -23,6 +24,8 @@ import {
 
 export default function Meds() {
   const { meds: items, removeMed, profile } = useMeds();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const askReview = searchParams.get('kontrola') === '1';
   const [openId, setOpenId] = useState(null); // ID rozbaleného léku (null = žádný)
   // ID léku, který se upravuje – vždy jen jeden (formulář má pevná id polí)
   const [editingId, setEditingId] = useState(null);
@@ -71,6 +74,21 @@ export default function Meds() {
   return (
     <>
       <h1>{t('meds.title')}</h1>
+
+      {/* Po přidání dalších léků: ať pacient odebere, co už nebere, a opraví dávkování */}
+      {askReview && (
+        <div className="box box-info" role="status">
+          <div className="box-title">
+            <InfoIcon />
+            <span>{t('meds.reviewTitle')}</span>
+          </div>
+          <p>{t('meds.reviewText')}</p>
+          <button type="button" className="btn btn-secondary" onClick={() => setSearchParams({}, { replace: true })}>
+            <CheckIcon />
+            {t('meds.reviewOk')}
+          </button>
+        </div>
+      )}
 
       {/* ---------- Onkologická léčba (jen když pacient odpověděl "Ano") ---------- */}
       {profile.onco === 'ano' && (

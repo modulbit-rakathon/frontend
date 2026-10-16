@@ -4,6 +4,9 @@
 //
 // Dávkování se nepíše, ale kliká (komponenta DosageInput).
 //
+// Při ručním zadání (suggest) nabízí pod názvem léky z katalogu (CatalogSuggestions).
+// Vybraný přípravek doplní název, sílu, účinnou látku a catalog_id.
+//
 // Nejistá pole (AI si nebyla jistá) jsou žlutá s textem "Zkontrolujte prosím".
 // Lék nejde přidat, dokud pacient každé takové pole neodklepne
 // tlačítkem "Je to správně" nebo ho neopraví.
@@ -11,6 +14,8 @@ import { useState } from 'react';
 import { WarningIcon, CheckIcon } from './Icons.jsx';
 import DosageInput from './DosageInput.jsx';
 import VoiceButton from './VoiceButton.jsx';
+import CatalogSuggestions from './CatalogSuggestions.jsx';
+import { catalogName } from '../labels.js';
 import { PRESCRIBERS, emptyDosage, monthNames } from '../types.js';
 import { t } from '../i18n/index.js';
 
@@ -23,10 +28,13 @@ const YEARS = Array.from({ length: 31 }, (_, i) => String(THIS_YEAR - i));
  * @param uncertainFields – pole formuláře, která AI nepřečetla jistě, např. ["dosage"]
  * @param onSubmit – zavolá se s vyplněnými údaji po kliknutí na "Ano, přidat lék"
  * @param submitLabel – (nepovinné) text hlavního tlačítka
+ * @param suggest – (nepovinné) nabízet při psaní názvu léky z katalogu
  */
-export default function MedForm({ initial, uncertainFields = [], onSubmit, submitLabel = t('form.submit') }) {
+export default function MedForm({ initial, uncertainFields = [], onSubmit, submitLabel = t('form.submit'), suggest = false }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [strength, setStrength] = useState(initial?.strength ?? '');
+  // Přípravek z katalogu, který pacient vybral z návrhů (null = žádný)
+  const [picked, setPicked] = useState(null);
   const [dosage, setDosage] = useState(initial?.dosage ?? emptyDosage());
   // Nejistá pole, která už pacient zkontroloval (odklepl nebo opravil)
   const [checked, setChecked] = useState([]);
@@ -52,9 +60,30 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, submi
     setSince(year ? (month ? `${year}-${month}` : year) : '');
   }
 
+  // Pacient název přepsal → vybraný přípravek už k němu nepatří
+  function changeName(value) {
+    change('name', setName)(value);
+    setPicked(null);
+  }
+
+  function pickProduct(product) {
+    setName(catalogName(product.name));
+    if (product.strength) setStrength(product.strength);
+    markChecked('name');
+    if (product.strength) markChecked('strength');
+    setPicked(product);
+  }
+
   function handleSubmit(event) {
     event.preventDefault(); // zabrání znovunačtení stránky (výchozí chování formuláře)
-    onSubmit({ name: name.trim(), strength: strength.trim(), dosage, since, prescriber });
+    const values = { name: name.trim(), strength: strength.trim(), dosage, since, prescriber };
+    // Katalogové údaje jen když síla pořád odpovídá vybranému přípravku –
+    // jinak by lékař viděl látku a interakce jiného přípravku.
+    const catalog =
+      picked && (!picked.strength || values.strength === picked.strength)
+        ? { active_substance: picked.active_substance, form: picked.form || null, catalog_id: picked.id }
+        : {};
+    onSubmit({ ...values, ...catalog });
   }
 
   // Kolik žlutých polí ještě zbývá zkontrolovat
@@ -101,11 +130,21 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, submi
           type="text"
           value={name}
           placeholder={t('form.namePlaceholder')}
-          onChange={(e) => change('name', setName)(e.target.value)}
+          autoComplete={suggest ? 'off' : undefined}
+          onChange={(e) => changeName(e.target.value)}
           aria-describedby={isUncertain('name') ? 'hint-name' : undefined}
         />
         {/* Hlasové zadání – zobrazí se jen v prohlížeči, který ho umí */}
-        <VoiceButton label={t('form.voiceName')} onResult={change('name', setName)} />
+        <VoiceButton label={t('form.voiceName')} onResult={changeName} />
+        {suggest && <CatalogSuggestions query={name} paused={Boolean(picked)} onPick={pickProduct} />}
+        {picked && (
+          <p className="field-ok">
+            <CheckIcon size={24} />
+            {picked.active_substance
+              ? t('form.fromCatalogSubstance', { substance: picked.active_substance })
+              : t('form.fromCatalog')}
+          </p>
+        )}
         {hint('name')}
       </div>
 
