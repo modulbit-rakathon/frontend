@@ -495,17 +495,6 @@ export default {
   'scan.editPhotos': 'Змінити фото',
   'scan.manualSub': 'Перепишіть дані з упаковки або призначення.',
   'scan.ratherPhoto': 'Краще сфотографувати',
-  'camera.close': 'Закрити',
-  'camera.shutter': 'Сфотографувати',
-  'camera.done': 'Готово',
-  'camera.taken': 'Зроблено фото: {count}',
-  'camera.lastPhoto': 'Останнє фото',
-  'camera.starting': 'Вмикаю камеру…',
-  'camera.denied': 'Камеру не дозволено.',
-  'camera.denied.hint': 'Дозвольте її в налаштуваннях браузера або виберіть фото інакше.',
-  'camera.unavailable': 'Не вдалося увімкнути камеру.',
-  'camera.unavailable.hint': 'Можливо, її використовує інша програма. Фото можна вибрати інакше.',
-  'camera.fallback': 'Вибрати фото інакше',
 
   // --- Jednotky ---
   'unit.mb': '{n} МБ',

@@ -20,7 +20,6 @@ import { useMeds } from '../context/MedsContext.jsx';
 import { USE_MOCK, analyzePhotos } from '../api.js';
 import { useOffline } from '../offline/OfflineContext.jsx';
 import { photosByField } from '../offline/photoQueue.js';
-import CameraCapture from '../components/CameraCapture.jsx';
 import MedForm from '../components/MedForm.jsx';
 import ReviewDetail from '../components/ReviewDetail.jsx';
 import { CameraIcon, CheckIcon, WarningIcon } from '../components/Icons.jsx';
@@ -78,9 +77,6 @@ export default function Scan() {
   const fileInputRef = useRef(null);
   // Jaký druh fotky pacient právě přidává ('note', 'box' nebo 'regimen').
   const photoFieldRef = useRef('box');
-  // Kolik fotek se právě zmenšuje (ještě nejsou v `photos`)
-  const pendingRef = useRef(0);
-  const [cameraOpen, setCameraOpen] = useState(false); // fotoaparát v appce
   // Číslo aktuálního požadavku – díky němu umíme ignorovat zrušené čtení.
   const requestIdRef = useRef(0);
   // Aktuální fotky pro úklid při odchodu z obrazovky
@@ -122,50 +118,33 @@ export default function Scan() {
 
   // Otevře fotoaparát (useCamera) nebo výběr z galerie
   // (z galerie jde vybrat víc fotek najednou).
-  // Fotoaparát je přímo v appce (CameraCapture); kde prohlížeč kameru neumí,
-  // otevře se systémový výběr s capture="environment".
   function openPicker(field, useCamera) {
     photoFieldRef.current = field;
     setPickMessage('');
-    if (useCamera && navigator.mediaDevices?.getUserMedia) setCameraOpen(true);
-    else (useCamera ? cameraInputRef : fileInputRef).current.click();
+    (useCamera ? cameraInputRef : fileInputRef).current.click();
   }
 
-  // Kamera v appce nejde zapnout → systémový výběr fotky
-  function cameraFallback() {
-    setCameraOpen(false);
-    cameraInputRef.current.click();
-  }
-
-  function handleFiles(event) {
+  async function handleFiles(event) {
     const files = [...event.target.files];
     event.target.value = ''; // vyčistíme, aby šla stejná fotka vybrat znovu
-    addFiles(files);
-  }
-
-  async function addFiles(files) {
     if (files.length === 0) return;
 
     // Víc než 10 fotek backend nepřijme → přebytečné nepřidáme.
-    // (photosRef: při focení za sebou se fotky přidávají dřív, než se obrazovka překreslí)
-    const free = PHOTO_LIMITS.maxCount - photosRef.current.length - pendingRef.current;
+    const free = PHOTO_LIMITS.maxCount - photos.length;
     const accepted = files.slice(0, free);
     let message = files.length > free ? t('scan.tooMany', { max: PHOTO_LIMITS.maxCount }) : '';
 
-    const field = photoFieldRef.current;
-    pendingRef.current += accepted.length;
     setPreparing(true);
     const added = [];
     for (const file of accepted) {
       try {
         const small = await shrinkPhoto(file);
-        added.push({ id: ++photoCounter, field, file: small, url: URL.createObjectURL(small) });
+        added.push({ id: ++photoCounter, field: photoFieldRef.current, file: small, url: URL.createObjectURL(small) });
       } catch {
         message = t('scan.openFailed');
       }
     }
-    pendingRef.current -= accepted.length;
-    if (pendingRef.current === 0) setPreparing(false);
+    setPreparing(false);
     setPhotos((prev) => [...prev, ...added]);
     setPickMessage(message);
   }
@@ -317,16 +296,6 @@ export default function Scan() {
           image/* (ne jen jpeg/png): fotky z iPhonu (HEIC) převede shrinkPhoto na JPEG. */}
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFiles} hidden />
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFiles} hidden />
-
-      {cameraOpen && (
-        <CameraCapture
-          title={photoKinds.find((kind) => kind.field === photoFieldRef.current)?.title}
-          remaining={PHOTO_LIMITS.maxCount - photos.length}
-          onCapture={(file) => addFiles([file])}
-          onClose={() => setCameraOpen(false)}
-          onFallback={cameraFallback}
-        />
-      )}
 
       {step === 'pick' && (
         <>

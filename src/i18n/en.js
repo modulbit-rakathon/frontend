@@ -485,17 +485,6 @@ export default {
   'scan.editPhotos': 'Change photos',
   'scan.manualSub': 'Copy the details from the box or the note.',
   'scan.ratherPhoto': 'Take a photo instead',
-  'camera.close': 'Close',
-  'camera.shutter': 'Take photo',
-  'camera.done': 'Done',
-  'camera.taken': 'Photos taken: {count}',
-  'camera.lastPhoto': 'Last photo',
-  'camera.starting': 'Starting the camera…',
-  'camera.denied': 'The camera isn’t allowed.',
-  'camera.denied.hint': 'Allow it in your browser settings, or choose a photo another way.',
-  'camera.unavailable': 'The camera couldn’t be started.',
-  'camera.unavailable.hint': 'Another app may be using it. You can choose a photo another way.',
-  'camera.fallback': 'Choose a photo another way',
 
   // --- Jednotky ---
   'unit.mb': '{n} MB',
