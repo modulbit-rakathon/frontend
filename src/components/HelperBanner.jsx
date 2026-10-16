@@ -2,6 +2,7 @@
 // Barva není jediná informace – je tam i text "Vyplňujete za".
 import { Link, useLocation } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
+import { t, tRich } from '../i18n/index.js';
 
 export default function HelperBanner() {
   const { helper, meds } = useMeds();
@@ -11,13 +12,13 @@ export default function HelperBanner() {
   return (
     <div className="helper-banner no-print" role="status">
       <p>
-        Vyplňujete za: <strong>{helper.name || 'blízkého člověka'}</strong>
-        <span className="helper-banner-sub">Vaše vlastní léky zůstávají beze změny.</span>
+        {tRich('family.helpingFor', { name: <strong>{helper.name || t('family.defaultName')}</strong> })}
+        <span className="helper-banner-sub">{t('family.ownSafe')}</span>
       </p>
       {/* Na obrazovce pro odeslání tlačítko nedává smysl */}
       {pathname !== '/blizky' && (
         <Link to="/blizky" className="btn btn-primary helper-banner-btn">
-          Hotovo – poslat zpět ({meds.length})
+          {t('family.bannerDone', { count: meds.length })}
         </Link>
       )}
     </div>

@@ -10,6 +10,8 @@ import { useMeds } from '../context/MedsContext.jsx';
 import ShareLink from '../components/ShareLink.jsx';
 import { WarningIcon } from '../components/Icons.jsx';
 import { medName } from '../labels.js';
+import { itemName } from '../types.js';
+import { t, tRich } from '../i18n/index.js';
 import {
   MAX_LINK_LENGTH,
   encodeShare,
@@ -26,9 +28,9 @@ function PrivacyNote() {
     <div className="box box-info">
       <div className="box-title">
         <WarningIcon />
-        <span>Odkaz obsahuje seznam léků</span>
+        <span>{t('family.privacyTitle')}</span>
       </div>
-      <p>Pošlete ho jen člověku, kterému důvěřujete. Kdo odkaz má, seznam uvidí.</p>
+      <p>{t('family.privacyText')}</p>
     </div>
   );
 }
@@ -60,25 +62,25 @@ function AskForHelp() {
     try {
       const link = shareUrl(window.location.origin, await encodeShare(data));
       if (link.length > MAX_LINK_LENGTH) {
-        setError('Seznam je na odkaz moc dlouhý. Zkuste ho poslat bez současných léků.');
+        setError(t('family.ask.tooLong'));
         return;
       }
       // Zapamatujeme si, že odkaz je náš – kdyby se otevřel na tomto telefonu.
       rememberLink('sent', id);
       setUrl(link);
     } catch {
-      setError('Odkaz se nepodařilo vytvořit. Zkuste to prosím znovu.');
+      setError(t('family.createFailed'));
     }
   }
 
   if (url) {
     return (
       <>
-        <h1>Odkaz je hotový</h1>
-        <p className="subtitle">Pošlete ho blízkému. Až léky vyplní, pošle vám odkaz zpět. Ten pak jen otevřete.</p>
-        <ShareLink url={url} title="PillGaze – pomoc s léky" text="Prosím, pomůžeš mi vyplnit seznam léků?" />
+        <h1>{t('family.ask.readyTitle')}</h1>
+        <p className="subtitle">{t('family.ask.readyText')}</p>
+        <ShareLink url={url} title={t('family.ask.shareTitle')} text={t('family.ask.shareText')} />
         <Link to="/" className="btn btn-link">
-          Hotovo
+          {t('common.done')}
         </Link>
       </>
     );
@@ -86,23 +88,23 @@ function AskForHelp() {
 
   return (
     <>
-      <h1>Pomoc od blízkého</h1>
-      <p className="subtitle">Někdo blízký může léky vyplnit za vás na svém telefonu.</p>
+      <h1>{t('family.ask.title')}</h1>
+      <p className="subtitle">{t('family.ask.subtitle')}</p>
 
       <ol className="family-steps">
-        <li>Pošlete mu odkaz.</li>
-        <li>On léky vyfotí nebo zapíše.</li>
-        <li>Pošle vám odkaz zpět. Vy zkontrolujete, co přidal, a uložíte.</li>
+        <li>{t('family.ask.step1')}</li>
+        <li>{t('family.ask.step2')}</li>
+        <li>{t('family.ask.step3')}</li>
       </ol>
 
       <form className="family-form" onSubmit={create}>
         <div className="field">
-          <label htmlFor="family-name">Za koho se léky vyplňují? (nepovinné)</label>
+          <label htmlFor="family-name">{t('family.ask.nameLabel')}</label>
           <input
             id="family-name"
             type="text"
             maxLength={60}
-            placeholder="např. maminka Jana"
+            placeholder={t('family.ask.namePlaceholder')}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -112,7 +114,7 @@ function AskForHelp() {
           <div className="field">
             <label className={includeList ? 'choice choice-on' : 'choice'}>
               <input type="checkbox" checked={includeList} onChange={(e) => setIncludeList(e.target.checked)} />
-              Poslat i léky, které už mám ({meds.length})
+              {t('family.ask.includeList', { count: meds.length })}
             </label>
           </div>
         )}
@@ -126,7 +128,7 @@ function AskForHelp() {
         )}
 
         <button type="submit" className="btn btn-primary">
-          Vytvořit odkaz
+          {t('family.ask.create')}
         </button>
       </form>
     </>
@@ -137,7 +139,7 @@ function AskForHelp() {
 function SendBack() {
   const navigate = useNavigate();
   const { helper, meds, profile, endHelping } = useMeds();
-  const who = helper.name || 'blízkého člověka';
+  const who = helper.name || t('family.defaultName');
   const [from, setFrom] = useState('');
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
@@ -157,19 +159,17 @@ function SendBack() {
     try {
       const link = shareUrl(window.location.origin, await encodeShare(data));
       if (link.length > MAX_LINK_LENGTH) {
-        setError('Seznam je na odkaz moc dlouhý. Pošlete ho prosím po částech.');
+        setError(t('family.send.tooLong'));
         return;
       }
       setUrl(link);
     } catch {
-      setError('Odkaz se nepodařilo vytvořit. Zkuste to prosím znovu.');
+      setError(t('family.createFailed'));
     }
   }
 
   function finish() {
-    const ok = url
-      ? window.confirm(`Ukončit vyplňování za ${who}? Seznam se z tohoto telefonu smaže. Odkaz, který jste poslali, platí dál.`)
-      : window.confirm(`Seznam jste ještě neposlali. Opravdu ho smazat a ukončit vyplňování za ${who}?`);
+    const ok = window.confirm(t(url ? 'family.send.confirmEndSent' : 'family.send.confirmEndUnsent', { name: who }));
     if (!ok) return;
     endHelping();
     navigate('/');
@@ -177,17 +177,15 @@ function SendBack() {
 
   return (
     <>
-      <h1>Poslat léky zpět</h1>
-      <p className="subtitle">
-        Vyplňujete za: <strong>{who}</strong>
-      </p>
+      <h1>{t('family.send.title')}</h1>
+      <p className="subtitle">{tRich('family.helpingFor', { name: <strong>{who}</strong> })}</p>
 
       {meds.length === 0 ? (
-        <p className="box box-info">Seznam je zatím prázdný.</p>
+        <p className="box box-info">{t('family.send.empty')}</p>
       ) : (
         <ul className="family-list">
           {meds.map((m) => (
-            <li key={m.id}>{medName(m)}</li>
+            <li key={m.id}>{medName({ ...m, name: itemName(m) })}</li>
           ))}
         </ul>
       )}
@@ -195,12 +193,12 @@ function SendBack() {
       {!url && (
         <form className="family-form" onSubmit={create}>
           <div className="field">
-            <label htmlFor="family-from">Vaše jméno (nepovinné)</label>
+            <label htmlFor="family-from">{t('family.send.fromLabel')}</label>
             <input
               id="family-from"
               type="text"
               maxLength={60}
-              placeholder="např. Jana, dcera"
+              placeholder={t('family.send.fromPlaceholder')}
               value={from}
               onChange={(e) => setFrom(e.target.value)}
             />
@@ -212,27 +210,27 @@ function SendBack() {
             </p>
           )}
           <button type="submit" className="btn btn-primary">
-            Vytvořit odkaz zpět
+            {t('family.send.create')}
           </button>
           <Link to="/leky" className="btn btn-secondary">
-            Ještě něco doplnit
+            {t('family.send.addMore')}
           </Link>
         </form>
       )}
 
       {url && (
         <>
-          <p className="share-step">Pošlete tento odkaz zpět.</p>
-          <ShareLink url={url} title="PillGaze – vyplněné léky" text="Léky jsem vyplnil(a). Otevři odkaz a zkontroluj je." />
+          <p className="share-step">{t('family.send.sendBack')}</p>
+          <ShareLink url={url} title={t('family.send.shareTitle')} text={t('family.send.shareText')} />
           {/* Po změně seznamu se odkaz vytvoří znovu (obrazovka začne od začátku) */}
           <Link to="/leky" className="btn btn-secondary">
-            Ještě něco změnit
+            {t('family.send.change')}
           </Link>
         </>
       )}
 
       <button type="button" className="btn btn-text family-end" onClick={finish}>
-        Ukončit vyplňování za: {who}
+        {t('family.send.end', { name: who })}
       </button>
     </>
   );

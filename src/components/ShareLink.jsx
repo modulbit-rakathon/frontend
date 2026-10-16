@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { MAX_QR_LENGTH } from '../familyShare.js';
+import { t } from '../i18n/index.js';
 
 export default function ShareLink({ url, title, text }) {
   const [qrUrl, setQrUrl] = useState('');
@@ -46,31 +47,31 @@ export default function ShareLink({ url, title, text }) {
   return (
     <div className="share-link">
       <button type="button" className="btn btn-primary" onClick={share}>
-        Poslat odkaz
+        {t('family.share.send')}
       </button>
       <button type="button" className="btn btn-secondary" onClick={copy}>
-        Zkopírovat odkaz
+        {t('family.share.copy')}
       </button>
 
       {status === 'copied' && (
         <p className="share-link-status" role="status">
-          Odkaz je zkopírovaný. Vložte ho do zprávy.
+          {t('family.share.copied')}
         </p>
       )}
       {status === 'manual' && (
         <div className="field">
-          <label htmlFor="share-link-text">Zkopírujte tento odkaz:</label>
+          <label htmlFor="share-link-text">{t('family.share.manual')}</label>
           <textarea id="share-link-text" className="share-link-text" readOnly value={url} onFocus={(e) => e.target.select()} />
         </div>
       )}
 
       {qrUrl ? (
         <figure className="share-qr">
-          <img src={qrUrl} alt="QR kód s odkazem" />
-          <figcaption>Je druhý telefon vedle vás? Stačí načíst QR kód fotoaparátem.</figcaption>
+          <img src={qrUrl} alt={t('family.share.qrAlt')} />
+          <figcaption>{t('family.share.qrCaption')}</figcaption>
         </figure>
       ) : (
-        <p className="subtitle">Seznam je dlouhý, QR kód by nešel načíst. Pošlete odkaz zprávou.</p>
+        <p className="subtitle">{t('family.share.noQr')}</p>
       )}
     </div>
   );

@@ -10,32 +10,32 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CheckIcon, WarningIcon } from '../components/Icons.jsx';
-import { medName, pluralLeky } from '../labels.js';
+import { medName } from '../labels.js';
 import { decodeShare, diffShare, hasLink, isOld, readHash, rememberLink } from '../familyShare.js';
-import { ONCO_ANSWERS, dateText, dosageText, oncoFormText, prescriberText, sinceText } from '../types.js';
+import { dateText, dosageText, itemName, oncoFormText, prescriberText, sinceText } from '../types.js';
+import { joinList, localeOf, t, tRich } from '../i18n/index.js';
 
-const ERROR_TEXTS = {
-  empty: 'V odkazu nejsou žádné údaje. Možná se při kopírování usekl.',
-  invalid: 'Odkaz je neplatný nebo neúplný. Zkopírujte ho prosím celý, nebo požádejte o nový.',
-  newer: 'Odkaz je z novější verze aplikace. Obnovte stránku a zkuste to znovu.',
-  unsupported: 'Tento prohlížeč odkaz neumí otevřít. Aktualizujte ho, nebo zkuste jiný (Chrome, Safari).',
-};
+// Chyby z decodeShare, pro které máme vlastní text
+const ERROR_CODES = ['empty', 'invalid', 'newer', 'unsupported'];
+
+// Název položky v jazyce appky (doplňky z dlaždic se přeloží)
+const displayName = (item) => medName({ ...item, name: itemName(item) });
 
 // Krátký popis položky pro kontrolu: "5 mg · ráno 1 · od března 2024"
 function itemDetails(item) {
   return [
     item.strength,
     dosageText(item.dosage),
-    sinceText(item.since) && `od ${sinceText(item.since)}`,
+    item.since && t('family.res.since', { date: sinceText(item.since) }),
     prescriberText(item.prescriber),
     oncoFormText(item.oncoForm),
-    item.lastDose && `poslední dávka ${dateText(item.lastDose)}`,
+    item.lastDose && t('common.lastDose', { date: dateText(item.lastDose) }),
   ]
     .filter(Boolean)
     .join(' · ');
 }
 
-const oncoLabel = (key) => ONCO_ANSWERS.find((a) => a.key === key)?.label ?? 'neodpovězeno';
+const oncoLabel = (key) => (key ? t(`onco.answer.${key}`) : t('common.unanswered'));
 
 export default function FamilyOpen() {
   // Odkaz čteme jen jednou při otevření (po uložení ho z adresy smažeme).
@@ -54,7 +54,7 @@ export default function FamilyOpen() {
       })
       .catch((error) => {
         if (cancelled) return;
-        setErrorCode(ERROR_TEXTS[error.message] ? error.message : 'invalid');
+        setErrorCode(ERROR_CODES.includes(error.message) ? error.message : 'invalid');
         setStep('error');
       });
     return () => {
@@ -65,8 +65,8 @@ export default function FamilyOpen() {
   if (step === 'loading') {
     return (
       <>
-        <h1>Otevírám odkaz…</h1>
-        <div className="spinner" role="status" aria-label="Načítám" />
+        <h1>{t('family.open.loading')}</h1>
+        <div className="spinner" role="status" aria-label={t('common.loading')} />
       </>
     );
   }
@@ -74,16 +74,16 @@ export default function FamilyOpen() {
   if (step === 'error') {
     return (
       <>
-        <h1>Odkaz nejde otevřít</h1>
+        <h1>{t('family.open.errorTitle')}</h1>
         <div className="box box-warning" role="alert">
           <div className="box-title">
             <WarningIcon />
-            <span>Něco s odkazem není v pořádku</span>
+            <span>{t('family.open.errorBox')}</span>
           </div>
-          <p>{ERROR_TEXTS[errorCode]}</p>
+          <p>{t(`family.open.error.${errorCode}`)}</p>
         </div>
         <Link to="/" className="btn btn-primary">
-          Zpět domů
+          {t('family.backHome')}
         </Link>
       </>
     );
@@ -93,9 +93,9 @@ export default function FamilyOpen() {
     <div className="box box-warning">
       <div className="box-title">
         <WarningIcon />
-        <span>Odkaz je starší</span>
+        <span>{t('family.open.oldTitle')}</span>
       </div>
-      <p>Vznikl {new Date(share.at).toLocaleDateString('cs-CZ')}. Zkontrolujte, že údaje pořád platí.</p>
+      <p>{t('family.open.oldText', { date: new Intl.DateTimeFormat(localeOf()).format(new Date(share.at)) })}</p>
     </div>
   );
 
@@ -112,7 +112,7 @@ function OpenRequest({ share, oldWarning }) {
   const { helper, startHelping } = useMeds();
   // Odkaz vytvořený na tomto telefonu – nejspíš ho pacient omylem otevřel sám.
   const [ownLink, setOwnLink] = useState(() => hasLink('sent', share.id));
-  const who = share.name || 'blízkého člověka';
+  const who = share.name || t('family.defaultName');
 
   function start() {
     startHelping({ name: share.name, requestId: share.id, items: share.items, onco: share.onco });
@@ -122,14 +122,14 @@ function OpenRequest({ share, oldWarning }) {
   if (ownLink) {
     return (
       <>
-        <h1>Tento odkaz je váš</h1>
-        <p className="subtitle">Vytvořili jste ho na tomto telefonu. Pošlete ho blízkému, který vám s léky pomůže.</p>
+        <h1>{t('family.req.ownTitle')}</h1>
+        <p className="subtitle">{t('family.req.ownText')}</p>
         <Link to="/" className="btn btn-primary">
-          Zpět domů
+          {t('family.backHome')}
         </Link>
         {/* Např. jeden tablet pro celou rodinu – i to jde, vlastní léky zůstanou beze změny */}
         <button type="button" className="btn btn-link" onClick={() => setOwnLink(false)}>
-          Přesto vyplnit na tomto telefonu
+          {t('family.req.ownAnyway')}
         </button>
       </>
     );
@@ -139,19 +139,19 @@ function OpenRequest({ share, oldWarning }) {
   if (helper && helper.requestId === share.id) {
     return (
       <>
-        <h1>Už vyplňujete</h1>
+        <h1>{t('family.req.continueTitle')}</h1>
         <p className="subtitle">
-          Léky za: <strong>{helper.name || who}</strong> už na tomto telefonu vyplňujete.
+          {tRich('family.req.continueText', { name: <strong>{helper.name || who}</strong> })}
         </p>
         <Link to="/leky" className="btn btn-primary" replace>
-          Pokračovat
+          {t('family.req.continue')}
         </Link>
         <button
           type="button"
           className="btn btn-link"
-          onClick={() => window.confirm('Začít znovu? Vaše dosavadní změny se smažou.') && start()}
+          onClick={() => window.confirm(t('family.req.confirmRestart')) && start()}
         >
-          Začít znovu
+          {t('family.req.restart')}
         </button>
       </>
     );
@@ -159,27 +159,23 @@ function OpenRequest({ share, oldWarning }) {
 
   return (
     <>
-      <h1>Prosba o pomoc s léky</h1>
+      <h1>{t('family.req.title')}</h1>
       <p className="subtitle">
-        {share.name ? (
-          <>
-            <strong>{share.name}</strong> vás prosí o pomoc se seznamem léků.
-          </>
-        ) : (
-          'Někdo blízký vás prosí o pomoc se seznamem léků.'
-        )}
+        {share.name
+          ? tRich('family.req.askNamed', { name: <strong>{share.name}</strong> })
+          : t('family.req.askUnnamed')}
       </p>
       {oldWarning}
 
       <div className="box box-info">
         <p>
           {share.items.length > 0
-            ? `Seznam už obsahuje ${pluralLeky(share.items.length)}.`
-            : 'Seznam je zatím prázdný.'}
+            ? t('family.req.listCount', { count: share.items.length })
+            : t('family.req.listEmpty')}
         </p>
-        <p>Léky vyfotíte nebo zapíšete jako obvykle. Na konci pošlete odkaz zpět.</p>
+        <p>{t('family.req.howTo')}</p>
         <p>
-          <strong>Vaše vlastní léky na tomto telefonu zůstanou beze změny.</strong>
+          <strong>{t('family.req.ownSafe')}</strong>
         </p>
       </div>
 
@@ -187,21 +183,21 @@ function OpenRequest({ share, oldWarning }) {
         <div className="box box-warning" role="alert">
           <div className="box-title">
             <WarningIcon />
-            <span>Teď vyplňujete za: {helper.name || 'jiného člověka'}</span>
+            <span>{t('family.helpingFor', { name: helper.name || t('family.otherPerson') })}</span>
           </div>
-          <p>Když začnete tady, ten rozpracovaný seznam se z telefonu smaže. Pokud jste ho ještě neposlali, udělejte to nejdřív.</p>
+          <p>{t('family.req.otherWarn')}</p>
         </div>
       )}
 
       <button
         type="button"
         className="btn btn-primary"
-        onClick={() => (!helper || window.confirm('Smazat rozpracovaný seznam a začít nový?')) && start()}
+        onClick={() => (!helper || window.confirm(t('family.req.confirmReplace'))) && start()}
       >
-        Začít vyplňovat za: {who}
+        {t('family.req.start', { name: who })}
       </button>
       <Link to="/" className="btn btn-link">
-        Teď ne
+        {t('family.notNow')}
       </Link>
     </>
   );
@@ -227,18 +223,17 @@ function OpenResponse({ share, oldWarning }) {
   const [takeOnco, setTakeOnco] = useState(ownProfile.onco === '');
 
   const toggle = (key) => setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
-  const from = share.from || 'Blízký';
 
   // Odkaz zpět otevřel sám blízký (na telefonu, kde vyplňoval).
   if (helper && helper.requestId === share.id) {
     return (
       <>
-        <h1>Tento odkaz pošlete zpět</h1>
+        <h1>{t('family.res.selfTitle')}</h1>
         <p className="subtitle">
-          Odkaz je pro: <strong>{helper.name || 'blízkého člověka'}</strong>. Pošlete mu ho zprávou nebo ukažte QR kód.
+          {tRich('family.res.selfText', { name: <strong>{helper.name || t('family.defaultName')}</strong> })}
         </p>
         <Link to="/blizky" className="btn btn-primary" replace>
-          Zpět
+          {t('family.res.back')}
         </Link>
       </>
     );
@@ -248,23 +243,23 @@ function OpenResponse({ share, oldWarning }) {
   if (helper) {
     return (
       <>
-        <h1>Léky od blízkého</h1>
+        <h1>{t('family.res.title')}</h1>
         <div className="box box-warning">
           <div className="box-title">
             <WarningIcon />
-            <span>Teď vyplňujete za: {helper.name || 'jiného člověka'}</span>
+            <span>{t('family.helpingFor', { name: helper.name || t('family.otherPerson') })}</span>
           </div>
-          <p>Tento odkaz patří do vašich vlastních léků. Nejdřív ukončete vyplňování za blízkého.</p>
+          <p>{t('family.res.helperText')}</p>
         </div>
         <button
           type="button"
           className="btn btn-primary"
-          onClick={() => window.confirm('Ukončit vyplňování? Rozpracovaný seznam se z telefonu smaže.') && endHelping()}
+          onClick={() => window.confirm(t('family.res.confirmEnd')) && endHelping()}
         >
-          Ukončit vyplňování
+          {t('family.res.endHelping')}
         </button>
         <Link to="/blizky" className="btn btn-link">
-          Nejdřív poslat seznam zpět
+          {t('family.res.sendFirst')}
         </Link>
       </>
     );
@@ -273,15 +268,15 @@ function OpenResponse({ share, oldWarning }) {
   if (done) {
     return (
       <>
-        <h1>Uloženo</h1>
+        <h1>{t('family.res.savedTitle')}</h1>
         <div className="box box-info" role="status">
           <div className="box-title">
             <CheckIcon />
-            <span>Seznam léků je aktuální</span>
+            <span>{t('family.res.savedText')}</span>
           </div>
         </div>
         <Link to="/leky" className="btn btn-primary" replace>
-          Zobrazit moje léky
+          {t('family.res.showMeds')}
         </Link>
       </>
     );
@@ -310,7 +305,7 @@ function OpenResponse({ share, oldWarning }) {
       <label className={checked[key] ? 'choice choice-on family-choice' : 'choice family-choice'}>
         <input type="checkbox" checked={!!checked[key]} onChange={() => toggle(key)} />
         <span>
-          <strong>{medName(item)}</strong>
+          <strong>{displayName(item)}</strong>
           {extra ?? (itemDetails(item) && <span className="family-details">{itemDetails(item)}</span>)}
         </span>
       </label>
@@ -319,49 +314,49 @@ function OpenResponse({ share, oldWarning }) {
 
   return (
     <>
-      <h1>Léky od blízkého</h1>
+      <h1>{t('family.res.title')}</h1>
       <p className="subtitle">
-        <strong>{from}</strong> vám poslal(a) seznam léků. Zkontrolujte ho a uložte.
+        {share.from
+          ? tRich('family.res.introNamed', { name: <strong>{share.from}</strong> })
+          : t('family.res.introUnnamed')}
       </p>
       {oldWarning}
-      {alreadyImported && (
-        <p className="box box-info">Tento odkaz už jste jednou otevřeli a uložili. Co už máte, se znovu nepřidá.</p>
-      )}
+      {alreadyImported && <p className="box box-info">{t('family.res.already')}</p>}
 
       {nothingNew ? (
         <>
           <div className="box box-info" role="status">
             <div className="box-title">
               <CheckIcon />
-              <span>Nic nového</span>
+              <span>{t('family.res.nothingTitle')}</span>
             </div>
-            <p>Všechno z odkazu už v seznamu máte.</p>
+            <p>{t('family.res.nothingText')}</p>
           </div>
           <Link to="/leky" className="btn btn-primary">
-            Zobrazit moje léky
+            {t('family.res.showMeds')}
           </Link>
         </>
       ) : (
         <div className="field family-review">
           {diff.added.length > 0 && (
             <section>
-              <h2>Nové ({diff.added.length})</h2>
+              <h2>{t('family.res.added', { count: diff.added.length })}</h2>
               <ul className="family-checks">{diff.added.map((m) => row(`add-${m.id}`, m))}</ul>
             </section>
           )}
 
           {diff.changed.length > 0 && (
             <section>
-              <h2>Změněné ({diff.changed.length})</h2>
+              <h2>{t('family.res.changed', { count: diff.changed.length })}</h2>
               <ul className="family-checks">
                 {diff.changed.map(({ before, after }) =>
                   row(
                     `chg-${after.id}`,
                     after,
                     <span className="family-details">
-                      Dřív: {itemDetails(before) || 'nezadáno'}
+                      {t('family.res.before', { text: itemDetails(before) || t('family.res.notEntered') })}
                       <br />
-                      Nově: {itemDetails(after) || 'nezadáno'}
+                      {t('family.res.after', { text: itemDetails(after) || t('family.res.notEntered') })}
                     </span>,
                   ),
                 )}
@@ -371,22 +366,26 @@ function OpenResponse({ share, oldWarning }) {
 
           {diff.removed.length > 0 && (
             <section>
-              <h2>Blízký navrhuje odebrat ({diff.removed.length})</h2>
-              <p className="family-details">Odeberou se jen ty, které zaškrtnete.</p>
+              <h2>{t('family.res.removed', { count: diff.removed.length })}</h2>
+              <p className="family-details">{t('family.res.removedHint')}</p>
               <ul className="family-checks">{diff.removed.map((m) => row(`del-${m.id}`, m))}</ul>
             </section>
           )}
 
           {oncoDiffers && (
             <section>
-              <h2>Léčíte se na onkologii?</h2>
+              <h2>{t('onco.question')}</h2>
               <ul className="family-checks">
                 <li>
                   <label className={takeOnco ? 'choice choice-on family-choice' : 'choice family-choice'}>
                     <input type="checkbox" checked={takeOnco} onChange={(e) => setTakeOnco(e.target.checked)} />
                     <span>
-                      <strong>Odpověď: {oncoLabel(share.onco)}</strong>
-                      {ownProfile.onco && <span className="family-details">Teď máte: {oncoLabel(ownProfile.onco)}</span>}
+                      <strong>{t('family.res.oncoAnswer', { answer: oncoLabel(share.onco) })}</strong>
+                      {ownProfile.onco && (
+                        <span className="family-details">
+                          {t('family.res.oncoNow', { answer: oncoLabel(ownProfile.onco) })}
+                        </span>
+                      )}
                     </span>
                   </label>
                 </li>
@@ -396,7 +395,7 @@ function OpenResponse({ share, oldWarning }) {
 
           {diff.duplicates.length > 0 && (
             <p className="family-details">
-              Už máte, nepřidá se znovu: {diff.duplicates.map((m) => medName(m)).join(', ')}
+              {t('family.res.duplicates', { list: joinList(diff.duplicates.map(displayName)) })}
             </p>
           )}
         </div>
@@ -405,10 +404,10 @@ function OpenResponse({ share, oldWarning }) {
       {!nothingNew && (
         <>
           <button type="button" className="btn btn-primary" disabled={selectedCount === 0} onClick={save}>
-            Uložit vybrané ({selectedCount})
+            {t('family.res.save', { count: selectedCount })}
           </button>
           <Link to="/" className="btn btn-link">
-            Teď ne
+            {t('family.notNow')}
           </Link>
         </>
       )}

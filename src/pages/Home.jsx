@@ -48,7 +48,7 @@ export default function Home() {
       {/* Režim pro blízké – v něm už o pomoc nežádáme */}
       {!helper && (
         <Link to="/blizky" className="btn btn-link">
-          Požádat blízkého o pomoc
+          {t('family.askLink')}
         </Link>
       )}
 
