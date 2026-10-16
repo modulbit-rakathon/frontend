@@ -1140,6 +1140,124 @@ ul {
   font-size: 15px;
 }
 
+/* --- Opravy lékaře (EditRow v Doctor.jsx) --- */
+/* Původní hodnota pod opravenou / "opravil lékař" ve sloupci Zdroj */
+.doc-edited {
+  display: block;
+  color: var(--warning-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.doc-row-edited td:first-child {
+  box-shadow: inset 4px 0 0 var(--warning-border);
+}
+
+.doc-unverified {
+  color: var(--warning-text);
+  font-weight: 600;
+}
+
+.doc-row-actions {
+  text-align: right;
+}
+
+.doc-button-small {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 16px;
+}
+
+.doc-row-editing td {
+  background: var(--surface);
+  white-space: normal;
+}
+
+.doc-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.doc-edit-fields {
+  display: grid;
+  grid-template-columns: minmax(200px, 2fr) minmax(120px, 1fr) minmax(160px, 1fr);
+  gap: 12px 16px;
+  align-items: start;
+}
+
+.doc-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.doc-edit-field label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.doc-edit-field input {
+  height: 44px;
+  padding: 0 10px;
+  border: 2px solid var(--control-border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 17px;
+}
+
+.doc-edit-field input[aria-invalid='true'] {
+  border-color: var(--danger-border);
+}
+
+.doc-edit-field .doc-muted {
+  font-size: 14px;
+}
+
+.doc-edit-error {
+  color: var(--danger-text);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Návrhy z katalogu jsou u pacienta velké – tady menší, vedle sebe */
+.doc-edit-identity .catalog-results {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.doc-edit-identity .catalog-result {
+  width: auto;
+  min-height: 0;
+  padding: 8px 12px;
+  border-width: 2px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.doc-edit-identity .catalog-result span {
+  font-size: 14px;
+}
+
+.doc-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 720px) {
+  .doc-edit-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.doc-send-dialog .share-qr img {
+  max-width: 280px;
+}
+
 /* --- Rozbalovací lišta s interakcemi --- */
 .doc-interactions {
   border: 2px solid var(--surface);
