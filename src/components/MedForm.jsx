@@ -11,7 +11,8 @@ import { useState } from 'react';
 import { WarningIcon, CheckIcon } from './Icons.jsx';
 import DosageInput from './DosageInput.jsx';
 import VoiceButton from './VoiceButton.jsx';
-import { MONTHS, PRESCRIBERS, emptyDosage } from '../types.js';
+import { PRESCRIBERS, emptyDosage, monthNames } from '../types.js';
+import { t } from '../i18n/index.js';
 
 // Roky pro "Užívám od": letos a 30 let zpátky
 const THIS_YEAR = new Date().getFullYear();
@@ -23,7 +24,7 @@ const YEARS = Array.from({ length: 31 }, (_, i) => String(THIS_YEAR - i));
  * @param onSubmit – zavolá se s vyplněnými údaji po kliknutí na "Ano, přidat lék"
  * @param submitLabel – (nepovinné) text hlavního tlačítka
  */
-export default function MedForm({ initial, uncertainFields = [], onSubmit, submitLabel = 'Ano, přidat lék' }) {
+export default function MedForm({ initial, uncertainFields = [], onSubmit, submitLabel = t('form.submit') }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [strength, setStrength] = useState(initial?.strength ?? '');
   const [dosage, setDosage] = useState(initial?.dosage ?? emptyDosage());
@@ -72,10 +73,10 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, submi
         <div className="field-hint-row">
           <p className="field-hint" id={`hint-${key}`}>
             <WarningIcon size={24} />
-            Zkontrolujte prosím
+            {t('form.checkPlease')}
           </p>
           <button type="button" className="btn-check" onClick={() => markChecked(key)}>
-            Je to správně
+            {t('common.isCorrect')}
           </button>
         </div>
       );
@@ -84,7 +85,7 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, submi
     if (wasUncertain(key)) {
       return (
         <p className="field-ok">
-          <CheckIcon size={24} /> Zkontrolováno
+          <CheckIcon size={24} /> {t('form.checked')}
         </p>
       );
     }
@@ -94,27 +95,27 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, submi
   return (
     <form onSubmit={handleSubmit} className="med-form">
       <div className={fieldClass('name')}>
-        <label htmlFor="field-name">Název léku</label>
+        <label htmlFor="field-name">{t('form.medName')}</label>
         <input
           id="field-name"
           type="text"
           value={name}
-          placeholder="např. Ibuprofen"
+          placeholder={t('form.namePlaceholder')}
           onChange={(e) => change('name', setName)(e.target.value)}
           aria-describedby={isUncertain('name') ? 'hint-name' : undefined}
         />
         {/* Hlasové zadání – zobrazí se jen v prohlížeči, který ho umí */}
-        <VoiceButton label="Říct název nahlas" onResult={change('name', setName)} />
+        <VoiceButton label={t('form.voiceName')} onResult={change('name', setName)} />
         {hint('name')}
       </div>
 
       <div className={fieldClass('strength')}>
-        <label htmlFor="field-strength">Síla</label>
+        <label htmlFor="field-strength">{t('field.strength')}</label>
         <input
           id="field-strength"
           type="text"
           value={strength}
-          placeholder="např. 400 mg"
+          placeholder={t('form.strengthPlaceholder')}
           onChange={(e) => change('strength', setStrength)(e.target.value)}
           aria-describedby={isUncertain('strength') ? 'hint-strength' : undefined}
         />
@@ -126,18 +127,18 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, submi
         className={fieldClass('dosage')}
         aria-describedby={isUncertain('dosage') ? 'hint-dosage' : undefined}
       >
-        <legend>Kdy a kolik kusů</legend>
+        <legend>{t('form.whenHowMany')}</legend>
         <DosageInput value={dosage} onChange={change('dosage', setDosage)} />
         {hint('dosage')}
       </fieldset>
 
       <fieldset className="field">
         <legend>
-          Užívám od <span className="optional">(nepovinné)</span>
+          {t('form.since')} <span className="optional">{t('common.optional')}</span>
         </legend>
         <div className="since-row">
-          <select aria-label="Rok" value={sinceYear} onChange={(e) => changeSince(e.target.value, sinceMonth)}>
-            <option value="">rok</option>
+          <select aria-label={t('form.year')} value={sinceYear} onChange={(e) => changeSince(e.target.value, sinceMonth)}>
+            <option value="">{t('form.yearEmpty')}</option>
             {YEARS.map((y) => (
               <option key={y} value={y}>
                 {y}
@@ -145,13 +146,13 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, submi
             ))}
           </select>
           <select
-            aria-label="Měsíc (nejdřív vyberte rok)"
+            aria-label={t('form.month')}
             value={sinceMonth}
             disabled={!sinceYear}
             onChange={(e) => changeSince(sinceYear, e.target.value)}
           >
-            <option value="">měsíc nevím</option>
-            {MONTHS.map((m, i) => (
+            <option value="">{t('form.monthUnknown')}</option>
+            {monthNames().map((m, i) => (
               <option key={m} value={String(i + 1).padStart(2, '0')}>
                 {m}
               </option>
@@ -162,7 +163,7 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, submi
 
       <fieldset className="field">
         <legend>
-          Kdo lék předepsal <span className="optional">(nepovinné)</span>
+          {t('form.prescriber')} <span className="optional">{t('common.optional')}</span>
         </legend>
         <div className="choice-grid">
           {PRESCRIBERS.map((p) => (
@@ -184,7 +185,7 @@ export default function MedForm({ initial, uncertainFields = [], onSubmit, submi
       {/* Vysvětlíme, proč tlačítko nejde stisknout */}
       {toCheck.length > 0 && (
         <p className="submit-note" role="status">
-          Nejdřív zkontrolujte žlutá pole (zbývá {toCheck.length}).
+          {t('form.remaining', { count: toCheck.length })}
         </p>
       )}
 

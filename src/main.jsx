@@ -7,9 +7,11 @@ import { MedsProvider } from './context/MedsContext.jsx';
 import './index.css';
 import './ripple.js'; // vlna při klepnutí na tlačítka
 import { applyFontSize, loadFontSize } from './accessibility.js';
+import { applyLang } from './i18n/index.js';
 
-// Uloženou velikost písma nastavíme hned, ještě před prvním vykreslením.
+// Uloženou velikost písma a jazyk nastavíme hned, ještě před prvním vykreslením.
 applyFontSize(loadFontSize());
+applyLang();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

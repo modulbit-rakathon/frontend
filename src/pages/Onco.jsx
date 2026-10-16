@@ -10,12 +10,13 @@ import { CheckIcon } from '../components/Icons.jsx';
 import {
   ITEM_TYPES,
   ONCO_FORMS,
-  ONCO_SUGGESTIONS,
   dateText,
   emptyDosage,
   itemsOfType,
   oncoFormText,
+  oncoSuggestions,
 } from '../types.js';
+import { getLang, t } from '../i18n/index.js';
 
 // Dnešní datum ve tvaru "2026-10-16" (pro max u výběru data).
 // Švédský formát data je shodou okolností přesně RRRR-MM-DD, a to v místním čase.
@@ -31,8 +32,8 @@ export default function Onco() {
   const [lastDose, setLastDose] = useState(''); // "2026-10-01"
 
   // Našeptávání: návrhy, které obsahují napsaný text. Prázdné pole = všechny.
-  const typed = name.trim().toLowerCase();
-  const suggestions = ONCO_SUGGESTIONS.filter((s) => s.includes(typed) && s !== typed);
+  const typed = name.trim().toLocaleLowerCase(getLang());
+  const suggestions = oncoSuggestions().filter((s) => s.includes(typed) && s !== typed);
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -54,23 +55,23 @@ export default function Onco() {
 
   return (
     <>
-      <h1>Onkologická léčba</h1>
+      <h1>{t('common.oncoTreatment')}</h1>
 
       {/* Dokud pacient neodpověděl "Ano", ukážeme nejdřív otázku */}
       {profile.onco !== 'ano' ? (
         <OncoQuestion />
       ) : (
         <>
-          <p className="subtitle">Tyto údaje uvidí lékař ve zprávě úplně nahoře.</p>
+          <p className="subtitle">{t('oncoPage.subtitle')}</p>
 
           {treatments.length > 0 && (
             <ul className="med-list">
-              {treatments.map((t) => (
-                <li key={t.id} className="card onco-card">
-                  <h2 className="med-name">{t.name}</h2>
-                  <p>{[oncoFormText(t.oncoForm), t.lastDose && `poslední dávka ${dateText(t.lastDose)}`].filter(Boolean).join(' · ')}</p>
-                  <button type="button" className="btn-text" onClick={() => removeMed(t.id)}>
-                    Odebrat<span className="sr-only"> {t.name}</span>
+              {treatments.map((item) => (
+                <li key={item.id} className="card onco-card">
+                  <h2 className="med-name">{item.name}</h2>
+                  <p>{[oncoFormText(item.oncoForm), item.lastDose && t('common.lastDose', { date: dateText(item.lastDose) })].filter(Boolean).join(' · ')}</p>
+                  <button type="button" className="btn-text" onClick={() => removeMed(item.id)}>
+                    {t('common.remove')}<span className="sr-only"> {item.name}</span>
                   </button>
                 </li>
               ))}
@@ -78,21 +79,21 @@ export default function Onco() {
           )}
 
           <form className="med-form" onSubmit={handleSubmit}>
-            <h2>{treatments.length === 0 ? 'Jakou léčbu máte?' : 'Přidat další léčbu'}</h2>
+            <h2>{treatments.length === 0 ? t('oncoPage.which') : t('oncoPage.addAnother')}</h2>
 
             <div className="field">
-              <label htmlFor="onco-name">Název léčby</label>
+              <label htmlFor="onco-name">{t('oncoPage.name')}</label>
               <input
                 id="onco-name"
                 type="text"
                 autoComplete="off"
-                placeholder="začněte psát, nebo vyberte níže"
+                placeholder={t('oncoPage.placeholder')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               {suggestions.length > 0 && (
                 // Našeptávač jako velká tlačítka – na klepnutí doplní název
-                <ul className="suggestions" aria-label="Návrhy">
+                <ul className="suggestions" aria-label={t('oncoPage.suggestions')}>
                   {suggestions.map((s) => (
                     <li key={s}>
                       <button type="button" className="suggestion" onClick={() => setName(s)}>
@@ -105,7 +106,7 @@ export default function Onco() {
             </div>
 
             <fieldset className="field">
-              <legend>Jak léčbu dostáváte</legend>
+              <legend>{t('oncoPage.how')}</legend>
               <div className="choice-grid choice-grid-1">
                 {ONCO_FORMS.map((f) => (
                   <label key={f.key} className={form === f.key ? 'choice choice-on' : 'choice'}>
@@ -124,7 +125,7 @@ export default function Onco() {
 
             <div className="field">
               <label htmlFor="onco-last">
-                Kdy byla poslední dávka nebo cyklus <span className="optional">(nepovinné)</span>
+                {t('oncoPage.lastDose')} <span className="optional">{t('common.optional')}</span>
               </label>
               <input
                 id="onco-last"
@@ -137,12 +138,12 @@ export default function Onco() {
 
             <button type="submit" className="btn btn-primary" disabled={!name.trim()}>
               <CheckIcon />
-              Přidat léčbu
+              {t('oncoPage.add')}
             </button>
           </form>
 
           <button type="button" className="btn btn-secondary" onClick={() => navigate('/leky')}>
-            Hotovo
+            {t('common.done')}
           </button>
         </>
       )}

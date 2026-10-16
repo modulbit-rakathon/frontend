@@ -9,7 +9,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CheckIcon } from '../components/Icons.jsx';
-import { ITEM_TYPES, SUPPLEMENTS, emptyDosage, itemsOfType } from '../types.js';
+import { ITEM_TYPES, SUPPLEMENTS, emptyDosage, itemsOfType, supplementStoredName } from '../types.js';
+import { t } from '../i18n/index.js';
 
 export default function Supplements() {
   const navigate = useNavigate();
@@ -47,7 +48,8 @@ export default function Supplements() {
     if (existing) {
       removeMed(existing.id);
     } else {
-      addMed(makeSupplement(supplement.label, supplement.key));
+      // Ukládáme český název (jde lékaři), pacient ho vidí přeložený (viz itemName).
+      addMed(makeSupplement(supplementStoredName(supplement.key), supplement.key));
     }
   }
 
@@ -64,8 +66,8 @@ export default function Supplements() {
 
   return (
     <>
-      <h1>Berete i něco z tohohle?</h1>
-      <p className="subtitle">I bylinky a vitamíny jsou pro lékaře důležité.</p>
+      <h1>{t('supp.title')}</h1>
+      <p className="subtitle">{t('common.supplementsMatter')}</p>
 
       <ul className="tile-grid">
         {SUPPLEMENTS.map((s) => {
@@ -85,7 +87,7 @@ export default function Supplements() {
                 {/* Fajfka + text, ať výběr není poznat jen podle barvy */}
                 {isOn && (
                   <span className="tile-state">
-                    <CheckIcon size={22} /> Beru
+                    <CheckIcon size={22} /> {t('supp.taking')}
                   </span>
                 )}
               </button>
@@ -102,35 +104,35 @@ export default function Supplements() {
             <span className="tile-icon" aria-hidden="true">
               ➕
             </span>
-            <span className="tile-label">Jiné</span>
+            <span className="tile-label">{t('supp.other')}</span>
           </button>
         </li>
       </ul>
 
       {otherOpen && (
         <form className="other-form" onSubmit={addOther}>
-          <label htmlFor="other-supplement">Co dalšího berete?</label>
+          <label htmlFor="other-supplement">{t('supp.otherLabel')}</label>
           <input
             id="other-supplement"
             type="text"
             className="text-input"
-            placeholder="např. hořčík, echinacea"
+            placeholder={t('supp.otherPlaceholder')}
             value={otherText}
             onChange={(e) => setOtherText(e.target.value)}
           />
           <button type="submit" className="btn btn-secondary" disabled={!otherText.trim()}>
-            Přidat
+            {t('common.add')}
           </button>
         </form>
       )}
 
       {others.length > 0 && (
-        <ul className="chip-list" aria-label="Další doplňky">
+        <ul className="chip-list" aria-label={t('supp.othersAria')}>
           {others.map((o) => (
             <li key={o.id} className="chip">
               {o.name}
               <button type="button" className="btn-text" onClick={() => removeMed(o.id)}>
-                Odebrat<span className="sr-only"> {o.name}</span>
+                {t('common.remove')}<span className="sr-only"> {o.name}</span>
               </button>
             </li>
           ))}
@@ -138,7 +140,7 @@ export default function Supplements() {
       )}
 
       <button type="button" className="btn btn-primary" onClick={() => navigate('/leky')}>
-        {isStep && supplements.length === 0 ? 'Nic z toho neberu' : 'Hotovo'}
+        {isStep && supplements.length === 0 ? t('supp.noneOfThese') : t('common.done')}
       </button>
     </>
   );

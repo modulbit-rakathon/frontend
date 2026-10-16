@@ -2,6 +2,7 @@
 // Volba se uloží do localStorage, takže platí i po dalším otevření.
 import { useState } from 'react';
 import { FONT_SIZES, applyFontSize, loadFontSize } from '../accessibility.js';
+import { t } from '../i18n/index.js';
 
 export default function FontSizeSwitch() {
   const [size, setSize] = useState(loadFontSize);
@@ -14,7 +15,7 @@ export default function FontSizeSwitch() {
   return (
     <div className="font-switch" role="group" aria-labelledby="font-switch-label">
       <span id="font-switch-label" className="font-switch-label">
-        Velikost písma
+        {t('font.label')}
       </span>
       <div className="font-switch-buttons">
         {FONT_SIZES.map((f, i) => (

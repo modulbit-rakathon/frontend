@@ -3,17 +3,18 @@
 //   2) čtení nahlas (Web Speech API – speechSynthesis)
 //   3) hlasové zadání (Web Speech API – SpeechRecognition)
 
+import { localeOf, t } from './i18n/index.js';
+
 // ---------------------------------------------------------------
 // 1) Velikost písma
 // ---------------------------------------------------------------
 
 const FONT_KEY = 'pillgaze-font-size';
 
-export const FONT_SIZES = [
-  { key: 'normal', label: 'Normální' },
-  { key: 'large', label: 'Velké' },
-  { key: 'xlarge', label: 'Extra velké' },
-];
+export const FONT_SIZES = ['normal', 'large', 'xlarge'].map((key) => ({
+  key,
+  get label() { return t(`font.${key}`); }, // "Normální" / "Velké" / "Extra velké"
+}));
 
 /** Přečte uloženou velikost písma ('normal' když nic není nebo localStorage nejde). */
 export function loadFontSize() {
@@ -102,7 +103,7 @@ function pickVoice(lang) {
  * Je v zařízení hlas pro daný jazyk?
  * true / false, nebo null když seznam hlasů ještě (nebo vůbec) nemáme.
  */
-export function hasVoiceFor(lang = 'cs-CZ') {
+export function hasVoiceFor(lang = localeOf()) {
   if (!canSpeak) return false;
   if (!voices.length) loadVoices();
   if (!voices.length) return null;
@@ -152,13 +153,13 @@ function finish(session, error) {
 }
 
 /**
- * Přečte text (výchozí jazyk čeština). Předchozí čtení zastaví.
+ * Přečte text (výchozí je jazyk appky). Předchozí čtení zastaví.
  * @param {string} text
  * @param {{ lang?: string, onEnd?: () => void, onError?: (code: string) => void }} options
  *   onEnd – dočteno nebo zastaveno; onError – čtení se nepovedlo (kód chyby)
  * @returns funkce, která zastaví právě toto čtení
  */
-export function speak(text, { lang = 'cs-CZ', onEnd, onError } = {}) {
+export function speak(text, { lang = localeOf(), onEnd, onError } = {}) {
   stopSpeaking();
   const chunks = splitText(text);
   const session = { onEnd, onError, started: false, idle: 0, utterances: [] };
@@ -249,13 +250,13 @@ const Recognition =
 export const canListen = Boolean(Recognition);
 
 /**
- * Spustí poslech jedné věty (výchozí čeština).
+ * Spustí poslech jedné věty (výchozí je jazyk appky).
  * @param {(text: string) => void} onResult – co pacient řekl
  * @param {(error?: string) => void} onEnd – poslech skončil; při chybě s kódem chyby
  * @param {string} lang
  * @returns objekt rozpoznávání (jde zastavit přes .stop() / .abort())
  */
-export function listen(onResult, onEnd, lang = 'cs-CZ') {
+export function listen(onResult, onEnd, lang = localeOf()) {
   stopSpeaking(); // ať mikrofon neslyší naše vlastní čtení
   const recognition = new Recognition();
   recognition.lang = lang;

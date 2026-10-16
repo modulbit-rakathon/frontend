@@ -1774,6 +1774,61 @@ html[data-font='xlarge'] .app {
   font-size: 32px;
 }
 
+/* Přepínač jazyka – pod sebou, aby se vešel i dlouhý název "Українська" */
+.lang-switch-buttons {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.lang-btn {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 60px;
+  padding: 8px 16px;
+  font-size: 20px;
+}
+
+.lang-btn.font-btn-on .toggle-check {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+/* Lékařský pohled: malý přepínač jazyka dole na stránce */
+.doc-footer {
+  padding: 0 32px 32px;
+}
+
+.doc-lang {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.doc-lang-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.doc-lang-btn:hover {
+  background: var(--surface);
+}
+
+/* Vybraný jazyk: tmavý rámeček + tučně (ne jen barva) */
+.doc-lang-btn-on {
+  border-color: var(--text);
+  font-weight: 700;
+}
+
 /* Tlačítko s mikrofonem */
 .voice-btn {
   display: flex;

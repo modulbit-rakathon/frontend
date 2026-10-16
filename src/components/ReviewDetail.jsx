@@ -21,13 +21,20 @@ import {
   resolveConflict,
 } from '../review.js';
 import { BACKEND_TO_FORM_FIELD, CATALOG_STATUS, FORM_FIELD_LABELS, dosageFromText, dosageText } from '../types.js';
+import { getLang, t, tRich } from '../i18n/index.js';
 
-const FROM_SOURCE = { box: 'na krabičce', note: 'na lístku' };
+// Odkud hodnota je: 'box' → "na krabičce"
+const FROM_SOURCE = ['box', 'note'];
+
+// Název pole malými písmeny do věty ("síla")
+function fieldLabel(field) {
+  return FORM_FIELD_LABELS[field].toLocaleLowerCase(getLang());
+}
 
 // Hodnota pole formuláře jako text pro pacienta
 function fieldValue(draft, field) {
-  if (field === 'dosage') return dosageText(draft.dosage) || 'nepřečteno';
-  return draft[field] || 'nepřečteno';
+  if (field === 'dosage') return dosageText(draft.dosage) || t('common.notRead');
+  return draft[field] || t('common.notRead');
 }
 
 // Hodnota z rozporu jako text (dávkování "1-0-0" → "ráno 1")
@@ -69,14 +76,14 @@ export default function ReviewDetail({ draft, onChange, onRemove, editing, onEdi
         <MedForm
           initial={draft}
           uncertainFields={formFieldsToCheck(draft)}
-          submitLabel="Uložit změny"
+          submitLabel={t('review.saveChanges')}
           onSubmit={(values) => {
             onChange(applyForm(draft, values));
             onEdit(false);
           }}
         />
         <button type="button" className="btn btn-secondary" onClick={() => onEdit(false)}>
-          Zrušit úpravy
+          {t('review.cancelEdit')}
         </button>
       </div>
     );
@@ -89,7 +96,7 @@ export default function ReviewDetail({ draft, onChange, onRemove, editing, onEdi
         <p className="review-ok">
           <CheckIcon size={24} />
           <span>
-            V seznamu léků: <strong>{productTitle(draft.product)}</strong>
+            {t('review.inCatalog')} <strong>{productTitle(draft.product)}</strong>
             {draft.product.active_substance && ` (${draft.product.active_substance})`}
           </span>
         </p>
@@ -100,11 +107,9 @@ export default function ReviewDetail({ draft, onChange, onRemove, editing, onEdi
         <div className="review-question">
           <p className="review-question-title">
             <WarningIcon size={24} />
-            Který lék to je?
+            {t('review.whichMed')}
           </p>
-          <p>
-            Na fotce jsme přečetli <strong>„{draft.med.name}“</strong>.
-          </p>
+          <p>{tRich('review.weRead', { name: <strong>{t('review.quoted', { text: draft.med.name })}</strong> })}</p>
           <ul className="catalog-results">
             {(draft.med.catalog.candidates ?? []).map((c) => (
               <li key={c.id}>
@@ -116,10 +121,10 @@ export default function ReviewDetail({ draft, onChange, onRemove, editing, onEdi
             ))}
           </ul>
           <button type="button" className="btn btn-secondary" aria-expanded={searching} onClick={() => setSearching(!searching)}>
-            Jiný lék – vyhledat
+            {t('review.searchOther')}
           </button>
           <button type="button" className="btn btn-link" onClick={() => onChange(keepAsRead(draft))}>
-            Nevím – nechat, jak je přečteno
+            {t('review.keepAsRead')}
           </button>
         </div>
       )}
@@ -127,9 +132,9 @@ export default function ReviewDetail({ draft, onChange, onRemove, editing, onEdi
       {/* --- 3) Katalog: nic nenalezeno → hledání nabídneme, ale není povinné --- */}
       {status === CATALOG_STATUS.NOT_FOUND && !draft.product && (
         <div className="review-question review-question-info">
-          <p>Tento lék jsme v seznamu léků nenašli. Lékař ho uvidí tak, jak je přečtený.</p>
+          <p>{t('review.notFound')}</p>
           <button type="button" className="btn btn-secondary" aria-expanded={searching} onClick={() => setSearching(!searching)}>
-            Vyhledat v seznamu léků
+            {t('review.searchCatalog')}
           </button>
         </div>
       )}
@@ -141,7 +146,7 @@ export default function ReviewDetail({ draft, onChange, onRemove, editing, onEdi
           className="btn btn-link"
           onClick={() => onChange({ ...draft, catalogChoice: null, product: null })}
         >
-          {draft.catalogChoice === 'keep' ? 'Necháno, jak je přečteno – změnit' : 'Vybrat jiný lék'}
+          {draft.catalogChoice === 'keep' ? t('review.keptChange') : t('review.pickOther')}
         </button>
       )}
 
@@ -151,12 +156,12 @@ export default function ReviewDetail({ draft, onChange, onRemove, editing, onEdi
 
       {/* --- 4) Rozpory mezi lístkem a krabičkou --- */}
       {conflicts.map((c) => {
-        const label = FORM_FIELD_LABELS[BACKEND_TO_FORM_FIELD[c.field]].toLowerCase();
+        const label = fieldLabel(BACKEND_TO_FORM_FIELD[c.field]);
         return (
           <div key={c.field} className="review-question">
             <p className="review-question-title">
               <WarningIcon size={24} />
-              Lístek a krabička se liší – {label}. Co platí?
+              {t('review.conflict', { field: label })}
             </p>
             <ul className="catalog-results">
               {c.values.map((v) => (
@@ -167,7 +172,7 @@ export default function ReviewDetail({ draft, onChange, onRemove, editing, onEdi
                     onClick={() => onChange(resolveConflict(draft, c.field, v.value))}
                   >
                     <strong>{conflictValue(c.field, v.value)}</strong>
-                    <span>{FROM_SOURCE[v.source] ?? v.source}</span>
+                    <span>{FROM_SOURCE.includes(v.source) ? t(`review.from.${v.source}`) : v.source}</span>
                   </button>
                 </li>
               ))}
@@ -181,17 +186,15 @@ export default function ReviewDetail({ draft, onChange, onRemove, editing, onEdi
         <div key={f} className="review-question">
           <p className="review-question-title">
             <WarningIcon size={24} />
-            Špatně čitelné – {FORM_FIELD_LABELS[f].toLowerCase()}
+            {t('review.unclear', { field: fieldLabel(f) })}
           </p>
-          <p>
-            Přečetli jsme: <strong>{fieldValue(draft, f)}</strong>
-          </p>
+          <p>{tRich('review.readAs', { value: <strong>{fieldValue(draft, f)}</strong> })}</p>
           <div className="review-actions">
             <button type="button" className="btn-check" onClick={() => onChange(confirmField(draft, f))}>
-              Je to správně
+              {t('common.isCorrect')}
             </button>
             <button type="button" className="btn-check" onClick={() => onEdit(true)}>
-              Opravit
+              {t('review.fix')}
             </button>
           </div>
         </div>
@@ -200,10 +203,10 @@ export default function ReviewDetail({ draft, onChange, onRemove, editing, onEdi
       {/* --- 6) Úpravy a odebrání --- */}
       <div className="review-actions">
         <button type="button" className="btn btn-secondary" onClick={() => onEdit(true)}>
-          Upravit údaje
+          {t('review.editData')}
         </button>
         <button type="button" className="btn-text" onClick={onRemove}>
-          Odebrat – tento lék neberu
+          {t('review.removeMed')}
         </button>
       </div>
     </div>

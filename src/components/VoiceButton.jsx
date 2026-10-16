@@ -1,24 +1,18 @@
-// Tlačítko s mikrofonem pro hlasové zadání (výchozí čeština).
+// Tlačítko s mikrofonem pro hlasové zadání (v jazyce appky).
 // Když prohlížeč rozpoznávání řeči neumí (např. Firefox), tlačítko se vůbec neukáže.
 import { useEffect, useRef, useState } from 'react';
 import { canListen, listen } from '../accessibility.js';
+import { localeOf, t } from '../i18n/index.js';
 
-// Srozumitelné hlášky k chybám rozpoznávání
-const ERRORS = {
-  'not-allowed': 'Mikrofon není povolený. Povolte ho v nastavení prohlížeče.',
-  'service-not-allowed': 'Hlasové zadání je v tomto zařízení vypnuté. Napište to prosím.',
-  'audio-capture': 'Mikrofon nejde zapnout. Zkontrolujte, že ho nepoužívá jiná aplikace.',
-  'no-speech': 'Nic nebylo slyšet. Zkuste to znovu a mluvte blíž k telefonu.',
-  network: 'Hlasové zadání potřebuje internet. Napište to prosím.',
-  'language-not-supported': 'Hlasové zadání v tomto jazyce prohlížeč neumí. Napište to prosím.',
-};
+// Chyby rozpoznávání, pro které máme vlastní hlášku (voice.error.*)
+const KNOWN_ERRORS = ['not-allowed', 'service-not-allowed', 'audio-capture', 'no-speech', 'network', 'language-not-supported'];
 
 /**
  * @param {(text: string) => void} onResult – co pacient řekl
  * @param {string} label – pro čtečku, např. "Říct název léku"
- * @param {string} lang – jazyk poslechu, výchozí 'cs-CZ'
+ * @param {string} lang – jazyk poslechu, výchozí = jazyk appky
  */
-export default function VoiceButton({ onResult, label, lang = 'cs-CZ' }) {
+export default function VoiceButton({ onResult, label, lang = localeOf() }) {
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
   const recognitionRef = useRef(null);
@@ -50,7 +44,7 @@ export default function VoiceButton({ onResult, label, lang = 'cs-CZ' }) {
         recognitionRef.current = null;
         if (!mountedRef.current) return;
         setListening(false);
-        if (code) setError(ERRORS[code] || 'Hlasové zadání se nepovedlo. Zkuste to znovu, nebo to napište.');
+        if (code) setError(KNOWN_ERRORS.includes(code) ? code : 'unknown');
       },
       lang,
     );
@@ -65,11 +59,11 @@ export default function VoiceButton({ onResult, label, lang = 'cs-CZ' }) {
         aria-pressed={listening}
       >
         <span aria-hidden="true">🎤</span>
-        {listening ? 'Poslouchám… (klepnutím ukončit)' : label}
+        {listening ? t('voice.listening') : label}
       </button>
       {error && (
         <p className="speak-fallback" role="status">
-          {error}
+          {t(`voice.error.${error}`)}
         </p>
       )}
     </>

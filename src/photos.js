@@ -4,6 +4,8 @@
 // fotky dohromady (a jen JPEG nebo PNG). Proto každou fotku zmenšíme
 // a uložíme jako JPEG. Text na krabičce i na lístku zůstane dobře čitelný.
 
+import { formatNumber, t } from './i18n/index.js';
+
 // Delší strana zmenšené fotky v pixelech
 const MAX_SIDE = 2000;
 // Kvalita JPEGu (0 až 1). 0.85 = skoro bez viditelného rozdílu, ale mnohem menší soubor.
@@ -40,7 +42,8 @@ export async function shrinkPhoto(file) {
   return new File([blob], name, { type: 'image/jpeg' });
 }
 
-/** Velikost v MB s jedním desetinným místem, např. "3,4 MB". */
+/** Velikost v MB s jedním desetinným místem, např. "3,4 MB" (čárka/tečka podle jazyka). */
 export function sizeText(bytes) {
-  return `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`;
+  const n = formatNumber(bytes / 1024 / 1024, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return t('unit.mb', { n });
 }

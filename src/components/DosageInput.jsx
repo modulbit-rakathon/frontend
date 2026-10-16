@@ -12,6 +12,7 @@
 // a každou změnu hlásí funkcí onChange(novéDávkování).
 import { DOSE_TIMES, DOSAGE_MODES, dosageCode, dosageFromText, emptyDosage } from '../types.js';
 import VoiceButton from './VoiceButton.jsx';
+import { t } from '../i18n/index.js';
 
 const MAX_COUNT = 9;
 
@@ -47,22 +48,22 @@ export default function DosageInput({ value, onChange }) {
   return (
     <div className="dosage">
       <ul className="dosage-times">
-        {DOSE_TIMES.map((t) => {
-          const count = isSchedule ? value[t.key] : 0;
+        {DOSE_TIMES.map((time) => {
+          const count = isSchedule ? value[time.key] : 0;
           const isOn = count > 0;
           return (
-            <li key={t.key} className="dosage-row">
+            <li key={time.key} className="dosage-row">
               {/* aria-pressed = čtečka obrazovky řekne "zapnuto / vypnuto" */}
               <button
                 type="button"
                 className={isOn ? 'toggle toggle-on' : 'toggle'}
                 aria-pressed={isOn}
-                onClick={() => toggleTime(t.key)}
+                onClick={() => toggleTime(time.key)}
               >
                 <span className="toggle-check" aria-hidden="true">
                   {isOn ? '✓' : ''}
                 </span>
-                {t.label}
+                {time.label}
               </button>
 
               {isOn && (
@@ -70,21 +71,21 @@ export default function DosageInput({ value, onChange }) {
                   <button
                     type="button"
                     className="stepper-btn"
-                    aria-label={`${t.label}: o kus méně`}
-                    onClick={() => setCount(t.key, count - 1)}
+                    aria-label={t('dosage.less', { time: time.label })}
+                    onClick={() => setCount(time.key, count - 1)}
                   >
                     −
                   </button>
                   {/* aria-live = čtečka přečte nové číslo po změně */}
                   <span className="stepper-value" aria-live="polite">
                     {count}
-                    <span className="sr-only"> ks</span>
+                    <span className="sr-only"> {t('dosage.pieces')}</span>
                   </span>
                   <button
                     type="button"
                     className="stepper-btn"
-                    aria-label={`${t.label}: o kus víc`}
-                    onClick={() => setCount(t.key, count + 1)}
+                    aria-label={t('dosage.more', { time: time.label })}
+                    onClick={() => setCount(time.key, count + 1)}
                     disabled={count >= MAX_COUNT}
                   >
                     +
@@ -96,9 +97,9 @@ export default function DosageInput({ value, onChange }) {
         })}
       </ul>
 
-      {isSchedule && DOSE_TIMES.some((t) => value[t.key] > 0) && (
+      {isSchedule && DOSE_TIMES.some((time) => value[time.key] > 0) && (
         <p className="dosage-code">
-          Zápis: <strong>{dosageCode(value)}</strong>
+          {t('dosage.code')} <strong>{dosageCode(value)}</strong>
         </p>
       )}
 
@@ -112,7 +113,7 @@ export default function DosageInput({ value, onChange }) {
           <span className="toggle-check" aria-hidden="true">
             {value.mode === DOSAGE_MODES.AS_NEEDED ? '✓' : ''}
           </span>
-          Podle potřeby
+          {t('dosage.asNeededButton')}
         </button>
         <button
           type="button"
@@ -123,20 +124,20 @@ export default function DosageInput({ value, onChange }) {
           <span className="toggle-check" aria-hidden="true">
             {value.mode === DOSAGE_MODES.OTHER ? '✓' : ''}
           </span>
-          Jinak (napsat)
+          {t('dosage.other')}
         </button>
       </div>
 
       {/* Hlasem: "jedna ráno, jedna večer" se nepřevede, uloží se jako text (Jinak).
           Zápis "1-0-1" nebo "podle potřeby" se rozpozná. */}
-      <VoiceButton label="Říct dávkování nahlas" onResult={(text) => onChange(dosageFromText(text, ''))} />
+      <VoiceButton label={t('dosage.voice')} onResult={(text) => onChange(dosageFromText(text, ''))} />
 
       {value.mode === DOSAGE_MODES.OTHER && (
         <input
           type="text"
           className="text-input"
-          aria-label="Dávkování vlastními slovy"
-          placeholder="např. 1× týdně v pondělí"
+          aria-label={t('dosage.ownWords')}
+          placeholder={t('dosage.otherPlaceholder')}
           value={value.text}
           onChange={(e) => onChange({ ...value, text: e.target.value })}
         />
