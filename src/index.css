@@ -1796,6 +1796,19 @@ html[data-font='xlarge'] .app {
   color: #ffffff;
 }
 
+/* Podtržení z .font-btn-on by se přeneslo i na fajfku (je to položka flexu
+   a tu podtržení "zdědí"). Proto ho u jazyka vypneme na tlačítku
+   a podtrhneme jen samotný název. */
+.lang-btn.font-btn-on {
+  text-decoration: none;
+}
+
+.lang-btn.font-btn-on .lang-btn-name {
+  text-decoration: underline;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 4px;
+}
+
 /* Lékařský pohled: malý přepínač jazyka dole na stránce */
 .doc-footer {
   padding: 0 32px 32px;

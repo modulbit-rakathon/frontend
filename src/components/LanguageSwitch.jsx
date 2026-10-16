@@ -30,8 +30,6 @@ export default function LanguageSwitch({ variant }) {
   return (
     <div className="font-switch lang-switch" role="group" aria-labelledby="lang-switch-label">
       <span id="lang-switch-label" className="font-switch-label">
-        {/* Zeměkoule = mezinárodní značka pro jazyk; jen ozdoba */}
-        <span aria-hidden="true">🌐 </span>
         {t('lang.label')}
       </span>
       <div className="lang-switch-buttons">
@@ -48,7 +46,8 @@ export default function LanguageSwitch({ variant }) {
             <span className="toggle-check" aria-hidden="true">
               {lang === l.key ? '✓' : ''}
             </span>
-            {l.name}
+            {/* Vlastní <span>, aby šel podtrhnout jen název, ne fajfka */}
+            <span className="lang-btn-name">{l.name}</span>
           </button>
         ))}
       </div>
