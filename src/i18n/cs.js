@@ -207,6 +207,9 @@ export default {
   'home.myMeds': 'Moje léky',
   'home.noneYet': 'Zatím žádné',
   'home.report': 'Zpráva pro lékaře',
+  'home.settings': 'Nastavení',
+  'settings.title': 'Nastavení',
+  'settings.subtitle': 'Velikost písma a jazyk',
 
   // --- Otázka na onkologii ---
   'onco.question': 'Léčíte se na onkologii?',

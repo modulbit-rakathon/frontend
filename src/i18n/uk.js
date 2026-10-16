@@ -212,6 +212,9 @@ export default {
   'home.myMeds': 'Мої ліки',
   'home.noneYet': 'Поки немає',
   'home.report': 'Виписка для лікаря',
+  'home.settings': 'Налаштування',
+  'settings.title': 'Налаштування',
+  'settings.subtitle': 'Розмір шрифту та мова',
 
   // --- Otázka na onkologii ---
   'onco.question': 'Чи проходите ви онкологічне лікування?',

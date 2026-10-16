@@ -16,6 +16,7 @@ import AppStatus from './offline/AppStatus.jsx';
 import Family from './pages/Family.jsx';
 import FamilyOpen from './pages/FamilyOpen.jsx';
 import { useLang } from './i18n/index.js';
+import Settings from './pages/Settings.jsx';
 
 export default function App() {
   const location = useLocation();
@@ -58,6 +59,7 @@ export default function App() {
           {/* Režim pro blízké: vytvoření odkazu / otevření odkazu (data jsou za #) */}
           <Route path="/blizky" element={<Family />} />
           <Route path="/pomoc" element={<FamilyOpen />} />
+          <Route path="/nastaveni" element={<Settings />} />
           {/* Neznámá adresa → pošleme uživatele domů */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

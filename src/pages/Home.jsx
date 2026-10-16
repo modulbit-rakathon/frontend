@@ -3,12 +3,10 @@
 // zadavatel je chce jen pro lékaře (/doc).
 import { Link } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
-import { CameraIcon, PillIcon, ChevronIcon } from '../components/Icons.jsx';
+import { CameraIcon, PillIcon, ChevronIcon, SettingsIcon } from '../components/Icons.jsx';
 import { pluralLeky } from '../labels.js';
 import { ITEM_TYPES, itemsOfType } from '../types.js';
 import OncoQuestion from '../components/OncoQuestion.jsx';
-import FontSizeSwitch from '../components/FontSizeSwitch.jsx';
-import LanguageSwitch from '../components/LanguageSwitch.jsx';
 import { t } from '../i18n/index.js';
 
 export default function Home() {
@@ -52,8 +50,10 @@ export default function Home() {
         </Link>
       )}
 
-      <FontSizeSwitch />
-      <LanguageSwitch />
+      <Link to="/nastaveni" className="btn btn-link">
+        <SettingsIcon />
+        {t('home.settings')}
+      </Link>
     </>
   );
 }
