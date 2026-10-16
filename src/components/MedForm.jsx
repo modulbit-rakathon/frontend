@@ -1,152 +1,203 @@
-import { useEffect, useState } from 'react';
-import {
-  finalizeMedication, searchMedicationCandidates, selectMedicationCandidate,
-} from '@pillgaze/core';
-import { loadCatalog, prepareForReview, formValues, editedValues } from '../core.js';
-import { FIELD_LABELS, SOURCE_LABELS } from '../labels.js';
-import MedicationEvidence from './MedicationEvidence.jsx';
+// Formulář s údaji o léku. Používá se:
+//  - po vyfocení (pole jsou předvyplněná z AI, nejistá pole jsou žlutá),
+//  - při ručním zadání (pole jsou prázdná).
+//
+// Dávkování se nepíše, ale kliká (komponenta DosageInput).
+//
+// Nejistá pole (AI si nebyla jistá) jsou žlutá s textem "Zkontrolujte prosím".
+// Lék nejde přidat, dokud pacient každé takové pole neodklepne
+// tlačítkem "Je to správně" nebo ho neopraví.
+import { useState } from 'react';
 import { WarningIcon, CheckIcon } from './Icons.jsx';
+import DosageInput from './DosageInput.jsx';
+import VoiceButton from './VoiceButton.jsx';
+import { MONTHS, PRESCRIBERS, emptyDosage } from '../types.js';
 
-const PLACEHOLDERS = {
-  name: 'např. Ibuprofen', strength: 'např. 400 mg',
-  active_substance: 'Jen pokud ji znáte', form: 'např. tableta',
-  frequency: 'např. 3× denně', amount: 'např. 1 tableta',
-};
+// Roky pro "Užívám od": letos a 30 let zpátky
+const THIS_YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: 31 }, (_, i) => String(THIS_YEAR - i));
 
-export default function MedForm({ initial, onSubmit, editing = false }) {
-  const [original] = useState(initial);
-  const [catalog, setCatalog] = useState(null);
-  const [current, setCurrent] = useState(null);
-  const [values, setValues] = useState(() => formValues(original));
-  const [confirmed, setConfirmed] = useState([]);
-  const [error, setError] = useState('');
-  const [attempt, setAttempt] = useState(0);
-  const [choices, setChoices] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(true);
+/**
+ * @param initial – počáteční hodnoty { name, strength, dosage, since, prescriber } (nebo nic)
+ * @param uncertainFields – pole formuláře, která AI nepřečetla jistě, např. ["dosage"]
+ * @param onSubmit – zavolá se s vyplněnými údaji po kliknutí na "Ano, přidat lék"
+ * @param onFieldFocus – (nepovinné) dá vědět, které pole pacient právě upravuje
+ *                       ('name' | 'strength' | 'dosage' | null) – kvůli zvýraznění na fotce
+ */
+export default function MedForm({ initial, uncertainFields = [], onSubmit, onFieldFocus = () => {} }) {
+  const [name, setName] = useState(initial?.name ?? '');
+  const [strength, setStrength] = useState(initial?.strength ?? '');
+  const [dosage, setDosage] = useState(initial?.dosage ?? emptyDosage());
+  // Nejistá pole, která už pacient zkontroloval (odklepl nebo opravil)
+  const [checked, setChecked] = useState([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    loadCatalog().then(data => {
-      if (cancelled) return;
-      const prepared = prepareForReview(original, data);
-      setCurrent(prepared);
-      setCatalog(data);
-      setError('');
-    }).catch(() => {
-      if (!cancelled) setError('Katalog nebo záznam se nepodařilo načíst. Zkuste načtení znovu.');
-    });
-    return () => { cancelled = true; };
-  }, [original, attempt]);
-
-  useEffect(() => {
-    setChoices([]);
-    if (!catalog || current?.kind === 'regimen' || !searchOpen || values.name.trim().length < 2) {
-      setSearching(false);
-      return;
-    }
-    setSearching(true);
-    const timer = setTimeout(() => {
-      try {
-        const result = searchMedicationCandidates(values.name.trim(), catalog, { limit: 6 });
-        const suggested = values.name === current.name ? current._core.suggestions?.candidates ?? [] : [];
-        setChoices((result.candidates.length ? result.candidates : suggested).slice(0, 6));
-      } catch {
-        setError('Zadejte alespoň dvě písmena názvu léku.');
-      } finally {
-        setSearching(false);
-      }
-    }, 200);
-    return () => clearTimeout(timer);
-  }, [catalog, current, values.name, searchOpen]);
-
-  function change(field, value) {
-    setValues(previous => editedValues(current, previous, field, value));
-    setConfirmed(previous => ['name', 'strength', 'form'].includes(field) ? [] : previous.filter(item => item !== field));
-    if (field === 'name') setSearchOpen(true);
-    setError('');
+  function markChecked(key) {
+    setChecked((prev) => (prev.includes(key) ? prev : [...prev, key]));
   }
 
-  function choose(candidate) {
-    try {
-      const draft = finalizeMedication(current, values, { catalog });
-      const selected = selectMedicationCandidate(draft, candidate.id, { catalog });
-      setCurrent(selected);
-      setValues(formValues(selected));
-      setConfirmed([]);
-      setSearchOpen(false);
-      setError('');
-    } catch {
-      setError('Výběr se nepodařil. Zkontrolujte název a zkuste to znovu.');
-    }
+  // Změna hodnoty = pacient pole opravil → počítá se jako zkontrolované
+  function change(key, setter) {
+    return (value) => {
+      setter(value);
+      markChecked(key);
+    };
+  }
+  const [since, setSince] = useState(initial?.since ?? ''); // "2024-03", "2024" nebo ""
+  const [prescriber, setPrescriber] = useState(initial?.prescriber ?? '');
+
+  // "Užívám od" je složené ze dvou rozbalovacích seznamů (měsíc + rok).
+  const [sinceYear, sinceMonth = ''] = since ? since.split('-') : ['', ''];
+  function changeSince(year, month) {
+    // Bez roku nemá měsíc smysl → prázdné
+    setSince(year ? (month ? `${year}-${month}` : year) : '');
   }
 
-  function submit(event) {
-    event.preventDefault();
-    try {
-      const saved = finalizeMedication(current, values, { catalog, confirmedFields: confirmed });
-      onSubmit(saved, original);
-    } catch (failure) {
-      setError(failure instanceof TypeError ? 'Údaje se nepodařilo uložit. Zkontrolujte vyplněná pole.' : failure.message);
-    }
+  function handleSubmit(event) {
+    event.preventDefault(); // zabrání znovunačtení stránky (výchozí chování formuláře)
+    onSubmit({ name: name.trim(), strength: strength.trim(), dosage, since, prescriber });
   }
 
-  if (!catalog || !current) return (
-    <div className="box box-info" role={error ? 'alert' : 'status'}>
-      <p>{error || 'Načítám katalog léčiv…'}</p>
-      {error && <button type="button" className="btn btn-secondary" onClick={() => setAttempt(value => value + 1)}>Zkusit znovu</button>}
-    </div>
-  );
+  // Kolik žlutých polí ještě zbývá zkontrolovat
+  const toCheck = uncertainFields.filter((key) => !checked.includes(key));
+
+  // Lék jde přidat, jen když má název a všechna nejistá pole jsou zkontrolovaná.
+  const canSubmit = name.trim() !== '' && toCheck.length === 0;
+
+  // Pomocné funkce pro nejistá pole
+  const isUncertain = (key) => toCheck.includes(key);
+  const wasUncertain = (key) => uncertainFields.includes(key);
+  const fieldClass = (key) => (isUncertain(key) ? 'field field-uncertain' : 'field');
+  const hint = (key) => {
+    if (isUncertain(key)) {
+      return (
+        <div className="field-hint-row">
+          <p className="field-hint" id={`hint-${key}`}>
+            <WarningIcon size={24} />
+            Zkontrolujte prosím
+          </p>
+          <button type="button" className="btn-check" onClick={() => markChecked(key)}>
+            Je to správně
+          </button>
+        </div>
+      );
+    }
+    // Už zkontrolované – fajfka + text (ne jen změna barvy)
+    if (wasUncertain(key)) {
+      return (
+        <p className="field-ok">
+          <CheckIcon size={24} /> Zkontrolováno
+        </p>
+      );
+    }
+    return null;
+  };
 
   return (
-    <form onSubmit={submit} className="med-form">
-      <p>Neznámé údaje nechte prázdné. U nejistých údajů potvrďte jen to, co jste opravdu zkontrolovali.</p>
-      {current.kind === 'regimen' && <p className="box box-info">Onkologický režim — nerozepisujeme jej automaticky na jednotlivé léky.</p>}
-      {Object.entries(FIELD_LABELS).map(([field, label]) => {
-        const identityChanged = ['name', 'strength', 'form'].some(key => values[key] !== current[key]);
-        const isUncertain = current.uncertain_fields.includes(field) || values[field] !== current[field] || identityChanged;
-        const conflicts = current.conflicts.filter(item => item.field === field);
-        const inputId = `field-${field}`;
-        return (
-          <div key={field} className={isUncertain ? 'field field-uncertain' : 'field'}>
-            <label htmlFor={inputId}>{label}</label>
-            <input id={inputId} type="text" value={values[field]} placeholder={PLACEHOLDERS[field]}
-              onChange={event => change(field, event.target.value)}
-              aria-describedby={isUncertain ? `${inputId}-hint` : undefined} />
-            {isUncertain && <p className="field-hint" id={`${inputId}-hint`}><WarningIcon size={24} />Zkontrolujte; pokud údaj neznáte, nechte prázdné.</p>}
-            {[...values[field]].length > 100 && <p role="alert">Pro sdílení zkraťte tento údaj na nejvýše 100 znaků.</p>}
-            {conflicts.map(conflict => <p key={conflict.field}>Zdroje se liší: {conflict.values.map(item => `${SOURCE_LABELS[item.source]}: ${item.value}`).join(' / ')}. Zadejte a potvrďte ověřenou hodnotu.</p>)}
-            {values[field].trim() && (
-              <label className="field-confirmation">
-                <input type="checkbox" checked={confirmed.includes(field)} onChange={event => setConfirmed(previous =>
-                  event.target.checked ? [...previous, field] : previous.filter(item => item !== field))} />
-                Zkontrolováno: {label}
-              </label>
-            )}
-            {field === 'name' && current.kind === 'drug' && searchOpen && values.name.trim().length >= 2 && (
-              <div className="catalog-search" aria-live="polite">
-                {searching ? <p>Hledám v SÚKL…</p> : choices.length ? (
-                  <details>
-                    <summary>Návrhy z katalogu SÚKL ({choices.length})</summary>
-                    <p>Vyberte skutečně užívanou sílu a formu. Nejde o doporučení náhrady.</p>
-                    <ul className="catalog-options">
-                      {choices.map(candidate => (
-                        <li key={candidate.id}><button type="button" className="btn btn-secondary" onClick={() => choose(candidate)}>
-                          {candidate.name} · {candidate.strength} · {candidate.form || 'forma nezjištěna'} · {candidate.registrationNumber}
-                        </button></li>
-                      ))}
-                    </ul>
-                  </details>
-                ) : <p>V katalogu nebyl nalezen návrh. Název můžete opsat ručně; nic neopravujeme automaticky.</p>}
-              </div>
-            )}
-          </div>
-        );
-      })}
-      <MedicationEvidence med={current} />
-      {error && <p className="box box-warning" role="alert">{error}</p>}
-      <button type="submit" className="btn btn-primary" disabled={!values.name.trim()}>
-        <CheckIcon />{editing ? 'Uložit kontrolu' : 'Ano, přidat lék'}
+    // onBlur na celém formuláři: když fokus odejde mimo formulář, zvýraznění na fotce zhasne
+    <form
+      onSubmit={handleSubmit}
+      className="med-form"
+      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && onFieldFocus(null)}
+    >
+      <div className={fieldClass('name')} onFocus={() => onFieldFocus('name')}>
+        <label htmlFor="field-name">Název léku</label>
+        <input
+          id="field-name"
+          type="text"
+          value={name}
+          placeholder="např. Ibuprofen"
+          onChange={(e) => change('name', setName)(e.target.value)}
+          aria-describedby={isUncertain('name') ? 'hint-name' : undefined}
+        />
+        {/* Hlasové zadání – zobrazí se jen v prohlížeči, který ho umí */}
+        <VoiceButton label="Říct název nahlas" onResult={change('name', setName)} />
+        {hint('name')}
+      </div>
+
+      <div className={fieldClass('strength')} onFocus={() => onFieldFocus('strength')}>
+        <label htmlFor="field-strength">Síla</label>
+        <input
+          id="field-strength"
+          type="text"
+          value={strength}
+          placeholder="např. 400 mg"
+          onChange={(e) => change('strength', setStrength)(e.target.value)}
+          aria-describedby={isUncertain('strength') ? 'hint-strength' : undefined}
+        />
+        {hint('strength')}
+      </div>
+
+      {/* fieldset + legend = skupina ovládacích prvků s jedním nadpisem */}
+      <fieldset
+        className={fieldClass('dosage')}
+        aria-describedby={isUncertain('dosage') ? 'hint-dosage' : undefined}
+        onFocus={() => onFieldFocus('dosage')}
+      >
+        <legend>Kdy a kolik kusů</legend>
+        <DosageInput value={dosage} onChange={change('dosage', setDosage)} />
+        {hint('dosage')}
+      </fieldset>
+
+      <fieldset className="field">
+        <legend>
+          Užívám od <span className="optional">(nepovinné)</span>
+        </legend>
+        <div className="since-row">
+          <select aria-label="Rok" value={sinceYear} onChange={(e) => changeSince(e.target.value, sinceMonth)}>
+            <option value="">rok</option>
+            {YEARS.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+          <select
+            aria-label="Měsíc (nejdřív vyberte rok)"
+            value={sinceMonth}
+            disabled={!sinceYear}
+            onChange={(e) => changeSince(sinceYear, e.target.value)}
+          >
+            <option value="">měsíc nevím</option>
+            {MONTHS.map((m, i) => (
+              <option key={m} value={String(i + 1).padStart(2, '0')}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
+      </fieldset>
+
+      <fieldset className="field">
+        <legend>
+          Kdo lék předepsal <span className="optional">(nepovinné)</span>
+        </legend>
+        <div className="choice-grid">
+          {PRESCRIBERS.map((p) => (
+            // Skutečné radio tlačítko (kvůli čtečkám), jen vypadá jako velká dlaždice
+            <label key={p.key} className={prescriber === p.key ? 'choice choice-on' : 'choice'}>
+              <input
+                type="radio"
+                name="prescriber"
+                value={p.key}
+                checked={prescriber === p.key}
+                onChange={() => setPrescriber(p.key)}
+              />
+              {p.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {/* Vysvětlíme, proč tlačítko nejde stisknout */}
+      {toCheck.length > 0 && (
+        <p className="submit-note" role="status">
+          Nejdřív zkontrolujte žlutá pole (zbývá {toCheck.length}).
+        </p>
+      )}
+
+      <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
+        <CheckIcon />
+        Ano, přidat lék
       </button>
     </form>
   );

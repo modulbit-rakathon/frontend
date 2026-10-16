@@ -2,48 +2,36 @@
 // Každý lék je tlačítko s názvem. Po klepnutí se pod ním rozbalí podrobnosti.
 // Otevřený může být vždy jen jeden lék (ID máme v `openId`).
 import { useState } from 'react';
-import { mergeMedications } from '@pillgaze/core';
 import { Link } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import { CameraIcon, ChevronIcon, PillIcon } from '../components/Icons.jsx';
-import { SOURCE_LABELS, medTitle } from '../labels.js';
-import ReviewNotice from '../components/ReviewNotice.jsx';
-import MedicationEvidence from '../components/MedicationEvidence.jsx';
-import MedForm from '../components/MedForm.jsx';
-import { loadCatalog, makeId, prepareForReview } from '../core.js';
+import { SOURCE_LABELS, medName } from '../labels.js';
+import SpeakButton from '../components/SpeakButton.jsx';
+import {
+  ITEM_TYPES,
+  ONCO_ANSWERS,
+  dateText,
+  dosageText,
+  itemsOfType,
+  oncoFormText,
+  prescriberText,
+  sinceText,
+} from '../types.js';
 
 export default function Meds() {
-  const { meds, removeMed, replaceMerged } = useMeds();
+  const { meds: items, removeMed, profile } = useMeds();
   const [openId, setOpenId] = useState(null); // ID rozbaleného léku (null = žádný)
-  const [selected, setSelected] = useState([]);
-  const [mergeDraft, setMergeDraft] = useState(null);
-  const [merging, setMerging] = useState(false);
-  const [mergeError, setMergeError] = useState('');
 
-  async function prepareMerge() {
-    const originals = meds.filter(med => selected.includes(med.id));
-    if (originals.length < 2 || !window.confirm(`Jsou tyto záznamy skutečně tentýž užívaný lék?\n${originals.map(medTitle).join('\n')}\nRůzné síly ani samostatně užívané přípravky neslučujte.`)) return;
-    setMerging(true);
-    setMergeError('');
-    try {
-      const catalog = await loadCatalog();
-      const med = mergeMedications(originals.map(item => prepareForReview(item, catalog)), {
-        catalog, mergedId: makeId(), groupConfirmed: true,
-      });
-      setMergeDraft({ med, originals });
-    } catch {
-      setMergeError('Záznamy nelze sloučit. Zkontrolujte načtení katalogu a neslučujte onkologický režim s jednotlivým lékem.');
-    } finally {
-      setMerging(false);
-    }
-  }
+  // V jednom seznamu jsou léky i doplňky – rozdělíme je podle typu.
+  const meds = itemsOfType(items, ITEM_TYPES.LEK);
+  const supplements = itemsOfType(items, ITEM_TYPES.DOPLNEK);
+  const treatments = itemsOfType(items, ITEM_TYPES.ONKO);
 
-  // Prázdný stav – zatím žádné léky
-  if (meds.length === 0) {
+  // Prázdný stav – zatím nic
+  if (items.length === 0) {
     return (
       <>
         <h1>Moje léky</h1>
-        <ReviewNotice />
         <div className="empty-state">
           <PillIcon size={96} />
           <h2>Zatím tu nejsou žádné léky</h2>
@@ -56,6 +44,9 @@ export default function Meds() {
         <Link to="/vyfotit?rucne=1" className="btn btn-link">
           Zadat ručně
         </Link>
+        <Link to="/doplnky" className="btn btn-link">
+          Doplňky stravy a bylinky
+        </Link>
       </>
     );
   }
@@ -67,25 +58,35 @@ export default function Meds() {
 
   function handleRemove(med) {
     if (window.confirm(`Opravdu odebrat lék ${med.name}?`)) {
-      try { removeMed(med.id); } catch { /* StorageNotice keeps the failed operation visible. */ }
+      removeMed(med.id);
     }
   }
 
   return (
     <>
       <h1>Moje léky</h1>
-      <ReviewNotice />
 
-      {mergeDraft && (
-        <section className="box box-info">
-          <h2>Zkontrolujte sloučený záznam</h2>
-          <p>Původní záznamy nahradíme až po uložení. Rozpory je nutné vyřešit před sdílením.</p>
-          <MedForm key={mergeDraft.med.id} initial={mergeDraft.med} editing onSubmit={saved => {
-            replaceMerged(saved, mergeDraft.originals);
-            setMergeDraft(null);
-            setSelected([]);
-          }} />
-          <button type="button" className="btn btn-secondary" onClick={() => setMergeDraft(null)}>Zrušit sloučení</button>
+      {/* ---------- Onkologická léčba (jen když pacient odpověděl "Ano") ---------- */}
+      {profile.onco === 'ano' && (
+        <section className="onco-section" aria-labelledby="onco-title">
+          <h2 id="onco-title">Onkologická léčba</h2>
+          {treatments.length === 0 ? (
+            <p>Zatím nezadáno.</p>
+          ) : (
+            <ul className="onco-list">
+              {treatments.map((t) => (
+                <li key={t.id}>
+                  <strong>{t.name}</strong>
+                  {[oncoFormText(t.oncoForm), t.lastDose && `poslední dávka ${dateText(t.lastDose)}`]
+                    .filter(Boolean)
+                    .map((text) => ` · ${text}`)}
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link to="/onkologie" className="btn btn-secondary">
+            {treatments.length === 0 ? 'Zadat léčbu' : 'Upravit léčbu'}
+          </Link>
         </section>
       )}
 
@@ -103,7 +104,8 @@ export default function Meds() {
                 aria-controls={detailsId}
                 onClick={() => toggle(med.id)}
               >
-                <span className="med-name">{medTitle(med)}</span>
+                {/* Jen název – síla je v podrobnostech níž */}
+                <span className="med-name">{medName(med)}</span>
                 <span className={isOpen ? 'med-chevron med-chevron-open' : 'med-chevron'}>
                   <ChevronIcon />
                 </span>
@@ -114,19 +116,32 @@ export default function Meds() {
                   <dl>
                     <dt>Síla</dt>
                     <dd>{med.strength || 'Nezadáno'}</dd>
-                    <dt>Účinná látka</dt>
-                    <dd>{med.active_substance || 'Nezadáno'}</dd>
-                    <dt>Léková forma</dt>
-                    <dd>{med.form || 'Nezadáno'}</dd>
-                    <dt>Jak často</dt>
-                    <dd>{med.frequency || 'Nezadáno'}</dd>
-                    <dt>Kolik</dt>
-                    <dd>{med.amount || 'Nezadáno'}</dd>
+                    <dt>Kdy a kolik</dt>
+                    <dd>{dosageText(med.dosage) || 'Nezadáno'}</dd>
+                    {med.since && (
+                      <>
+                        <dt>Užívám od</dt>
+                        <dd>{sinceText(med.since)}</dd>
+                      </>
+                    )}
+                    {med.prescriber && (
+                      <>
+                        <dt>Předepsal</dt>
+                        <dd>{prescriberText(med.prescriber)}</dd>
+                      </>
+                    )}
                     <dt>Zdroj</dt>
-                    <dd>{(med.sources ?? [med.source]).map(source => SOURCE_LABELS[source]).join(' + ')}</dd>
+                    <dd>{SOURCE_LABELS[med.source]}</dd>
                   </dl>
-                  <MedicationEvidence med={med} />
-                  <Link className="btn-text" to={`/vyfotit?upravit=${encodeURIComponent(med.id)}`}>Zkontrolovat nebo upravit</Link>
+                  <SpeakButton
+                    text={[
+                      medName(med),
+                      med.strength && `síla ${med.strength}`,
+                      dosageText(med.dosage) || 'dávkování nezadáno',
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
+                  />
                   <button type="button" className="btn-text" onClick={() => handleRemove(med)}>
                     Odebrat
                   </button>
@@ -137,30 +152,39 @@ export default function Meds() {
         })}
       </ul>
 
-      {meds.length > 1 && !mergeDraft && (
-        <details className="med-evidence">
-          <summary>Sloučit více záznamů stejného léku</summary>
-          <p>Jen pokud jde o tentýž užívaný lék opsaný z více zdrojů. Nic neslučujeme automaticky.</p>
-          {meds.map(med => (
-            <div className="field" key={med.id}>
-              <label className="field-confirmation">
-                <input type="checkbox" checked={selected.includes(med.id)} onChange={event => {
-                  setSelected(previous => event.target.checked ? [...previous, med.id] : previous.filter(id => id !== med.id));
-                }} />
-                {medTitle(med)} ({SOURCE_LABELS[med.source]})
-              </label>
-            </div>
-          ))}
-          {mergeError && <p role="alert">{mergeError}</p>}
-          <button type="button" className="btn btn-secondary" disabled={selected.length < 2 || merging} onClick={prepareMerge}>
-            {merging ? 'Připravuji sloučení…' : 'Porovnat vybrané záznamy'}
-          </button>
-        </details>
-      )}
+      {meds.length === 0 && <p className="subtitle">Zatím žádné léky.</p>}
 
       <Link to="/vyfotit" className="btn btn-dashed">
         + Přidat lék
       </Link>
+
+      {/* ---------- Doplňky stravy a bylinky ---------- */}
+      <section className="list-section" aria-labelledby="supplements-title">
+        <h2 id="supplements-title">Doplňky stravy a bylinky</h2>
+        {supplements.length === 0 ? (
+          <p className="subtitle">I bylinky a vitamíny jsou pro lékaře důležité.</p>
+        ) : (
+          <ul className="chip-list">
+            {supplements.map((s) => (
+              <li key={s.id} className="chip">
+                {s.name}
+              </li>
+            ))}
+          </ul>
+        )}
+        <Link to="/doplnky" className="btn btn-secondary">
+          {supplements.length === 0 ? 'Berete i doplňky nebo bylinky?' : 'Upravit doplňky'}
+        </Link>
+      </section>
+
+      {/* Odpověď na onkologii jde kdykoli změnit */}
+      {profile.onco !== 'ano' && (
+        <p className="onco-answer">
+          Léčba na onkologii:{' '}
+          <strong>{ONCO_ANSWERS.find((a) => a.key === profile.onco)?.label ?? 'neodpovězeno'}</strong>{' '}
+          <Link to="/onkologie">Změnit</Link>
+        </p>
+      )}
     </>
   );
 }
