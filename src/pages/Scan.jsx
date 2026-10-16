@@ -55,6 +55,9 @@ export default function Scan() {
   const navigate = useNavigate();
   const { addMed, profile } = useMeds();
 
+  // Fotku zprávy z onkologie nabízíme jen pacientům, kteří se tam léčí.
+  const photoKinds = PHOTO_KINDS.filter((kind) => !kind.onco || profile.onco === 'ano');
+
   // Kam jít po přidání léků: poprvé se ještě zeptáme na doplňky stravy.
   const afterAdd = profile.supplementsAsked ? '/leky' : '/doplnky?krok=1';
 
@@ -62,7 +65,7 @@ export default function Scan() {
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState(searchParams.get('rucne') ? 'manual' : 'pick');
 
-  // Nafocené fotky: { id, field: 'note'|'box', file, url (náhled) }
+  // Nafocené fotky: { id, field: 'note'|'box'|'regimen', file, url (náhled) }
   const [photos, setPhotos] = useState([]);
   const [preparing, setPreparing] = useState(false); // zmenšujeme fotky
   const [pickMessage, setPickMessage] = useState(''); // upozornění při přidávání fotek
@@ -76,7 +79,7 @@ export default function Scan() {
 
   // Odkaz na skrytý <input type="file">, abychom ho mohli "kliknout" z tlačítka.
   const fileInputRef = useRef(null);
-  // Jaký druh fotky pacient právě přidává ('note' nebo 'box').
+  // Jaký druh fotky pacient právě přidává ('note', 'box' nebo 'regimen').
   const photoFieldRef = useRef('box');
   // Číslo aktuálního požadavku – díky němu umíme ignorovat zrušené čtení.
   const requestIdRef = useRef(0);
@@ -155,6 +158,7 @@ export default function Scan() {
       const result = await analyzePhotos({
         note: photos.filter((p) => p.field === 'note').map((p) => p.file),
         box: photos.filter((p) => p.field === 'box').map((p) => p.file),
+        regimen: photos.filter((p) => p.field === 'regimen').map((p) => p.file),
       });
       // Pacient mezitím dal "Zrušit" → výsledek zahodíme.
       if (requestId !== requestIdRef.current) return;
@@ -226,7 +230,7 @@ export default function Scan() {
             Vyfoťte lístek od lékaře a krabičky léků. Najednou můžete poslat až {PHOTO_LIMITS.maxCount} fotek.
           </p>
 
-          {PHOTO_KINDS.map((kind, i) => {
+          {photoKinds.map((kind, i) => {
             const list = photos.filter((p) => p.field === kind.field);
             return (
               <section key={kind.field} className="photo-group" aria-labelledby={`photos-${kind.field}`}>

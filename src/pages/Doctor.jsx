@@ -1,16 +1,17 @@
 // Lékařský pohled (/doc)
 // Lékař zadá 4místný kód od pacienta → stáhneme léky z backendu
-// (POST /api/share/claim) a ukážeme je v tabulce. Interakce se spočítají
-// hned na pozadí a pod tabulkou je rozbalovací lišta s nálezy a maticí dvojic.
+// (POST /api/share/claim) a ukážeme je v tabulce. Interakce se hned na pozadí
+// zkontrolují na backendu (databáze DDInter, viz doctorCheck.js) a pod tabulkou
+// je rozbalovací lišta s nálezy a maticí dvojic.
 //
 // Tahle stránka je pro počítač v ordinaci, ne pro pacienta – proto má
 // vlastní rozložení bez spodní lišty (viz App.jsx).
 //
 // Po načtení léků jde zprávu stáhnout jako PDF (tisk prohlížeče → "Uložit jako PDF")
 // nebo jako soubor FHIR pro nemocniční systém.
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { claimShare } from '../api.js';
-import { checkMeds } from '../mock/doctorCheck.js';
+import { LEVEL_RANK, checkMeds } from '../doctorCheck.js';
 import { ChevronIcon, DownloadIcon } from '../components/Icons.jsx';
 import { medDosage, pluralLeky } from '../labels.js';
 import { downloadFhir } from '../fhir.js';
@@ -19,15 +20,23 @@ import { ITEM_TYPES, dosageFromText } from '../types.js';
 // Zdroj léku v "lékařské" podobě (podstatné jméno)
 const SOURCE_NOUNS = { box: 'krabička', note: 'lístek', manual: 'ručně' };
 
-// Texty závažnosti na kartách nálezů
-const SEVERITY_TAGS = { high: 'Vysoké', medium: 'Střední' };
+// Závažnost z DDInter: text na kartě, symbol a popis v matici a barva (třída CSS).
+// Barva nikdy není jediná informace – vždy i text nebo symbol.
+const LEVELS = {
+  major: { tag: 'Závažná', symbol: '!', label: 'závažná interakce', css: 'high' },
+  moderate: { tag: 'Středně závažná', symbol: '~', label: 'středně závažná interakce', css: 'medium' },
+  minor: { tag: 'Méně závažná', symbol: '·', label: 'méně závažná interakce', css: 'low' },
+  unknown: { tag: 'Závažnost neuvedena', symbol: '?', label: 'interakce bez uvedené závažnosti', css: 'low' },
+  same: { tag: 'Duplicita', symbol: '=', label: 'stejná účinná látka', css: 'same' },
+  none: { tag: '', symbol: '', label: 'v DDInter nenalezeno', css: 'none' },
+};
 
-// Matice: symbol a popis pro každý typ buňky (barva nikdy není jediná informace)
-const CELL = {
-  high: { symbol: '!', label: 'vysoké riziko' },
-  medium: { symbol: '~', label: 'střední riziko' },
-  same: { symbol: '=', label: 'stejná látka' },
-  none: { symbol: '', label: 'nic nenalezeno' },
+// Proč se položku nepodařilo zkontrolovat
+const UNCHECKED_REASONS = {
+  no_active_substance: 'neznámá účinná látka',
+  not_in_source: 'látka není v DDInter',
+  partly_in_source: 'část látek není v DDInter',
+  unknown_regimen: 'neznámá zkratka režimu',
 };
 
 // Chybové kódy z backendu → věta pro lékaře
@@ -63,9 +72,18 @@ export default function Doctor() {
   // takže by o ně lékař přišel třeba jen kvůli omylem zadanému dalšímu kódu.
   const [meds, setMeds] = useState(null);
   const [open, setOpen] = useState(false); // jsou interakce rozbalené?
+  // Kontrola interakcí: status 'loading' | 'done' | 'error', result = výsledek checkMeds
+  const [check, setCheck] = useState({ status: 'loading', result: null });
 
-  // Interakce přepočítáme jen když se změní seznam léků (useMemo si výsledek pamatuje).
-  const { findings, matrix } = useMemo(() => checkMeds(meds ?? []), [meds]);
+  // Spustí kontrolu interakcí na pozadí (preload) – po rozbalení lišty je už hotová.
+  async function runCheck(list) {
+    setCheck({ status: 'loading', result: null });
+    try {
+      setCheck({ status: 'done', result: await checkMeds(list) });
+    } catch {
+      setCheck({ status: 'error', result: null });
+    }
+  }
 
   async function handleSubmit(event) {
     event.preventDefault(); // formulář nemá znovu načíst stránku
@@ -81,6 +99,7 @@ export default function Doctor() {
       const data = await claimShare(pin);
       setMeds(data.medications);
       setOpen(false);
+      runCheck(data.medications);
     } catch (err) {
       setErrorMsg(ERROR_MESSAGES[err.message] ?? 'Nepodařilo se spojit se serverem. Zkuste to znovu.');
     } finally {
@@ -95,6 +114,9 @@ export default function Doctor() {
 
   const count = meds?.length ?? 0;
   const pairCount = (count * (count - 1)) / 2;
+  const result = check.result;
+  const findingCount = result ? result.findings.length + result.duplicates.length : 0;
+  const nameOf = (id) => meds?.find((m) => m.id === id)?.name ?? id;
 
   return (
     <div className="doc">
@@ -173,7 +195,9 @@ export default function Doctor() {
                         <strong>{med.name}</strong>
                         {med.kind === 'regimen' && <span className="doc-kind"> (režim)</span>}
                       </td>
-                      <td>{med.active_substance || '—'}</td>
+                      <td>
+                        {med.kind === 'regimen' ? <RegimenDrugs info={result?.regimens[med.id]} status={check.status} /> : med.active_substance || '—'}
+                      </td>
                       <td>{med.strength || '—'}</td>
                       <td>{medDosage(med) || '—'}</td>
                       {/* sources[] = lék byl nalezen na více místech (lístek i krabička) */}
@@ -186,41 +210,99 @@ export default function Doctor() {
 
             {/* ---------- Rozbalovací lišta s interakcemi ---------- */}
             <section className={open ? 'doc-interactions doc-interactions-open' : 'doc-interactions'}>
-              <button
-                type="button"
-                className="doc-toggle"
-                aria-expanded={open}
-                aria-controls="doc-interactions-body"
-                onClick={() => setOpen(!open)}
-              >
-                <span className={open ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
-                  <ChevronIcon size={22} />
-                </span>
-                <strong>Interakce ({findings.length})</strong>
-                <span className="doc-toggle-hint">{open ? 'Skrýt' : 'Zobrazit'}</span>
-              </button>
+              {check.status === 'loading' && <p className="doc-toggle doc-toggle-static">Načítám interakce…</p>}
 
-              {open && (
+              {check.status === 'error' && (
+                <div className="doc-toggle doc-toggle-static" role="alert">
+                  <strong>Interakce se nepodařilo načíst</strong>
+                  <button type="button" className="doc-button doc-button-secondary doc-toggle-retry" onClick={() => runCheck(meds)}>
+                    Zkusit znovu
+                  </button>
+                </div>
+              )}
+
+              {check.status === 'done' && (
+                <button
+                  type="button"
+                  className="doc-toggle"
+                  aria-expanded={open}
+                  aria-controls="doc-interactions-body"
+                  onClick={() => setOpen(!open)}
+                >
+                  <span className={open ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
+                    <ChevronIcon size={22} />
+                  </span>
+                  <strong>Interakce ({findingCount})</strong>
+                  {result.unchecked.length > 0 && (
+                    <span className="doc-muted">· nezkontrolováno: {result.unchecked.length}</span>
+                  )}
+                  <span className="doc-toggle-hint">{open ? 'Skrýt' : 'Zobrazit'}</span>
+                </button>
+              )}
+
+              {check.status === 'done' && open && (
                 <div id="doc-interactions-body" className="doc-interactions-body">
                   {/* Vlevo: seznam nálezů */}
                   <div className="doc-findings">
-                    {findings.length === 0 && (
+                    {findingCount === 0 && (
                       <p className="doc-finding doc-finding-none">
-                        V naší databázi jsme nic nenašli. To neznamená, že žádné interakce nejsou.
+                        Interakce nenalezeny v databázi {result.checkedAgainst?.name ?? 'DDInter'}. To neznamená, že žádné
+                        nejsou.
                       </p>
                     )}
-                    {findings.map((f) => (
-                      <article key={f.id} className={`doc-finding doc-finding-${f.severity}`}>
-                        <p className="doc-finding-tag">
-                          {SEVERITY_TAGS[f.severity]} · {f.tag}
-                        </p>
-                        <h3>{f.title}</h3>
-                        {f.meds.length > 0 && <p className="doc-finding-meds">{f.meds.join(', ')}</p>}
-                        <p>{f.description}</p>
+                    {result.findings.map((f) => (
+                      <article key={f.id} className={`doc-finding doc-finding-${LEVELS[f.level].css}`}>
+                        <p className="doc-finding-tag">{LEVELS[f.level].tag}</p>
+                        <h3>
+                          {nameOf(f.a)} × {nameOf(f.b)}
+                        </h3>
+                        {/* U režimu může být víc dvojic látek – závažnost píšeme jen když se liší */}
+                        {f.pairs.map((pair) => (
+                          <p key={pair.substances} className="doc-finding-meds">
+                            {pair.substances}
+                            {f.pairs.length > 1 && pair.level !== f.level && (
+                              <span className="doc-kind"> ({LEVELS[pair.level].tag.toLowerCase()})</span>
+                            )}
+                          </p>
+                        ))}
                       </article>
                     ))}
+                    {result.duplicates.map((d) => (
+                      <article key={d.id} className="doc-finding doc-finding-medium">
+                        <p className="doc-finding-tag">{LEVELS.same.tag}</p>
+                        <h3>
+                          {nameOf(d.a)} + {nameOf(d.b)}
+                        </h3>
+                        <p>Dva přípravky se stejnou účinnou látkou ({d.substance}).</p>
+                      </article>
+                    ))}
+
+                    {/* Co se zkontrolovat nepodařilo – nikdy to nezamlčíme */}
+                    {result.unchecked.length > 0 && (
+                      <div className="doc-finding doc-finding-none">
+                        <p className="doc-finding-tag">Nezkontrolováno</p>
+                        <ul className="doc-unchecked">
+                          {result.unchecked.map((u) => (
+                            <li key={u.id}>
+                              <strong>{u.name}</strong> – {UNCHECKED_REASONS[u.reason] ?? u.reason}
+                              {u.substances?.length > 0 && ` (${u.substances.join(', ')})`}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
                     <p className="doc-note">
-                      Kontrola jen proti ukázkové databázi PillGaze. Není úplná, ověřte s farmaceutem.
+                      {result.note}{' '}
+                      {result.checkedAgainst && (
+                        <>
+                          Zdroj:{' '}
+                          <a href={result.checkedAgainst.url} target="_blank" rel="noreferrer">
+                            {result.checkedAgainst.name}
+                          </a>{' '}
+                          ({result.checkedAgainst.license}, {result.checkedAgainst.version}). Ověřte s farmaceutem.
+                        </>
+                      )}
                     </p>
                   </div>
 
@@ -245,21 +327,21 @@ export default function Doctor() {
                           </tr>
                         </thead>
                         <tbody>
-                          {meds.map((rowMed, i) => (
+                          {meds.map((rowMed) => (
                             <tr key={rowMed.id}>
                               <th scope="row" title={rowMed.name}>
                                 {abbr(rowMed.name)}
                               </th>
-                              {meds.map((colMed, j) => {
-                                const value = matrix[i][j];
-                                if (value === 'self') {
+                              {meds.map((colMed) => {
+                                if (rowMed.id === colMed.id) {
                                   return <td key={colMed.id} className="cell cell-self" />;
                                 }
+                                const level = LEVELS[result.cells[`${rowMed.id}|${colMed.id}`] ?? 'none'];
                                 // title = popisek po najetí myší, aria-label = pro čtečku obrazovky
-                                const text = `${rowMed.name} × ${colMed.name}: ${CELL[value].label}`;
+                                const text = `${rowMed.name} × ${colMed.name}: ${level.label}`;
                                 return (
-                                  <td key={colMed.id} className={`cell cell-${value}`} title={text} aria-label={text}>
-                                    {CELL[value].symbol}
+                                  <td key={colMed.id} className={`cell cell-${level.css}`} title={text} aria-label={text}>
+                                    {level.symbol}
                                   </td>
                                 );
                               })}
@@ -268,14 +350,16 @@ export default function Doctor() {
                         </tbody>
                       </table>
 
-                      {/* Legenda */}
+                      {/* Legenda – od nejzávažnější */}
                       <ul className="doc-legend">
-                        {['high', 'medium', 'same', 'none'].map((key) => (
-                          <li key={key}>
-                            <span className={`cell cell-${key}`}>{CELL[key].symbol}</span>
-                            {CELL[key].label}
-                          </li>
-                        ))}
+                        {Object.keys(LEVELS)
+                          .sort((x, y) => LEVEL_RANK[y] - LEVEL_RANK[x])
+                          .map((key) => (
+                            <li key={key}>
+                              <span className={`cell cell-${LEVELS[key].css}`}>{LEVELS[key].symbol}</span>
+                              {LEVELS[key].label}
+                            </li>
+                          ))}
                       </ul>
                     </div>
                   </div>
@@ -286,5 +370,24 @@ export default function Doctor() {
         )}
       </main>
     </div>
+  );
+}
+
+// Léčiva onkologického režimu podle zkratky (z /api/regimens/resolve)
+function RegimenDrugs({ info, status }) {
+  if (status === 'loading') return <span className="doc-muted">Hledám složení…</span>;
+  if (!info) return <span className="doc-muted">neznámá zkratka</span>;
+  return (
+    <>
+      {info.drugs.join(', ')}
+      <span className="doc-kind">
+        {' '}
+        (podle zkratky{info.variants.length > 1 ? `, ${info.variants.length} varianty` : ''},{' '}
+        <a href={info.source.url} target="_blank" rel="noreferrer">
+          HemOnc
+        </a>
+        )
+      </span>
+    </>
   );
 }

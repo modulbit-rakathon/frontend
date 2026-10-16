@@ -9,6 +9,7 @@
 //   3. Paralen 500   – v katalogu není (not_found)
 //   4. Ibuprofen 400 – obecný název, pacient vybere přípravek (needs_confirmation)
 //   5. Pantomil      – nejistě přečtený rukopis, pacient vybere přípravek (needs_confirmation)
+// Fotka zprávy z onkologie (pole "regimen") přidá režim FOLFOX (kind = regimen).
 // Tvar dat: viz AnalyzedMedication v src/types.js.
 import { MOCK_CATALOG } from './catalog.js';
 
@@ -112,9 +113,24 @@ const MERGED = [
   },
 ];
 
+// Výsledek z fotky zprávy z onkologie: jen zkratka režimu, bez katalogu
+const REGIMEN = {
+  id: 'med_reg_01',
+  kind: 'regimen',
+  name: 'FOLFOX',
+  active_substance: null,
+  strength: null,
+  form: null,
+  frequency: null,
+  amount: null,
+  source: 'note',
+  sources: ['note'],
+  uncertain_fields: [],
+};
+
 /**
  * Předstírá analýzu fotek.
- * @param {{ note: File[], box: File[] }} photos
+ * @param {{ note: File[], box: File[], regimen?: File[] }} photos
  * @returns {Promise<{ medications: Array, unreadable_items: number }>}
  *
  * Tipy pro testování:
@@ -122,7 +138,8 @@ const MERGED = [
  *  - jen fotky krabiček → jen léky z krabiček (bez lístku nejsou rozpory ani kandidáti).
  */
 export function analyzePhotos(photos) {
-  const all = [...photos.note, ...photos.box];
+  const regimenPhotos = photos.regimen ?? [];
+  const all = [...photos.note, ...photos.box, ...regimenPhotos];
   return new Promise((resolve, reject) => {
     // Počkáme pár sekund, jako by AI přemýšlela (ať je vidět načítání).
     setTimeout(() => {
@@ -148,6 +165,7 @@ export function analyzePhotos(photos) {
             uncertain_fields: m.uncertain_fields.filter((f) => !conflicts?.some((c) => c.field === f)),
           };
         });
+      if (regimenPhotos.length > 0) medications.push(structuredClone(REGIMEN));
 
       // Na lístku byl jeden řádek nečitelný (jako na backendu)
       resolve({ medications, unreadable_items: hasNote ? 1 : 0 });

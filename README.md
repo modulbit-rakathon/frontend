@@ -53,31 +53,19 @@ Stavy lišty:
 - **nic nenalezeno:** "Interakce nenalezeny v naší databázi. To neznamená, že žádné nejsou."
 - **chyba:** "Interakce se nepodařilo načíst" + "Zkusit znovu", kliknutí spustí nový request
 
-Po rozkliknutí se zobrazí seznam nálezů seřazený podle závažnosti, matice dvojic (každý lék s každým) a disclaimer o zdroji dat.
+Po rozkliknutí se zobrazí seznam nálezů seřazený podle závažnosti, matice dvojic (každý lék s každým), seznam nezkontrolovaných položek a zdroj dat.
+
+Interakce kontroluje backend (`POST /api/interactions`, databáze DDInter) podle účinné látky. Onkologický režim (např. FOLFOX) se nejdřív rozloží na léčiva (`POST /api/regimens/resolve`) a ta se kontrolují proti ostatním lékům; dvojice uvnitř jednoho režimu se vynechávají. Duplicity (stejná účinná látka u dvou přípravků) dopočítává frontend. Logika je v `src/doctorCheck.js`.
 
 ## Jak se porovnávají léky
 
-Interakce se kontrolují podle **účinné látky**, ne podle obchodního názvu (Paralen → paracetamol). Probíhají tři kontroly:
+Interakce se kontrolují podle **účinné látky**, ne podle obchodního názvu (Paralen → paracetamol):
 
-1. **Dvojice (každý s každým):** všechny dvojice léků se porovnají v databázi interakcí. 7 léků = 21 dvojic. Z výsledků se kreslí matice.
-2. **Skupiny se stejným účinkem:** každá látka má štítky rizik (`krvácení`, `QT`, `serotonin`, `útlum`, …). Když stejný štítek má víc léků, vznikne jeden nález se všemi léky, např. "Riziko krvácení se sčítá (4 léky)".
-3. **Duplicity:** dva přípravky se stejnou účinnou látkou, např. Paralen + Coldrex.
+1. **Dvojice (každý s každým)** v databázi DDInter na backendu, závažnost `major` / `moderate` / `minor` / `unknown`. Z dvojic se kreslí matice.
+2. **Onkologické režimy:** zkratka (FOLFOX) se rozloží na léčiva a ta se kontrolují proti ostatním lékům.
+3. **Duplicity:** dva přípravky se stejnou účinnou látkou, např. Paralen + Panadol (počítá frontend).
 
-Všechny nálezy mají stejný formát:
-
-```json
-{
-  "severity": "high",
-  "type": "group",
-  "title": "Riziko krvácení se sčítá",
-  "medications": ["warfarin", "ibuprofen", "anopyrin", "citalopram"],
-  "description": "Každý zvlášť zvyšuje riziko krvácení, dohromady výrazně."
-}
-```
-
-- `severity`: `high` / `medium` / `low`
-- `type`: `pair` / `group` / `duplicate`
-- matici si frontend skládá z nálezů typu `pair`
+Prázdný výsledek nikdy neznamená „žádné interakce“: vždy se ukáže zdroj a seznam toho, co se zkontrolovat nepodařilo (chybí účinná látka, látka není v DDInter, neznámá zkratka režimu).
 
 ## Jak appku spustit
 
@@ -151,10 +139,10 @@ src/
   context/MedsContext.jsx   seznam položek + profil pacienta (sdílené + localStorage)
   photos.js             zmenšení fotek před odesláním (backend bere max 15 MB)
   review.js             logika kontroly léků z fotek (co musí pacient vyřešit)
+  doctorCheck.js        interakce pro lékaře: rozklad onko režimů + /api/interactions (DDInter)
   mock/analyze.js       náhrada za AI čtení fotek
   mock/catalog.js       náhrada za hledání v katalogu léků
   mock/interactions.js  náhrada za databázi interakcí (pacientovi se neukazuje)
-  mock/doctorCheck.js   kontrola interakcí pro lékaře
   components/           lišta, ikony, formulář léku, dávkování, kontrola léku z fotek, hledání v katalogu…
   pages/                Domů, Vyfotit, Moje léky, Zpráva, Doplňky, Onkologie, Sdílení (Pin)
   pages/Doctor.jsx      lékařský pohled /doc

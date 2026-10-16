@@ -987,6 +987,19 @@ ul {
   font-weight: 600;
 }
 
+/* Lišta bez rozbalení: načítání a chyba */
+.doc-toggle-static {
+  cursor: default;
+}
+
+.doc-toggle-static:hover {
+  background: none;
+}
+
+.doc-toggle-retry {
+  margin-left: auto;
+}
+
 .doc-chevron {
   display: flex;
   transition: transform 0.15s;
@@ -1062,6 +1075,17 @@ ul {
   border-color: var(--border);
 }
 
+.doc-finding-low {
+  background: var(--surface);
+  border-color: var(--text-muted);
+}
+
+.doc-unchecked {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  font-size: 15px;
+}
+
 .doc-note {
   font-size: 14px;
   color: var(--text-muted);
@@ -1126,6 +1150,12 @@ ul {
   background: #f8cf4a;
   border-color: #f8cf4a;
   color: var(--warning-text);
+}
+
+.cell-low {
+  background: #ffffff;
+  border: 2px solid var(--text-muted);
+  color: var(--text);
 }
 
 .cell-same {

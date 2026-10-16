@@ -128,3 +128,37 @@ export function claimShare(pin) {
     signal: AbortSignal.timeout(15000),
   });
 }
+
+/**
+ * Aplikace lékaře: zkontroluje interakce léků v databázi DDInter (na backendu).
+ * Kontroluje se jen podle účinné látky – lék bez ní backend vrátí v "unchecked".
+ * @param {Array} medications – léky ve tvaru z claimShare (jen pole, která backend zná)
+ * @returns {Promise<{ pairs: Array<{ a: string, b: string, substance_a: string, substance_b: string,
+ *   level: 'major'|'moderate'|'minor'|'unknown' }>, checked_against: { name: string, url: string,
+ *   license: string, version: string }, unchecked: Array<{ id: string, name: string,
+ *   reason: 'no_active_substance'|'not_in_source'|'partly_in_source', substances?: string[] }>, note: string }>}
+ */
+export function checkInteractions(medications) {
+  return request('/api/interactions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ medications }),
+    signal: AbortSignal.timeout(15000),
+  });
+}
+
+/**
+ * Aplikace lékaře: rozloží zkratku onkologického režimu (FOLFOX…) na léčiva.
+ * Hledá se jen přesná zkratka, neznámá vrací chybu 'not_found'.
+ * @param {string} text – zkratka režimu (name položky s kind = regimen)
+ * @returns {Promise<{ query: string, regimens: Array<{ name: string, indication: string, drugs: string[] }>,
+ *   source: { name: string, url: string }, note: string }>}
+ */
+export function resolveRegimen(text) {
+  return request('/api/regimens/resolve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text: text.slice(0, 100) }),
+    signal: AbortSignal.timeout(15000),
+  });
+}
