@@ -2201,6 +2201,17 @@ html[data-font='xlarge'] .app {
   color: var(--text-muted);
 }
 
+/* Návrhy z katalogu pod názvem léku při ručním zadání */
+.catalog-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catalog-suggestions:not(:empty) {
+  margin-top: 4px;
+}
+
 .catalog-search {
   display: flex;
   flex-direction: column;

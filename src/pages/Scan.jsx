@@ -589,7 +589,7 @@ export default function Scan() {
           <BackButton onClick={backFromManual} />
           <h1>{t('common.enterMedManually')}</h1>
           <p className="subtitle">{t('scan.manualSub')}</p>
-          <MedForm onSubmit={handleManual} />
+          <MedForm suggest onSubmit={handleManual} />
           <button type="button" className="btn btn-secondary" onClick={() => setStep('pick')}>
             <CameraIcon />
             {t('scan.ratherPhoto')}
