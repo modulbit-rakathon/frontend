@@ -17,6 +17,12 @@ import Family from './pages/Family.jsx';
 import FamilyOpen from './pages/FamilyOpen.jsx';
 import { useLang } from './i18n/index.js';
 import Settings from './pages/Settings.jsx';
+import InstallGate from './install/InstallGate.jsx';
+import { isMobile, isStandalone } from './install/installPrompt.js';
+
+// Na mobilu v prohlížeči appku nepustíme – nejdřív ji pacient přidá na plochu.
+// Zjišťujeme jednou při startu: z plochy se appka spouští znovu od začátku.
+const mustInstall = isMobile() && !isStandalone();
 
 export default function App() {
   const location = useLocation();
@@ -38,6 +44,12 @@ export default function App() {
         <Doctor />
       </>
     );
+  }
+
+  // Odkaz pro blízké (/pomoc) nese data za # a otevírá se rovnou z SMS/e-mailu –
+  // ten necháme fungovat i v prohlížeči. Jinak na mobilu chceme appku z plochy.
+  if (mustInstall && location.pathname !== '/pomoc') {
+    return <InstallGate />;
   }
 
   return (

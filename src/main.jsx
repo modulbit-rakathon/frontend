@@ -7,6 +7,7 @@ import { MedsProvider } from './context/MedsContext.jsx';
 import { OfflineProvider } from './offline/OfflineContext.jsx';
 import './index.css';
 import './ripple.js'; // vlna při klepnutí na tlačítka
+import './install/installPrompt.js'; // chytí nabídku instalace dřív, než ji prohlížeč pošle
 import { applyFontSize, loadFontSize } from './accessibility.js';
 import { applyLang } from './i18n/index.js';
 
