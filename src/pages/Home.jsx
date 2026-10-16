@@ -1,12 +1,12 @@
 // Obrazovka 1: Domů
 import { Link } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
-import { InteractionSummary } from '../components/InteractionBox.jsx';
+import FontSizeSwitch from '../components/FontSizeSwitch.jsx';
 import { CameraIcon, PillIcon, ChevronIcon } from '../components/Icons.jsx';
 import { pluralLeky } from '../labels.js';
 
 export default function Home() {
-  const { meds, interactions } = useMeds();
+  const { meds } = useMeds();
 
   return (
     <>
@@ -31,12 +31,11 @@ export default function Home() {
         <ChevronIcon />
       </Link>
 
-      {/* Zobrazí se jen když nějaká interakce existuje */}
-      <InteractionSummary count={interactions.length} />
-
       <Link to="/zprava" className="btn btn-secondary">
         Zpráva pro lékaře
       </Link>
+
+      <FontSizeSwitch />
     </>
   );
 }

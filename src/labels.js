@@ -33,6 +33,36 @@ export function medTitle(med) {
   return `${med.name} ${med.strength}`;
 }
 
+// Jen název léku, bez síly. Backend někdy pošle "IBUPROFEN 400 mg" a sílu
+// zvlášť "400 mg" – tu z konce názvu uřízneme, ať se neukazuje dvakrát.
+export function medName(med) {
+  const name = med.name.trim();
+  const strength = med.strength?.trim();
+  if (strength && name.toLowerCase().endsWith(strength.toLowerCase())) {
+    const cut = name.slice(0, name.length - strength.length).trim();
+    if (cut) return cut; // když by z názvu nic nezbylo, necháme ho celý
+  }
+  return name;
+}
+
+// Věta do zprávy podle toho, odkud údaje skutečně pocházejí.
+// Např. ["box", "manual"] → "Údaje pocházejí z fotek krabiček a z ručního zadání. Pacient je potvrdil."
+export function sourcesSentence(items) {
+  const parts = {
+    box: 'z fotek krabiček',
+    note: 'z fotky lístku od lékaře',
+    manual: 'z ručního zadání',
+  };
+  // Každý zdroj jen jednou a ve stálém pořadí
+  const used = ['box', 'note', 'manual'].filter((s) => items.some((i) => i.source === s));
+  if (used.length === 0) return '';
+
+  const texts = used.map((s) => parts[s]);
+  const joined =
+    texts.length === 1 ? texts[0] : `${texts.slice(0, -1).join(', ')} a ${texts[texts.length - 1]}`;
+  return `Údaje pocházejí ${joined}. Pacient je potvrdil.`;
+}
+
 // Dávkování, např. "3× denně · 1 tableta"
 export function medDosage(med) {
   return [med.frequency, med.amount].filter(Boolean).join(' · ');

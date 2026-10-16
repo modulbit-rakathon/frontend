@@ -9,21 +9,33 @@
 //   'empty'   – pacient nemá žádné léky, není co sdílet
 import { useEffect, useState } from 'react';
 import { createSharePayload, getShareIssues } from '@pillgaze/core';
+import QRCode from 'qrcode';
 import { useMeds } from '../context/MedsContext.jsx';
 import { createSharePin, apiErrorMessage } from '../api.js';
 import { WarningIcon } from '../components/Icons.jsx';
 import ReviewNotice from '../components/ReviewNotice.jsx';
 import { useRetryAfter } from '../useRetryAfter.js';
 
+const DOCTOR_URL = `${window.location.origin}/doc`;
+
 export default function Pin() {
   const { meds, unreadableCount, storageError } = useMeds();
 
   const [step, setStep] = useState('loading');
   const [share, setShare] = useState(null); // { pin, expires_at }
+  const [qrUrl, setQrUrl] = useState('');
   // Zvýšením tohohle čísla spustíme nové načtení PINu (tlačítko "Zkusit znovu" / "Nový PIN").
   const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState('');
   const [retryAfter, setRetryAfter] = useRetryAfter();
+
+  useEffect(() => {
+    let cancelled = false;
+    QRCode.toDataURL(DOCTOR_URL, { width: 480, margin: 2, errorCorrectionLevel: 'M' })
+      .then(url => { if (!cancelled) setQrUrl(url); })
+      .catch(() => { if (!cancelled) setQrUrl(''); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     // Když pacient odejde z obrazovky dřív, než PIN dorazí, výsledek zahodíme.
@@ -102,6 +114,12 @@ export default function Pin() {
       {step === 'ready' && (
         <>
           <p className="subtitle">Lékaři nadiktujte tento kód</p>
+          {qrUrl && (
+            <figure className="share-qr">
+              <img src={qrUrl} alt="QR kód, který otevře stránku pro lékaře" />
+              <figcaption>Lékař může otevřít {DOCTOR_URL.replace(/^https?:\/\//, '')}</figcaption>
+            </figure>
+          )}
           {/* Čtečka obrazovky přečte PIN po jednotlivých číslicích: "1 2 3 4" */}
           <p className="pin-code" aria-label={`PIN ${share.pin.split('').join(' ')}`}>
             {share.pin}

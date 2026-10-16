@@ -103,6 +103,7 @@
   --bg: #ffffff;
   --surface: #f4f4f8; /* šedé plochy */
   --border: #a9a7c7; /* rámečky */
+  --control-border: #7c79a8; /* rámečky klikacích prvků – kontrast 4:1 (WCAG chce aspoň 3:1) */
   --primary: #0b7a66; /* hlavní tlačítka (mint-700) */
   --primary-dark: #075c4d;
   --primary-light: #c9f6ea; /* zvýraznění aktivní položky v liště */
@@ -306,7 +307,7 @@ ul {
    ========================================================= */
 .card {
   background: var(--bg);
-  border: 2px solid var(--border);
+  border: 2px solid var(--control-border);
   border-radius: var(--radius);
   padding: 16px 20px;
 }
@@ -973,6 +974,26 @@ ul {
   cursor: wait;
 }
 
+/* Tlačítka "Stáhnout PDF" / "Stáhnout FHIR" */
+.doc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.doc-button-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg);
+  color: var(--text);
+  border: 2px solid var(--text);
+}
+
+.doc-button-secondary:hover {
+  background: var(--surface);
+}
+
 /* --- Obsah --- */
 .doc-main {
   display: flex;
@@ -1224,4 +1245,777 @@ ul {
   justify-content: center;
   width: 36px;
   height: 36px;
+}
+
+/* =========================================================
+   12) FORMULÁŘ – DÁVKOVÁNÍ A VOLBY (klikání místo psaní)
+   ========================================================= */
+
+/* Text jen pro čtečky obrazovky (vizuálně skrytý) */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* fieldset = skupina polí; vypadá stejně jako ostatní .field */
+fieldset.field {
+  margin: 0;
+  min-width: 0;
+}
+
+/* legend = nadpis skupiny. float ho dá dovnitř rámečku (jinak by seděl na čáře). */
+fieldset.field legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+fieldset.field legend + * {
+  clear: both;
+}
+
+.optional {
+  font-weight: 400;
+}
+
+/* Velké přepínací tlačítko (Ráno, Podle potřeby…) */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 8px 16px;
+  border: 3px solid var(--control-border);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Zapnuté: zelený rámeček + fajfka (ne jen barva) */
+.toggle-on {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+/* Čtvereček na fajfku */
+.toggle-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--text-muted);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--primary-dark);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.toggle-on .toggle-check {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.dosage {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dosage-times {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Řádek: [Ráno]  − 1 + */
+.dosage-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dosage-row .toggle {
+  flex: 1;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stepper-btn {
+  width: 56px;
+  height: 56px;
+  border: 3px solid var(--text);
+  border-radius: 50%;
+  background: #ffffff;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stepper-btn:disabled {
+  border-color: var(--border);
+  color: var(--border);
+  cursor: not-allowed;
+}
+
+.stepper-value {
+  min-width: 36px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.dosage-code {
+  font-size: 20px;
+}
+
+.dosage-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Na úzkém displeji pod sebe */
+@media (max-width: 400px) {
+  .dosage-modes {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Obyčejné textové pole mimo .field (např. "Jinak (napsat)") */
+.text-input,
+.field .text-input {
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 2px solid var(--text-muted);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+/* "Užívám od": rok + měsíc */
+.since-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.since-row select {
+  min-height: 56px;
+  padding: 8px 12px;
+  border: 2px solid var(--text-muted);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 20px;
+}
+
+.since-row select:disabled {
+  border-color: var(--border);
+  color: var(--text-muted);
+}
+
+/* Výběr jedné možnosti jako velké dlaždice (Kdo předepsal…) */
+.choice-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.field .choice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 60px;
+  padding: 8px 14px;
+  border: 3px solid var(--control-border);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.field .choice-on {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+/* Samotné kolečko radia – zvětšené, ať je dobře vidět */
+.field .choice input {
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  margin: 0;
+  flex-shrink: 0;
+  accent-color: var(--primary);
+}
+
+/* Fokus na skrytém radiu ukážeme na celé dlaždici */
+.field .choice:has(input:focus-visible) {
+  outline: 4px solid var(--primary);
+  outline-offset: 3px;
+}
+
+/* =========================================================
+   13) DOPLŇKY STRAVY – DLAŽDICE A ŠTÍTKY
+   ========================================================= */
+.tile-grid {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  min-height: 132px;
+  padding: 12px;
+  border: 3px solid var(--control-border);
+  border-radius: var(--radius);
+  background: #ffffff;
+  color: var(--text);
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.tile-on {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.tile-icon {
+  font-size: 40px;
+  line-height: 1;
+}
+
+.tile-label {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.tile-state {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-dark);
+}
+
+.other-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.other-form label {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* Štítky (seznam doplňků) */
+.chip-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 48px;
+  padding: 4px 6px 4px 16px;
+  border: 2px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+/* Štítek bez tlačítka "Odebrat" – stejný okraj z obou stran */
+.chip:not(:has(button)) {
+  padding-right: 16px;
+}
+
+.chip .btn-text {
+  min-height: 48px;
+}
+
+/* Samostatná sekce v seznamu (doplňky, onkologie) */
+.list-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 20px;
+  border-top: 2px solid var(--surface);
+}
+
+.report-list {
+  font-size: 18px;
+}
+
+/* =========================================================
+   14) ONKOLOGICKÁ LÉČBA
+   ========================================================= */
+
+/* Otázka "Léčíte se na onkologii?" */
+.question h2 {
+  margin-bottom: 12px;
+}
+
+.question-answers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Sekce v Moje léky – nahoře, zvýrazněná rámečkem v barvě značky */
+.onco-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+  border: 3px solid var(--primary);
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
+.onco-list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 20px;
+}
+
+.onco-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.onco-answer {
+  font-size: 20px;
+  color: var(--text-muted);
+}
+
+.onco-answer a {
+  display: inline-block;
+  min-height: 48px;
+  padding: 10px 4px;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* Jednosloupcová varianta dlaždic (dlouhé texty) */
+.choice-grid-1 {
+  grid-template-columns: 1fr;
+}
+
+/* Našeptávač – návrhy jako tlačítka pod polem */
+.suggestions {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.suggestion {
+  min-height: 48px;
+  padding: 6px 14px;
+  border: 2px solid var(--primary);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--primary-dark);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Onkologie ve zprávě – nahoře, výrazně oddělená */
+.report-onco {
+  padding: 12px 16px;
+  border: 2px solid var(--text);
+  border-radius: 8px;
+}
+
+/* =========================================================
+   15) FOCENÍ – FOTKA S RÁMEČKY, LÍSTEK, NAČÍTÁNÍ, KONTROLA POLÍ
+   ========================================================= */
+
+/* Obal fotky: rámečky se umisťují vůči obrázku, proto
+   .photo-frame přesně obepíná fotku (inline-block). */
+.photo-frame-wrap {
+  text-align: center;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+}
+
+.photo-frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.photo-frame-img {
+  display: block;
+  max-width: 100%;
+  max-height: 340px;
+  border-radius: 8px;
+}
+
+/* Rámeček kolem přečteného textu */
+.photo-box {
+  position: absolute;
+  border: 3px solid var(--primary);
+  border-radius: 6px;
+  background: rgba(11, 122, 102, 0.12);
+}
+
+/* Nejisté pole – žlutý, čárkovaný (rozdíl je vidět i bez barev) */
+.photo-box-uncertain {
+  border-color: var(--warning-border);
+  border-style: dashed;
+  background: rgba(245, 165, 36, 0.2);
+}
+
+/* Pole, které pacient právě upravuje – silnější rámeček */
+.photo-box-active {
+  border-width: 5px;
+  box-shadow: 0 0 0 4px #ffffff;
+}
+
+/* Popisek nad rámečkem ("Název", "Síla"…) */
+.photo-box-label {
+  position: absolute;
+  left: -3px;
+  bottom: 100%;
+  padding: 0 6px;
+  border-radius: 4px 4px 0 0;
+  background: var(--primary);
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.photo-box-uncertain .photo-box-label {
+  background: var(--warning-border);
+}
+
+/* Lístek: fotka vedle přepsaného textu */
+.note-compare {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 520px) {
+  .note-compare {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.note-transcript {
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.note-transcript h2 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.note-transcript ol {
+  padding-left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.note-line {
+  font-size: 18px;
+}
+
+.note-line-current {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 3px;
+  text-decoration-color: var(--primary);
+  text-underline-offset: 4px;
+}
+
+.note-state {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.confirm-progress {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Načítání: kolečko + měnící se text */
+.loading-box {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--radius);
+  background: var(--primary-light);
+}
+
+.loading-box .spinner {
+  margin: 0;
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-color: #ffffff;
+  border-top-color: var(--primary);
+}
+
+.loading-text {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+/* Řádek "Zkontrolujte prosím" + tlačítko "Je to správně" */
+.field-hint-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.btn-check {
+  min-height: 48px;
+  padding: 6px 16px;
+  border: 3px solid var(--warning-border);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--warning-text);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.field-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary-dark);
+}
+
+.submit-note {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--warning-text);
+}
+
+/* =========================================================
+   16) PŘÍSTUPNOST – VELIKOST PÍSMA, ČTENÍ NAHLAS, HLAS
+   ========================================================= */
+
+/* Velikost písma: celou pacientskou aplikaci zvětšíme pomocí "zoom".
+   (Styly používají px, takže by nestačilo změnit jen základní písmo.)
+   Lékařský pohled /doc není uvnitř .app, takže se nemění. */
+html[data-font='large'] .app {
+  zoom: 1.15;
+}
+
+html[data-font='xlarge'] .app {
+  zoom: 1.3;
+}
+
+.font-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.font-switch-label {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.font-switch-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.font-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 72px;
+  padding: 6px;
+  border: 3px solid var(--control-border);
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Vybraná velikost: zelený rámeček + podtržení (ne jen barva) */
+.font-btn-on {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  text-decoration: underline;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 4px;
+}
+
+.font-btn-sample {
+  line-height: 1;
+  font-weight: 800;
+}
+
+.font-btn-sample-0 {
+  font-size: 20px;
+}
+
+.font-btn-sample-1 {
+  font-size: 26px;
+}
+
+.font-btn-sample-2 {
+  font-size: 32px;
+}
+
+/* Tlačítko s mikrofonem */
+.voice-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 6px 16px;
+  border: 2px solid var(--primary);
+  border-radius: 12px;
+  background: #ffffff;
+  color: var(--primary-dark);
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Při poslechu: plné zelené pozadí + text "Poslouchám…" */
+.voice-btn-on {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.speak-fallback {
+  font-size: 18px;
+  color: var(--text-muted);
+}
+
+/* Tlačítko "Přečíst nahlas" v rozbalené kartě léku */
+.med-details .btn {
+  margin: 8px 0;
+}
+
+/* =========================================================
+   17) SDÍLENÍ S LÉKAŘEM – QR KÓD
+   ========================================================= */
+.share-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
+.share-qr img {
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  /* ostré hrany čtverečků i při zvětšení */
+  image-rendering: pixelated;
+}
+
+.share-qr figcaption {
+  font-size: 18px;
+  text-align: center;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.share-step {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
 }

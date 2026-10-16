@@ -6,6 +6,10 @@ import App from './App.jsx';
 import { MedsProvider } from './context/MedsContext.jsx';
 import './index.css';
 import './ripple.js'; // vlna při klepnutí na tlačítka
+import { applyFontSize, loadFontSize } from './accessibility.js';
+
+// Uloženou velikost písma nastavíme hned, ještě před prvním vykreslením.
+applyFontSize(loadFontSize());
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
