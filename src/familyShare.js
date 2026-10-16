@@ -7,6 +7,9 @@
 //      a vytvoří "odpověď" (t: 'res') – odkaz zpět.
 //   3) Pacient odkaz otevře, uvidí, co je nové / změněné, a sám potvrdí uložení.
 //
+// Stejnou "odpověď" posílá i lékař z /doc (d: 1): obsahuje jen položky, které lékař
+// opravil, a u nich jen opravená pole (edited). Zbytek údajů pacienta zůstane.
+//
 // Data jsou v odkazu ZA KŘÍŽKEM (#…), ne v ?dotazu. Část za # prohlížeč
 // nikdy neposílá na server, takže se léky nedostanou do logů serveru.
 //
@@ -30,8 +33,10 @@ export const OLD_AFTER_DAYS = 30;
 // Pole položky, která do odkazu posíláme. Nic jiného z odkazu nepřijmeme.
 const ITEM_FIELDS = [
   'id', 'type', 'name', 'strength', 'dosage', 'since', 'prescriber', 'source', 'sources',
-  'note_style', 'kind', 'active_substance', 'form', 'catalog_id', 'supplementKey', 'oncoForm', 'lastDose',
+  'note_style', 'kind', 'active_substance', 'form', 'catalog_id', 'supplementKey', 'oncoForm', 'lastDose', 'edited',
 ];
+// Co může lékař opravit (pole "edited" u položky v odpovědi od lékaře)
+export const DOCTOR_FIELDS = ['name', 'strength', 'dosage'];
 const ONCO_KEYS = ['', 'ano', 'ne', 'nechci'];
 
 // Náhodné ID odkazu (žádost i odpověď mají vlastní).
@@ -87,12 +92,13 @@ function unpackItem(raw) {
 
   const item = {};
   for (const key of ITEM_FIELDS) {
-    if (key === 'dosage' || key === 'sources') continue;
+    if (key === 'dosage' || key === 'sources' || key === 'edited') continue;
     if (typeof raw[key] === 'string') item[key] = cleanText(raw[key]);
   }
   item.name = name;
   item.dosage = cleanDosage(raw.dosage);
   if (Array.isArray(raw.sources)) item.sources = raw.sources.filter((s) => ['box', 'note', 'manual'].includes(s));
+  if (Array.isArray(raw.edited)) item.edited = DOCTOR_FIELDS.filter((f) => raw.edited.includes(f));
   if (!['box', 'note', 'manual'].includes(item.source)) item.source = 'manual';
   return normalizeItem(item);
 }
@@ -173,6 +179,7 @@ function validateShare(json) {
     rid: cleanText(json.rid, 40),
     name: cleanText(json.n, 60).trim(), // jak se jmenuje pacient
     from: cleanText(json.from, 60).trim(), // jen u odpovědi: kdo vyplňoval
+    doc: json.t === 'res' && json.d === 1, // odpověď od lékaře (jen opravená pole)
     at: Number.isFinite(json.at) ? json.at : 0, // kdy odkaz vznikl (ms)
     onco: ONCO_KEYS.includes(json.onco) ? json.onco : '',
     items,
@@ -192,11 +199,12 @@ export function makeRequest({ id, name, items, onco }) {
 /**
  * Odpověď blízkého. `base` = ID položek, které přišly v žádosti –
  * podle nich pacient pozná, co blízký odebral.
+ * `doc` = odpověď od lékaře: položky nesou jen opravená pole (`edited`).
  */
-export function makeResponse({ id, rid, name, from, items, onco, base }) {
+export function makeResponse({ id, rid, name, from, items, onco, base, doc = false }) {
   return {
     t: 'res', id, rid, n: name || undefined, from: from || undefined, at: Date.now(),
-    onco: onco || undefined, items: items.map(packItem), base,
+    onco: onco || undefined, items: items.map(packItem), base, d: doc ? 1 : undefined,
   };
 }
 
@@ -231,6 +239,22 @@ function isChanged(a, b) {
   return COMPARE_FIELDS.some((key) => JSON.stringify(a[key] ?? '') !== JSON.stringify(b[key] ?? ''));
 }
 
+// Oprava od lékaře → položka pacienta, ve které se změní jen opravená pole.
+// Oprava názvu mění i identitu přípravku: účinnou látku a katalog bereme z opravy
+// (chybí = neznámé), aby u pacienta nezůstala látka původního přípravku.
+function applyDoctorEdits(mine, item) {
+  const after = { ...mine };
+  const edited = item.edited ?? [];
+  if (edited.includes('name')) {
+    after.name = item.name;
+    after.active_substance = item.active_substance || null;
+    after.catalog_id = item.catalog_id || null;
+  }
+  if (edited.includes('strength')) after.strength = item.strength || '';
+  if (edited.includes('dosage')) after.dosage = item.dosage;
+  return after;
+}
+
 /**
  * Co se po importu změní. Nic se nepřepisuje potichu – pacient vybírá.
  * @param {Array} own – současný seznam pacienta
@@ -246,7 +270,13 @@ export function diffShare(own, share) {
 
   for (const item of share.items) {
     const mine = ownById.get(item.id);
-    if (mine) {
+    if (share.doc) {
+      // Lékař jen opravuje. Lék, který pacient mezitím smazal, znovu nepřidáme.
+      if (!mine) continue;
+      const after = applyDoctorEdits(mine, item);
+      if (isChanged(mine, after)) result.changed.push({ before: mine, after });
+      else result.unchanged += 1;
+    } else if (mine) {
       // Položka, která přišla z pacientova seznamu (stejné ID)
       if (isChanged(mine, item)) result.changed.push({ before: mine, after: item });
       else result.unchanged += 1;

@@ -14,16 +14,25 @@
 //
 // Po načtení léků jde zprávu stáhnout jako PDF (generuje backend, POST /api/report/pdf)
 // nebo jako soubor FHIR pro nemocniční systém.
+//
+// Lékař může u běžných léků opravit název, sílu a dávkování (EditRow). Opravy
+// zůstávají jen v této relaci: položka si v "doctorEdits" pamatuje, co lékař změnil
+// a jak to bylo původně. Po každé opravě se interakce kontrolují znovu.
+// Pacientovi jde opravy poslat odkazem / QR kódem (SendBackDialog) – na telefonu
+// se nic nezmění, dokud je pacient sám nepotvrdí (viz familyShare.js).
 import { useEffect, useRef, useState } from 'react';
 import { claimShare, downloadReportPdf } from '../api.js';
 import { LEVEL_RANK, checkMeds, pickShared } from '../doctorCheck.js';
 import { ChevronIcon, DownloadIcon } from '../components/Icons.jsx';
-import { medDosage, pluralLeky } from '../labels.js';
+import { catalogName, medDosage, pluralLeky } from '../labels.js';
 import { downloadFhir } from '../fhir.js';
-import { ITEM_TYPES, dosageFromText } from '../types.js';
+import { ITEM_TYPES, dosageFromText, dosageToBackend } from '../types.js';
+import { MAX_LINK_LENGTH, encodeShare, makeResponse, makeShareId, shareUrl } from '../familyShare.js';
 import { getLang, t } from '../i18n/index.js';
 import LanguageSwitch from '../components/LanguageSwitch.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
+import CatalogSuggestions from '../components/CatalogSuggestions.jsx';
+import ShareLink from '../components/ShareLink.jsx';
 
 // Zdroj léku v "lékařské" podobě (podstatné jméno): 'box' → "krabička"
 const SOURCE_KEYS = ['box', 'note', 'manual'];
@@ -56,6 +65,12 @@ const UNCHECKED_REASONS = ['no_active_substance', 'not_in_source', 'partly_in_so
 // Chybové kódy z backendu, pro které máme větu pro lékaře ('doc.error.<kód>')
 const ERROR_CODES = ['not_found', 'rate_limited', 'invalid_input', 'offline'];
 
+// Pacient posílá "1-0-1-0 (ráno 1, večer 1)" – závorku uřízneme, aby šlo
+// dávkování rozložit na ráno/poledne/večer/noc.
+function dosageCodeText(med) {
+  return [med.frequency?.replace(/\s*\(.*\)$/, ''), med.amount].filter(Boolean).join(', ');
+}
+
 // Léky od backendu mají jiný tvar než léky v telefonu pacienta (dávkování je text,
 // chybí "type"). FHIR export čeká tvar z telefonu, tak je převedeme.
 function toFhirItems(meds) {
@@ -63,10 +78,90 @@ function toFhirItems(meds) {
     ...med,
     type: med.kind === 'regimen' ? ITEM_TYPES.ONKO : ITEM_TYPES.LEK,
     source: med.source ?? med.sources?.[0],
-    // Pacient posílá "1-0-1-0 (ráno 1, večer 1)" – závorku uřízneme, aby šlo
-    // dávkování rozložit na ráno/poledne/večer/noc.
-    dosage: dosageFromText(med.frequency?.replace(/\s*\(.*\)$/, ''), med.amount),
+    dosage: dosageFromText(dosageCodeText(med)),
   }));
+}
+
+// Lék pro backend (PDF): jen známá pole + co opravil lékař
+function toReportMed(med) {
+  return med.doctorEdits ? { ...pickShared(med), edited_fields: med.doctorEdits.fields } : pickShared(med);
+}
+
+// Opravy pro pacienta: jen opravené léky a u nich jen opravená pole (viz diffShare)
+function toSendBackItems(meds) {
+  return meds
+    .filter((med) => med.doctorEdits)
+    .map((med) => ({
+      id: med.id,
+      type: ITEM_TYPES.LEK,
+      name: med.name,
+      strength: med.strength ?? '',
+      dosage: dosageFromText(dosageCodeText(med)),
+      active_substance: med.active_substance ?? '',
+      catalog_id: med.catalog_id ?? '',
+      edited: med.doctorEdits.fields,
+    }));
+}
+
+/**
+ * Uloží opravu lékaře. Co je "opravené", počítáme proti původním hodnotám od pacienta –
+ * když lékař hodnotu vrátí, značka zmizí.
+ * @param {object} med – lék, jak je teď v tabulce
+ * @param {{ name: string, strength: string, dosage: string, product: object|null }} draft
+ * @returns {object} nový lék
+ */
+function applyEdit(med, draft) {
+  const original = med.doctorEdits?.original ?? {
+    name: med.name,
+    strength: med.strength || null,
+    frequency: med.frequency || null,
+    amount: med.amount || null,
+    active_substance: med.active_substance ?? null,
+    catalog_id: med.catalog_id ?? null,
+  };
+  const { doctorEdits, ...next } = med;
+  const name = draft.name.trim();
+  const product = draft.product;
+
+  // Identita přípravku: z katalogu, nebo původní (stejný název), jinak neznámá.
+  // Látka starého přípravku u nového názvu nikdy nezůstane.
+  if (product) {
+    next.active_substance = product.active_substance || null;
+    next.catalog_id = product.id;
+  } else if (name !== med.name) {
+    const back = name === original.name;
+    next.active_substance = back ? original.active_substance : null;
+    next.catalog_id = back ? original.catalog_id : null;
+  }
+  next.name = name;
+  next.strength = draft.strength.trim() || null;
+
+  // Dávkování přepíšeme jen když ho lékař změnil – jinak by se text zbytečně přeformátoval
+  if (draft.dosage.trim() !== dosageCodeText(med)) {
+    const text = draft.dosage.trim();
+    // Prázdné = neznámé, nic nedoplňujeme
+    Object.assign(next, text ? dosageToBackend(dosageFromText(text)) : { frequency: null, amount: null });
+  }
+
+  const fields = [];
+  if (next.name !== original.name || next.active_substance !== original.active_substance) fields.push('name');
+  if (next.strength !== original.strength) fields.push('strength');
+  if (next.frequency !== original.frequency || next.amount !== original.amount) fields.push('dosage');
+  if (fields.length === 0) return next;
+
+  // Neověřený = nový název bez výběru z katalogu (látku neznáme, interakce se nekontrolují)
+  const unverified = fields.includes('name') && !next.catalog_id && next.active_substance === null;
+  return { ...next, doctorEdits: { fields, original, unverified } };
+}
+
+// Opravená hodnota: nová hodnota + původní pod ní
+function Edited({ value, original }) {
+  return (
+    <>
+      {value || '—'}
+      <span className="doc-edited">{t('doc.edit.original', { value: original || '—' })}</span>
+    </>
+  );
 }
 
 // Zdroj jako text pro lékaře: ['box', 'note'] → "krabička + lístek"
@@ -99,6 +194,8 @@ export default function Doctor() {
   const [check, setCheck] = useState({ status: 'loading', result: null });
   const [pdfState, setPdfState] = useState('idle'); // 'idle' | 'loading' | 'error'
   const [confirmDiscard, setConfirmDiscard] = useState(false); // ptáme se na zavření pacienta?
+  const [editingId, setEditingId] = useState(null); // který lék lékař právě opravuje
+  const [sendBackOpen, setSendBackOpen] = useState(false); // okno s QR pro pacienta
   // Pořadí kontroly interakcí – výsledek staré kontroly (předchozí pacient)
   // nesmí přepsat výsledek pro nového.
   const checkRun = useRef(0);
@@ -123,6 +220,17 @@ export default function Doctor() {
     setErrorCode('');
     setCheck({ status: 'loading', result: null });
     setPdfState('idle');
+    setEditingId(null);
+  }
+
+  // Oprava léku: nový seznam a hned nová kontrola interakcí. Starý výsledek
+  // patří k jinému seznamu, takže ho do doběhnutí nové kontroly neukazujeme.
+  function saveEdit(med, draft) {
+    const next = meds.map((m) => (m.id === med.id ? applyEdit(m, draft) : m));
+    setMeds(next);
+    setEditingId(null);
+    setPdfState('idle');
+    runCheck(next);
   }
 
   async function handleSubmit(event) {
@@ -138,6 +246,7 @@ export default function Doctor() {
     try {
       const data = await claimShare(pin);
       setMeds(data.medications);
+      setEditingId(null);
       setPin('');
       setOpen(false);
       setOncoOpen(true);
@@ -155,7 +264,7 @@ export default function Doctor() {
   async function handlePdf() {
     setPdfState('loading');
     try {
-      const { blob, filename } = await downloadReportPdf(meds.map(pickShared), getLang());
+      const { blob, filename } = await downloadReportPdf(meds.map(toReportMed), getLang());
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -183,6 +292,7 @@ export default function Doctor() {
   const result = check.result;
   const findingCount = result ? result.findings.length + result.duplicates.length : 0;
   const nameOf = (id) => meds?.find((m) => m.id === id)?.name ?? id;
+  const editedCount = meds?.filter((m) => m.doctorEdits).length ?? 0;
 
   return (
     <div className="doc">
@@ -209,6 +319,10 @@ export default function Doctor() {
         }}
         onCancel={() => setConfirmDiscard(false)}
       />
+
+      {meds !== null && (
+        <SendBackDialog open={sendBackOpen} meds={meds} onClose={() => setSendBackOpen(false)} />
+      )}
 
       {/* ---------- Hlavička se zadáním dalšího kódu ---------- */}
       <header className="doc-header no-print">
@@ -276,6 +390,16 @@ export default function Doctor() {
                 <DownloadIcon size={22} />
                 {t('doc.fhir')}
               </button>
+              {/* Opravy zpět do telefonu pacienta – jen když nějaké jsou */}
+              {editedCount > 0 && (
+                <button
+                  type="button"
+                  className="doc-button doc-button-secondary"
+                  onClick={() => setSendBackOpen(true)}
+                >
+                  {t('doc.sendBack.button', { count: editedCount })}
+                </button>
+              )}
             </div>
             {pdfState === 'error' && (
               <p className="doc-error no-print" role="alert">
@@ -293,21 +417,24 @@ export default function Doctor() {
                       <th>{t('doc.col.strength')}</th>
                       <th>{t('doc.col.dosage')}</th>
                       <th>{t('doc.col.source')}</th>
+                      <th className="no-print">
+                        <span className="sr-only">{t('doc.col.actions')}</span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {drugs.map((med) => (
-                      <tr key={med.id}>
-                        <td>
-                          <strong>{med.name}</strong>
-                        </td>
-                        <td>{med.active_substance || '—'}</td>
-                        <td>{med.strength || '—'}</td>
-                        <td>{medDosage(med) || '—'}</td>
-                        {/* sources[] = lék byl nalezen na více místech (lístek i krabička) */}
-                        <td>{sourceText(med)}</td>
-                      </tr>
-                    ))}
+                    {drugs.map((med) =>
+                      editingId === med.id ? (
+                        <EditRow
+                          key={med.id}
+                          med={med}
+                          onSave={(draft) => saveEdit(med, draft)}
+                          onCancel={() => setEditingId(null)}
+                        />
+                      ) : (
+                        <DrugRow key={med.id} med={med} onEdit={() => setEditingId(med.id)} />
+                      ),
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -574,6 +701,253 @@ export default function Doctor() {
         </footer>
       )}
     </div>
+  );
+}
+
+// Řádek tabulky léků. Opravené hodnoty mají pod sebou tu původní.
+function DrugRow({ med, onEdit }) {
+  const edits = med.doctorEdits;
+  const was = (field) => edits?.fields.includes(field);
+  return (
+    <tr className={edits ? 'doc-row-edited' : undefined}>
+      <td>
+        <strong>{was('name') ? <Edited value={med.name} original={edits.original.name} /> : med.name}</strong>
+      </td>
+      <td>
+        {edits?.unverified ? (
+          <span className="doc-unverified">{t('doc.edit.unverified')}</span>
+        ) : (
+          med.active_substance || '—'
+        )}
+      </td>
+      <td>{was('strength') ? <Edited value={med.strength} original={edits.original.strength} /> : med.strength || '—'}</td>
+      <td>
+        {was('dosage') ? (
+          <Edited value={medDosage(med)} original={medDosage(edits.original)} />
+        ) : (
+          medDosage(med) || '—'
+        )}
+      </td>
+      {/* sources[] = lék byl nalezen na více místech (lístek i krabička) */}
+      <td>
+        {sourceText(med)}
+        {edits && <span className="doc-edited">{t('doc.edit.by')}</span>}
+      </td>
+      <td className="no-print doc-row-actions">
+        <button
+          type="button"
+          className="doc-button doc-button-secondary doc-button-small"
+          aria-label={t('doc.edit.buttonFor', { name: med.name })}
+          onClick={onEdit}
+        >
+          {t('doc.edit.button')}
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+// Formulář opravy v řádku tabulky. Uložit = nový seznam, Zrušit = beze změny.
+function EditRow({ med, onSave, onCancel }) {
+  const [draft, setDraft] = useState(() => ({
+    name: med.name,
+    strength: med.strength ?? '',
+    dosage: dosageCodeText(med),
+    product: null,
+  }));
+  const [nameError, setNameError] = useState(false);
+  const nameRef = useRef(null);
+  const nameChanged = draft.name.trim() !== med.name;
+
+  useEffect(() => {
+    nameRef.current?.focus();
+  }, []);
+
+  const set = (key) => (event) => setDraft((prev) => ({ ...prev, [key]: event.target.value }));
+
+  function submit(event) {
+    event.preventDefault();
+    if (!draft.name.trim()) {
+      setNameError(true);
+      nameRef.current?.focus();
+      return;
+    }
+    onSave(draft);
+  }
+
+  // Esc = zrušit (jako v dialogu)
+  function handleKeyDown(event) {
+    if (event.key === 'Escape') onCancel();
+  }
+
+  const id = `doc-edit-${med.id}`;
+  return (
+    <tr className="doc-row-editing">
+      <td colSpan={6}>
+        <form className="doc-edit" onSubmit={submit} onKeyDown={handleKeyDown} noValidate>
+          <div className="doc-edit-fields">
+            <div className="doc-edit-field doc-edit-name">
+              <label htmlFor={`${id}-name`}>{t('doc.col.med')}</label>
+              <input
+                ref={nameRef}
+                id={`${id}-name`}
+                type="text"
+                maxLength={200}
+                autoComplete="off"
+                value={draft.name}
+                aria-invalid={nameError}
+                aria-describedby={nameError ? `${id}-name-error` : undefined}
+                onChange={(e) => {
+                  setNameError(false);
+                  // Vlastní název = vybraný přípravek z katalogu už neplatí
+                  setDraft((prev) => ({ ...prev, name: e.target.value, product: null }));
+                }}
+              />
+              {nameError && (
+                <p id={`${id}-name-error`} className="doc-edit-error" role="alert">
+                  {t('doc.edit.nameRequired')}
+                </p>
+              )}
+            </div>
+            <div className="doc-edit-field">
+              <label htmlFor={`${id}-strength`}>{t('doc.col.strength')}</label>
+              <input id={`${id}-strength`} type="text" maxLength={200} autoComplete="off" value={draft.strength} onChange={set('strength')} />
+            </div>
+            <div className="doc-edit-field">
+              <label htmlFor={`${id}-dosage`}>{t('doc.col.dosage')}</label>
+              <input
+                id={`${id}-dosage`}
+                type="text"
+                maxLength={200}
+                autoComplete="off"
+                placeholder="1-0-1"
+                aria-describedby={`${id}-dosage-hint`}
+                value={draft.dosage}
+                onChange={set('dosage')}
+              />
+              <p id={`${id}-dosage-hint`} className="doc-muted">
+                {t('doc.edit.dosageHint')}
+              </p>
+            </div>
+          </div>
+
+          {/* Nový název: přípravek ověříme v katalogu, jinak bude položka nezkontrolovaná */}
+          {nameChanged && (
+            <div className="doc-edit-identity">
+              {draft.product ? (
+                <p>
+                  {t('doc.edit.picked', {
+                    name: `${catalogName(draft.product.name)} ${draft.product.strength}`.trim(),
+                    substance: draft.product.active_substance || '—',
+                  })}
+                </p>
+              ) : (
+                <p className="doc-muted">{t('doc.edit.identityHint')}</p>
+              )}
+              <CatalogSuggestions
+                query={draft.name}
+                paused={Boolean(draft.product)}
+                onPick={(product) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    name: catalogName(product.name),
+                    strength: product.strength || prev.strength,
+                    product,
+                  }))
+                }
+              />
+            </div>
+          )}
+
+          <div className="doc-edit-actions">
+            <button type="submit" className="doc-button">
+              {t('doc.edit.save')}
+            </button>
+            <button type="button" className="doc-button doc-button-secondary" onClick={onCancel}>
+              {t('doc.edit.cancel')}
+            </button>
+          </div>
+        </form>
+      </td>
+    </tr>
+  );
+}
+
+// Okno s odkazem / QR kódem pro pacienta. Odkaz vznikne při otevření okna
+// z aktuálních oprav. Data jsou za # (viz familyShare.js) – na server nejdou.
+function SendBackDialog({ open, meds, onClose }) {
+  const ref = useRef(null);
+  const [url, setUrl] = useState('');
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    else if (!open && dialog.open) dialog.close();
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setUrl('');
+    setError(false);
+    const data = makeResponse({
+      id: makeShareId(),
+      rid: '',
+      from: t('doc.sendBack.from'),
+      items: toSendBackItems(meds),
+      onco: '',
+      base: [],
+      doc: true,
+    });
+    encodeShare(data)
+      .then((encoded) => {
+        if (cancelled) return;
+        const link = shareUrl(window.location.origin, encoded);
+        if (link.length > MAX_LINK_LENGTH) setError(true);
+        else setUrl(link);
+      })
+      .catch(() => !cancelled && setError(true));
+    return () => {
+      cancelled = true;
+    };
+  }, [open, meds]);
+
+  return (
+    <dialog
+      ref={ref}
+      className="confirm-dialog doc-send-dialog"
+      aria-labelledby="doc-send-title"
+      aria-describedby="doc-send-text"
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+    >
+      <div className="confirm-body">
+        <h2 id="doc-send-title">{t('doc.sendBack.title')}</h2>
+        <p id="doc-send-text">{t('doc.sendBack.text')}</p>
+        {error && (
+          <p className="doc-error" role="alert">
+            {t('doc.sendBack.error')}
+          </p>
+        )}
+        {url && (
+          <ShareLink
+            url={url}
+            title={t('doc.sendBack.shareTitle')}
+            text={t('doc.sendBack.shareText')}
+            qrCaption={t('doc.sendBack.qrCaption')}
+          />
+        )}
+        <div className="confirm-actions">
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            {t('common.done')}
+          </button>
+        </div>
+      </div>
+    </dialog>
   );
 }
 

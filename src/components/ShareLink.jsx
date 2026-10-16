@@ -8,7 +8,8 @@ import QRCode from 'qrcode';
 import { MAX_QR_LENGTH } from '../familyShare.js';
 import { t } from '../i18n/index.js';
 
-export default function ShareLink({ url, title, text }) {
+// qrCaption = vlastní popisek pod QR (lékař v /doc), jinak text pro blízkého
+export default function ShareLink({ url, title, text, qrCaption }) {
   const [qrUrl, setQrUrl] = useState('');
   const [status, setStatus] = useState(''); // 'copied' | 'manual' | ''
 
@@ -68,7 +69,7 @@ export default function ShareLink({ url, title, text }) {
       {qrUrl ? (
         <figure className="share-qr">
           <img src={qrUrl} alt={t('family.share.qrAlt')} />
-          <figcaption>{t('family.share.qrCaption')}</figcaption>
+          <figcaption>{qrCaption ?? t('family.share.qrCaption')}</figcaption>
         </figure>
       ) : (
         <p className="subtitle">{t('family.share.noQr')}</p>
