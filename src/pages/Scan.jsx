@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
-import { analyzePhoto } from '../mock/analyze.js';
+import { analyzePhoto } from '../api.js';
 import MedForm from '../components/MedForm.jsx';
 import { CameraIcon, WarningIcon } from '../components/Icons.jsx';
 
@@ -23,7 +23,7 @@ export default function Scan() {
 
   const [photoUrl, setPhotoUrl] = useState(null); // náhled vyfocené fotky
   const [pending, setPending] = useState([]); // léky z fotky, které čekají na potvrzení
-  const [unreadable, setUnreadable] = useState([]); // co AI nepřečetla
+  const [unreadable, setUnreadable] = useState(0); // co AI nepřečetla
 
   // Odkaz na skrytý <input type="file">, abychom ho mohli "kliknout" z tlačítka.
   const fileInputRef = useRef(null);
@@ -53,7 +53,7 @@ export default function Scan() {
 
     const requestId = ++requestIdRef.current;
     try {
-      const result = await analyzePhoto(file);
+      const result = await analyzePhoto(file, 'box');
       // Pacient mezitím dal "Zrušit" nebo vyfotil jinou fotku → výsledek zahodíme.
       if (requestId !== requestIdRef.current) return;
 
@@ -145,17 +145,13 @@ export default function Scan() {
             </p>
           </div>
 
-          {unreadable.length > 0 && (
+          {unreadable > 0 && (
             <div className="box box-warning">
               <div className="box-title">
                 <WarningIcon />
-                <span>Tohle jsme nepřečetli:</span>
+                <span>Něco na fotce nešlo přečíst</span>
               </div>
-              <ul>
-                {unreadable.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
+              <p>Zkuste to vyfotit znovu.</p>
             </div>
           )}
 
