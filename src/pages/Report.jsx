@@ -4,7 +4,7 @@
 // sekce @media print v index.css (schová lištu, tlačítka atd.).
 import { Link } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
-import { CameraIcon, DownloadIcon, WarningIcon } from '../components/Icons.jsx';
+import { CameraIcon, DownloadIcon, MedicIcon, WarningIcon } from '../components/Icons.jsx';
 import { SOURCE_LABELS, SEVERITY_LABELS, medDosage } from '../labels.js';
 
 export default function Report() {
@@ -21,6 +21,10 @@ export default function Report() {
         <Link to="/vyfotit" className="btn btn-primary">
           <CameraIcon />
           Vyfotit lék
+        </Link>
+        <Link to="/pin" className="btn btn-primary">
+          <MedicIcon />
+          Sdílet s lékařem
         </Link>
       </>
     );

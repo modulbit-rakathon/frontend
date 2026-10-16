@@ -6,6 +6,7 @@ import Home from './pages/Home.jsx';
 import Scan from './pages/Scan.jsx';
 import Meds from './pages/Meds.jsx';
 import Report from './pages/Report.jsx';
+import Pin from './pages/Pin.jsx';
 
 export default function App() {
   const location = useLocation();
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/zprava" element={<Report />} />
           {/* Neznámá adresa → pošleme uživatele domů */}
           <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path= "/pin" element={<Pin />} />
         </Routes>
       </main>
       <BottomNav />

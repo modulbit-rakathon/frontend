@@ -629,6 +629,24 @@ ul {
   box-shadow: 0 4px 0 var(--surface);
 }
 
+/* Velký PIN pro lékaře na obrazovce "Sdílet s lékařem" */
+.pin-code {
+  padding: 24px 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.pin-expiry {
+  color: var(--text-muted);
+  text-align: center;
+}
+
 .report-header {
   padding-bottom: 12px;
   border-bottom: 2px solid var(--border);
