@@ -47,7 +47,7 @@ export default function LanguageSwitch({ variant }) {
               {lang === l.key ? '✓' : ''}
             </span>
             {/* Vlastní <span>, aby šel podtrhnout jen název, ne fajfka */}
-            <span className="lang-btn-name">{l.name}</span>
+            <span className="font-btn-name">{l.name}</span>
           </button>
         ))}
       </div>

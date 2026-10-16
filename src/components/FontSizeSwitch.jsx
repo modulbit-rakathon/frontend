@@ -30,7 +30,8 @@ export default function FontSizeSwitch() {
             <span className={`font-btn-sample font-btn-sample-${i}`} aria-hidden="true">
               A
             </span>
-            {f.label}
+            {/* Vlastní <span>, aby šel podtrhnout jen popisek, ne "A" */}
+            <span className="font-btn-name">{f.label}</span>
           </button>
         ))}
       </div>
