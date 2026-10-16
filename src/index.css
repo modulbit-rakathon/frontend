@@ -516,6 +516,11 @@ ul {
   gap: 4px;
 }
 
+/* "Podle potřeby" / "Jinak (napsat)" se vedle sebe do karty nevejdou */
+.med-edit .dosage-modes {
+  grid-template-columns: 1fr;
+}
+
 /* Štítek "z krabičky" / "z lístku" / "ručně" */
 .tag {
   display: inline-block;
@@ -1380,7 +1385,7 @@ fieldset.field legend + * {
 }
 
 /* Na úzkém displeji pod sebe */
-@media (max-width: 400px) {
+@media (max-width: 480px) {
   .dosage-modes {
     grid-template-columns: 1fr;
   }
