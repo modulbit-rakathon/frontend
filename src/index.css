@@ -1139,12 +1139,32 @@ ul {
   border-collapse: collapse;
 }
 
+/* Text v buňkách se zalamuje – dlouhá účinná látka (např. "Suchý extrakt z plodu…")
+   jinak roztáhla tabulku do šířky a sloupce Zdroj / Upravit zmizely vpravo za okrajem.
+   Posuvník (.doc-table-wrap) zůstává jen jako záloha pro hodně úzké okno. */
 .doc-table th,
 .doc-table td {
   padding: 12px 16px;
   text-align: left;
   border-bottom: 1px solid var(--surface);
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* Nadpisy sloupců a tlačítka Upravit / Odebrat se nezalamují */
+.doc-table thead th,
+.doc-table .doc-row-actions {
   white-space: nowrap;
+}
+
+/* Síla ("25 000 U") zůstane na jednom řádku */
+.doc-table .doc-nowrap {
+  white-space: nowrap;
+}
+
+/* Sloupec s tlačítky jen tak široký, jak je potřeba */
+.doc-table .doc-row-actions {
+  width: 1%;
 }
 
 .doc-table thead th {

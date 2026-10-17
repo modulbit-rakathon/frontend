@@ -1108,7 +1108,9 @@ function DrugRow({ med, onEdit }) {
           med.active_substance || '—'
         )}
       </td>
-      <td>{was('strength') ? <Edited value={med.strength} original={edits.original.strength} /> : med.strength || '—'}</td>
+      <td className="doc-nowrap">
+        {was('strength') ? <Edited value={med.strength} original={edits.original.strength} /> : med.strength || '—'}
+      </td>
       <td>
         {was('dosage') ? (
           <Edited value={medDosage(med)} original={medDosage(edits.original)} />
