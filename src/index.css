@@ -1268,6 +1268,21 @@ ul {
   border-radius: 12px;
 }
 
+/* Lišta: rozbalovací tlačítko + „Kopírovat“ vpravo */
+.doc-section-head {
+  display: flex;
+  align-items: center;
+}
+
+.doc-section-head .doc-copy {
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.doc-copy {
+  white-space: nowrap;
+}
+
 .doc-toggle {
   display: flex;
   align-items: center;
@@ -1285,12 +1300,6 @@ ul {
 
 .doc-toggle:hover {
   background: var(--surface);
-}
-
-.doc-toggle-hint {
-  margin-left: auto;
-  color: var(--text-muted);
-  font-weight: 600;
 }
 
 /* Lišta bez rozbalení: načítání a chyba */
@@ -1361,6 +1370,29 @@ ul {
 
 .doc-finding-meds {
   font-weight: 700;
+}
+
+/* Dvojice látek s popisem z DDInter */
+.doc-finding-pair + .doc-finding-pair {
+  margin-top: 8px;
+}
+
+.doc-finding-desc {
+  margin-top: 2px;
+}
+
+.doc-finding-more {
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+.doc-finding-more summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.doc-finding-more p {
+  margin-top: 4px;
 }
 
 .doc-finding-high {

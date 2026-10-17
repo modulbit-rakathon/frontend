@@ -3,7 +3,8 @@
 // (POST /api/share/claim) a ukážeme je v tabulce. Interakce se hned na pozadí
 // zkontrolují na backendu (databáze DDInter, viz doctorCheck.js) a pod tabulkou
 // je rozbalovací lišta s nálezy a maticí dvojic.
-// Onkologická léčba (režimy) má vlastní lištu mezi tabulkou léků a interakcemi.
+// Léky, onkologická léčba (režimy), doplňky i interakce jsou v rozbalovacích lištách,
+// každá s tlačítkem „Kopírovat“ (prostý text do dokumentace).
 //
 // Dokud není načtený žádný pacient, ptáme se na kód v okně přes celou stránku
 // (CodeDialog). Další kód jde zadat v hlavičce, tlačítkem „Zavřít pacienta“
@@ -23,7 +24,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { claimShare, downloadReportPdf } from '../api.js';
 import { LEVEL_RANK, checkMeds, pickShared } from '../doctorCheck.js';
-import { ChevronIcon, DownloadIcon } from '../components/Icons.jsx';
+import { ChevronIcon, CopyIcon, DownloadIcon } from '../components/Icons.jsx';
 import { catalogName, medDosage, pluralLeky } from '../labels.js';
 import { downloadFhir } from '../fhir.js';
 import { ITEM_TYPES, dosageFromText, dosageToBackend } from '../types.js';
@@ -180,6 +181,80 @@ function abbr(name) {
   return name.replace(/[^\p{L}\d]/gu, '').slice(0, 3).toUpperCase();
 }
 
+// --- Text pro schránku (tlačítka „Kopírovat“) ---
+// Prostý text k vložení do zdravotnické dokumentace: nadpis sekce a pod ním
+// jeden řádek na položku. Bere aktuální hodnoty, tedy i opravy lékaře.
+
+function drugLine(med) {
+  const name = [med.name, med.strength].filter(Boolean).join(' ');
+  const substance = med.doctorEdits?.unverified ? '' : med.active_substance;
+  return `- ${name}${substance ? ` (${substance})` : ''}${medDosage(med) ? ` – ${medDosage(med)}` : ''}`;
+}
+
+function drugsText(drugs) {
+  return [t('doc.drugs.title', { count: drugs.length }), ...drugs.map(drugLine)].join('\n');
+}
+
+function regimensText(regimens, result) {
+  const lines = regimens.map((med) => {
+    const drugs = result?.regimens[med.id]?.drugs;
+    const details = [med.form, med.frequency && `${t('doc.col.lastDose')}: ${lastDoseText(med)}`].filter(Boolean);
+    return `- ${med.name}${drugs ? ` (${drugs.join(', ')})` : ''}${details.length ? ` – ${details.join(', ')}` : ''}`;
+  });
+  return [t('doc.onco.title', { count: regimens.length }), ...lines].join('\n');
+}
+
+function supplementsText(supplements) {
+  const lines = supplements.map((med) => `- ${med.name.replace(SUPPLEMENT_SUFFIX, '')}`);
+  return [t('doc.supplements.title', { count: supplements.length }), ...lines].join('\n');
+}
+
+function interactionsText(result, nameOf) {
+  const lines = [t('doc.interactions', { count: result.findings.length + result.duplicates.length })];
+  if (result.findings.length + result.duplicates.length === 0) {
+    lines.push(t('doc.none', { db: result.checkedAgainst?.name ?? 'DDInter' }));
+  }
+  for (const f of result.findings) {
+    lines.push(`- ${LEVELS[f.level].tag}: ${nameOf(f.a)} × ${nameOf(f.b)} (${f.pairs.map((p) => p.substances).join('; ')})`);
+    // Popis z DDInter pod dvojici (u režimu bývá u víc dvojic látek stejný → jen jednou)
+    for (const description of new Set(f.pairs.map((p) => p.description).filter(Boolean))) {
+      lines.push(`  ${description}`);
+    }
+  }
+  for (const d of result.duplicates) {
+    lines.push(`- ${LEVELS.same.tag}: ${nameOf(d.a)} + ${nameOf(d.b)} – ${t('doc.duplicate', { substance: d.substance })}`);
+  }
+  for (const u of result.unchecked) {
+    const reason = UNCHECKED_REASONS.includes(u.reason) ? t(`doc.reason.${u.reason}`) : u.reason;
+    lines.push(`- ${t('doc.uncheckedTag')}: ${u.name} – ${reason}${u.substances?.length ? ` (${u.substances.join(', ')})` : ''}`);
+  }
+  if (result.checkedAgainst) {
+    const db = result.checkedAgainst;
+    lines.push(`${t('doc.sourceLabel')} ${db.name} (${db.license}, ${db.version}). ${t('doc.verify')}`);
+  }
+  return lines.join('\n');
+}
+
+// Zkopíruje text. Starší prohlížeče v ordinaci (nebo stránka bez HTTPS) nemají
+// navigator.clipboard – pak zkusíme starý způsob přes skryté textové pole.
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.setAttribute('readonly', '');
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    area.remove();
+    return ok;
+  }
+}
+
 export default function Doctor() {
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false); // čekáme na backend?
@@ -188,6 +263,7 @@ export default function Doctor() {
   // takže by o ně lékař přišel třeba jen kvůli omylem zadanému dalšímu kódu.
   const [meds, setMeds] = useState(null);
   const [open, setOpen] = useState(false); // jsou interakce rozbalené?
+  const [drugsOpen, setDrugsOpen] = useState(true); // je tabulka léků rozbalená?
   const [oncoOpen, setOncoOpen] = useState(true); // je onkologická léčba rozbalená?
   const [supplementsOpen, setSupplementsOpen] = useState(true);
   // Kontrola interakcí: status 'loading' | 'done' | 'error', result = výsledek checkMeds
@@ -249,6 +325,7 @@ export default function Doctor() {
       setEditingId(null);
       setPin('');
       setOpen(false);
+      setDrugsOpen(true);
       setOncoOpen(true);
       setSupplementsOpen(true);
       setPdfState('idle');
@@ -293,6 +370,17 @@ export default function Doctor() {
   const findingCount = result ? result.findings.length + result.duplicates.length : 0;
   const nameOf = (id) => meds?.find((m) => m.id === id)?.name ?? id;
   const editedCount = meds?.filter((m) => m.doctorEdits).length ?? 0;
+
+  // „Kopírovat do karty pacienta“: léky, onkologická léčba a doplňky. Interakce jen vlastním tlačítkem.
+  function allText() {
+    return [
+      drugs.length > 0 && drugsText(drugs),
+      regimens.length > 0 && regimensText(regimens, result),
+      supplements.length > 0 && supplementsText(supplements),
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+  }
 
   return (
     <div className="doc">
@@ -366,8 +454,7 @@ export default function Doctor() {
 
         {meds !== null && (
           <>
-            {/* ---------- Tabulka léků ---------- */}
-            <h1 className="doc-title">{t('doc.medsTitle', { count: drugs.length })}</h1>
+            <h1 className="doc-title">{t('doc.title')}</h1>
             <p className="doc-muted no-print">{t('doc.oneTime')}</p>
 
             {/* ---------- Stažení zprávy ---------- */}
@@ -390,6 +477,7 @@ export default function Doctor() {
                 <DownloadIcon size={22} />
                 {t('doc.fhir')}
               </button>
+              <CopyButton text={allText} label={t('doc.copyAll')} small={false} />
               {/* Opravy zpět do telefonu pacienta – jen když nějaké jsou */}
               {editedCount > 0 && (
                 <button
@@ -407,55 +495,81 @@ export default function Doctor() {
               </p>
             )}
 
+            {/* ---------- Rozbalovací lišta s tabulkou léků ---------- */}
             {drugs.length > 0 && (
-              <div className="doc-table-wrap">
-                <table className="doc-table">
-                  <thead>
-                    <tr>
-                      <th>{t('doc.col.med')}</th>
-                      <th>{t('doc.col.substance')}</th>
-                      <th>{t('doc.col.strength')}</th>
-                      <th>{t('doc.col.dosage')}</th>
-                      <th>{t('doc.col.source')}</th>
-                      <th className="no-print">
-                        <span className="sr-only">{t('doc.col.actions')}</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {drugs.map((med) =>
-                      editingId === med.id ? (
-                        <EditRow
-                          key={med.id}
-                          med={med}
-                          onSave={(draft) => saveEdit(med, draft)}
-                          onCancel={() => setEditingId(null)}
-                        />
-                      ) : (
-                        <DrugRow key={med.id} med={med} onEdit={() => setEditingId(med.id)} />
-                      ),
-                    )}
-                  </tbody>
-                </table>
-              </div>
+              <section className="doc-interactions doc-onco">
+                <div className="doc-section-head">
+                  <button
+                    type="button"
+                    className="doc-toggle"
+                    aria-expanded={drugsOpen}
+                    aria-controls="doc-drugs-body"
+                    onClick={() => setDrugsOpen(!drugsOpen)}
+                  >
+                    <span className={drugsOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
+                      <ChevronIcon size={22} />
+                    </span>
+                    <strong>{t('doc.drugs.title', { count: drugs.length })}</strong>
+                  </button>
+                  <CopyButton text={() => drugsText(drugs)} section={t('doc.drugs.title', { count: drugs.length })} />
+                </div>
+
+                {drugsOpen && (
+                  <div id="doc-drugs-body" className="doc-onco-body doc-table-wrap">
+                    <table className="doc-table">
+                      <thead>
+                        <tr>
+                          <th>{t('doc.col.med')}</th>
+                          <th>{t('doc.col.substance')}</th>
+                          <th>{t('doc.col.strength')}</th>
+                          <th>{t('doc.col.dosage')}</th>
+                          <th>{t('doc.col.source')}</th>
+                          <th className="no-print">
+                            <span className="sr-only">{t('doc.col.actions')}</span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {drugs.map((med) =>
+                          editingId === med.id ? (
+                            <EditRow
+                              key={med.id}
+                              med={med}
+                              onSave={(draft) => saveEdit(med, draft)}
+                              onCancel={() => setEditingId(null)}
+                            />
+                          ) : (
+                            <DrugRow key={med.id} med={med} onEdit={() => setEditingId(med.id)} />
+                          ),
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
             )}
 
             {/* ---------- Rozbalovací lišta s onkologickou léčbou ---------- */}
             {regimens.length > 0 && (
               <section className="doc-interactions doc-onco">
-                <button
-                  type="button"
-                  className="doc-toggle"
-                  aria-expanded={oncoOpen}
-                  aria-controls="doc-onco-body"
-                  onClick={() => setOncoOpen(!oncoOpen)}
-                >
-                  <span className={oncoOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
-                    <ChevronIcon size={22} />
-                  </span>
-                  <strong>{t('doc.onco.title', { count: regimens.length })}</strong>
-                  <span className="doc-toggle-hint">{oncoOpen ? t('doc.hide') : t('doc.show')}</span>
-                </button>
+                <div className="doc-section-head">
+                  <button
+                    type="button"
+                    className="doc-toggle"
+                    aria-expanded={oncoOpen}
+                    aria-controls="doc-onco-body"
+                    onClick={() => setOncoOpen(!oncoOpen)}
+                  >
+                    <span className={oncoOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
+                      <ChevronIcon size={22} />
+                    </span>
+                    <strong>{t('doc.onco.title', { count: regimens.length })}</strong>
+                  </button>
+                  <CopyButton
+                    text={() => regimensText(regimens, result)}
+                    section={t('doc.onco.title', { count: regimens.length })}
+                  />
+                </div>
 
                 {oncoOpen && (
                   <div id="doc-onco-body" className="doc-onco-body doc-table-wrap">
@@ -493,19 +607,24 @@ export default function Doctor() {
             {/* ---------- Rozbalovací lišta s doplňky stravy ---------- */}
             {supplements.length > 0 && (
               <section className="doc-interactions doc-onco">
-                <button
-                  type="button"
-                  className="doc-toggle"
-                  aria-expanded={supplementsOpen}
-                  aria-controls="doc-supplements-body"
-                  onClick={() => setSupplementsOpen(!supplementsOpen)}
-                >
-                  <span className={supplementsOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
-                    <ChevronIcon size={22} />
-                  </span>
-                  <strong>{t('doc.supplements.title', { count: supplements.length })}</strong>
-                  <span className="doc-toggle-hint">{supplementsOpen ? t('doc.hide') : t('doc.show')}</span>
-                </button>
+                <div className="doc-section-head">
+                  <button
+                    type="button"
+                    className="doc-toggle"
+                    aria-expanded={supplementsOpen}
+                    aria-controls="doc-supplements-body"
+                    onClick={() => setSupplementsOpen(!supplementsOpen)}
+                  >
+                    <span className={supplementsOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
+                      <ChevronIcon size={22} />
+                    </span>
+                    <strong>{t('doc.supplements.title', { count: supplements.length })}</strong>
+                  </button>
+                  <CopyButton
+                    text={() => supplementsText(supplements)}
+                    section={t('doc.supplements.title', { count: supplements.length })}
+                  />
+                </div>
 
                 {supplementsOpen && (
                   <div id="doc-supplements-body" className="doc-onco-body doc-table-wrap">
@@ -546,90 +665,32 @@ export default function Doctor() {
               )}
 
               {check.status === 'done' && (
-                <button
-                  type="button"
-                  className="doc-toggle"
-                  aria-expanded={open}
-                  aria-controls="doc-interactions-body"
-                  onClick={() => setOpen(!open)}
-                >
-                  <span className={open ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
-                    <ChevronIcon size={22} />
-                  </span>
-                  <strong>{t('doc.interactions', { count: findingCount })}</strong>
-                  {result.unchecked.length > 0 && (
-                    <span className="doc-muted">{t('doc.uncheckedCount', { count: result.unchecked.length })}</span>
-                  )}
-                  <span className="doc-toggle-hint">{open ? t('doc.hide') : t('doc.show')}</span>
-                </button>
+                <div className="doc-section-head">
+                  <button
+                    type="button"
+                    className="doc-toggle"
+                    aria-expanded={open}
+                    aria-controls="doc-interactions-body"
+                    onClick={() => setOpen(!open)}
+                  >
+                    <span className={open ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
+                      <ChevronIcon size={22} />
+                    </span>
+                    <strong>{t('doc.interactions', { count: findingCount })}</strong>
+                    {result.unchecked.length > 0 && (
+                      <span className="doc-muted">{t('doc.uncheckedCount', { count: result.unchecked.length })}</span>
+                    )}
+                  </button>
+                  <CopyButton
+                    text={() => interactionsText(result, nameOf)}
+                    section={t('doc.interactions', { count: findingCount })}
+                  />
+                </div>
               )}
 
               {check.status === 'done' && open && (
                 <div id="doc-interactions-body" className="doc-interactions-body">
-                  {/* Vlevo: seznam nálezů */}
-                  <div className="doc-findings">
-                    {findingCount === 0 && (
-                      <p className="doc-finding doc-finding-none">
-                        {t('doc.none', { db: result.checkedAgainst?.name ?? 'DDInter' })}
-                      </p>
-                    )}
-                    {result.findings.map((f) => (
-                      <article key={f.id} className={`doc-finding doc-finding-${LEVELS[f.level].css}`}>
-                        <p className="doc-finding-tag">{LEVELS[f.level].tag}</p>
-                        <h3>
-                          {nameOf(f.a)} × {nameOf(f.b)}
-                        </h3>
-                        {/* U režimu může být víc dvojic látek – závažnost píšeme jen když se liší */}
-                        {f.pairs.map((pair) => (
-                          <p key={pair.substances} className="doc-finding-meds">
-                            {pair.substances}
-                            {f.pairs.length > 1 && pair.level !== f.level && (
-                              <span className="doc-kind"> ({LEVELS[pair.level].tag.toLocaleLowerCase(getLang())})</span>
-                            )}
-                          </p>
-                        ))}
-                      </article>
-                    ))}
-                    {result.duplicates.map((d) => (
-                      <article key={d.id} className="doc-finding doc-finding-medium">
-                        <p className="doc-finding-tag">{LEVELS.same.tag}</p>
-                        <h3>
-                          {nameOf(d.a)} + {nameOf(d.b)}
-                        </h3>
-                        <p>{t('doc.duplicate', { substance: d.substance })}</p>
-                      </article>
-                    ))}
-
-                    {/* Co se zkontrolovat nepodařilo – nikdy to nezamlčíme */}
-                    {result.unchecked.length > 0 && (
-                      <div className="doc-finding doc-finding-none">
-                        <p className="doc-finding-tag">{t('doc.uncheckedTag')}</p>
-                        <ul className="doc-unchecked">
-                          {result.unchecked.map((u) => (
-                            <li key={u.id}>
-                              <strong>{u.name}</strong> – {UNCHECKED_REASONS.includes(u.reason) ? t(`doc.reason.${u.reason}`) : u.reason}
-                              {u.substances?.length > 0 && ` (${u.substances.join(', ')})`}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    <p className="doc-note">
-                      {result.note}{' '}
-                      {result.checkedAgainst && (
-                        <>
-                          {t('doc.sourceLabel')}{' '}
-                          <a href={result.checkedAgainst.url} target="_blank" rel="noreferrer">
-                            {result.checkedAgainst.name}
-                          </a>{' '}
-                          ({result.checkedAgainst.license}, {result.checkedAgainst.version}). {t('doc.verify')}
-                        </>
-                      )}
-                    </p>
-                  </div>
-
-                  {/* Vpravo: matice dvojic */}
+                  {/* Nahoře (na širší obrazovce vlevo): matice dvojic */}
                   <div className="doc-matrix-box">
                     <h2>
                       {t('doc.matrix')}{' '}
@@ -685,6 +746,72 @@ export default function Doctor() {
                           ))}
                       </ul>
                     </div>
+                  </div>
+
+                  {/* Pod ní (vpravo): seznam nálezů */}
+                  <div className="doc-findings">
+                    {findingCount === 0 && (
+                      <p className="doc-finding doc-finding-none">
+                        {t('doc.none', { db: result.checkedAgainst?.name ?? 'DDInter' })}
+                      </p>
+                    )}
+                    {result.findings.map((f) => (
+                      <article key={f.id} className={`doc-finding doc-finding-${LEVELS[f.level].css}`}>
+                        <p className="doc-finding-tag">{LEVELS[f.level].tag}</p>
+                        <h3>
+                          {nameOf(f.a)} × {nameOf(f.b)}
+                        </h3>
+                        {/* U režimu může být víc dvojic látek – závažnost píšeme jen když se liší */}
+                        {f.pairs.map((pair) => (
+                          <div key={pair.substances} className="doc-finding-pair">
+                            <p className="doc-finding-meds">
+                              {pair.substances}
+                              {f.pairs.length > 1 && pair.level !== f.level && (
+                                <span className="doc-kind"> ({LEVELS[pair.level].tag.toLocaleLowerCase(getLang())})</span>
+                              )}
+                            </p>
+                            <InteractionText pair={pair} />
+                          </div>
+                        ))}
+                      </article>
+                    ))}
+                    {result.duplicates.map((d) => (
+                      <article key={d.id} className="doc-finding doc-finding-medium">
+                        <p className="doc-finding-tag">{LEVELS.same.tag}</p>
+                        <h3>
+                          {nameOf(d.a)} + {nameOf(d.b)}
+                        </h3>
+                        <p>{t('doc.duplicate', { substance: d.substance })}</p>
+                      </article>
+                    ))}
+
+                    {/* Co se zkontrolovat nepodařilo – nikdy to nezamlčíme */}
+                    {result.unchecked.length > 0 && (
+                      <div className="doc-finding doc-finding-none">
+                        <p className="doc-finding-tag">{t('doc.uncheckedTag')}</p>
+                        <ul className="doc-unchecked">
+                          {result.unchecked.map((u) => (
+                            <li key={u.id}>
+                              <strong>{u.name}</strong> – {UNCHECKED_REASONS.includes(u.reason) ? t(`doc.reason.${u.reason}`) : u.reason}
+                              {u.substances?.length > 0 && ` (${u.substances.join(', ')})`}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    <p className="doc-note">
+                      {result.note}{' '}
+                      {result.checkedAgainst && (
+                        <>
+                          {t('doc.sourceLabel')}{' '}
+                          <a href={result.checkedAgainst.url} target="_blank" rel="noreferrer">
+                            {result.checkedAgainst.name}
+                          </a>{' '}
+                          ({result.checkedAgainst.license}, {result.checkedAgainst.version}). {t('doc.verify')}
+                        </>
+                      )}
+                    </p>
                   </div>
                 </div>
               )}
@@ -1022,6 +1149,66 @@ function CodeDialog({ open, pin, loading, errorCode, onPinChange, onSubmit }) {
         <LanguageSwitch variant="doc" />
       </form>
     </dialog>
+  );
+}
+
+// Tlačítko „Kopírovat“. text = funkce, ať se text skládá až při kliknutí.
+// Po kliknutí na 2 s ukáže „Zkopírováno“ (aria-live → přečte to i čtečka).
+// section = co se kopíruje, jen pro čtečku („Kopírovat: Onkologická léčba“).
+function CopyButton({ text, label, section, small = true }) {
+  const [state, setState] = useState('idle'); // 'idle' | 'copied' | 'error'
+  const timer = useRef(null);
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  async function handleClick() {
+    const ok = await copyText(text());
+    setState(ok ? 'copied' : 'error');
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => setState('idle'), 2000);
+  }
+
+  return (
+    <button
+      type="button"
+      className={small ? 'doc-button doc-button-secondary doc-button-small doc-copy' : 'doc-button doc-button-secondary doc-copy'}
+      onClick={handleClick}
+    >
+      <CopyIcon size={small ? 18 : 22} />
+      <span aria-live="polite">
+        {state === 'copied' ? t('doc.copied') : state === 'error' ? t('doc.copyError') : label ?? t('doc.copy')}
+      </span>
+      {section && <span className="sr-only">: {section}</span>}
+    </button>
+  );
+}
+
+// Co interakce způsobuje (hned vidět) a jak postupovat (rozbalit). Texty jsou
+// anglické originály z webu DDInter – backend je má jen u závažných a středně
+// závažných dvojic látek z katalogu a režimů, jinde nic neukazujeme.
+function InteractionText({ pair }) {
+  if (!pair.description && !pair.management) return null;
+  return (
+    <>
+      {pair.description && (
+        <p className="doc-finding-desc" lang="en">
+          {pair.description}
+        </p>
+      )}
+      {(pair.management || pair.url) && (
+        <details className="doc-finding-more">
+          <summary>{t('doc.management')}</summary>
+          {pair.management && <p lang="en">{pair.management}</p>}
+          {pair.url && (
+            <p>
+              <a href={pair.url} target="_blank" rel="noreferrer">
+                {t('doc.managementSource')}
+              </a>
+            </p>
+          )}
+        </details>
+      )}
+    </>
   );
 }
 

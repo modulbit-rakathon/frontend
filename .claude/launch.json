@@ -6,6 +6,18 @@
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "VITE_MOCK_API=true npx vite --port 5199 --strictPort"],
       "port": 5199
+    },
+    {
+      "name": "backend-local",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd ../backend && MOCK_AI=true PORT=8090 APP_API_KEY=local-test ALLOWED_ORIGIN=http://localhost:5198 go run ./cmd/server"],
+      "port": 8090
+    },
+    {
+      "name": "dev-local-backend",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "API_URL=http://localhost:8090 API_KEY=local-test npx vite --port 5198 --strictPort"],
+      "port": 5198
     }
   ]
 }
