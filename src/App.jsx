@@ -32,7 +32,7 @@ export default function App() {
   // Adresa, která se právě vykresluje – přechod na novou je animovaný
   // a řeší i scroll (nahoru / obnovení při návratu), viz navTransition.js.
   const location = useTransitionLocation();
-  const { lastRemoved, undoRemoveMed } = useMeds();
+  const { lastRemoved, undoRemoveMed, helper } = useMeds();
   // Po změně jazyka se překreslí celá appka (všechny texty jdou přes t()).
   useLang();
 
@@ -48,8 +48,10 @@ export default function App() {
   }
 
   // Odkaz pro blízké (/pomoc) nese data za # a otevírá se rovnou z SMS/e-mailu –
-  // ten necháme fungovat i v prohlížeči. Jinak na mobilu chceme appku z plochy.
-  if (mustInstall && location.pathname !== '/pomoc') {
+  // ten necháme fungovat i v prohlížeči. Blízký pak vyplňuje léky za pacienta
+  // (focení, seznam, odeslání), takže v režimu pro blízké pustíme celou appku.
+  // Jinak na mobilu chceme appku z plochy.
+  if (mustInstall && !helper && location.pathname !== '/pomoc') {
     return <InstallGate />;
   }
 
