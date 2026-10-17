@@ -140,20 +140,19 @@ export default function Scan() {
     const files = [...event.target.files];
     event.target.value = ''; // vyčistíme, aby šla stejná fotka vybrat znovu
     if (files.length === 0) return;
-    addFiles(files, photoFieldRef.current);
-  }
 
-<<<<<<< HEAD
-  // Přidá fotky do seznamu (z galerie, ze systémového fotoaparátu i z automatické kamery).
-  async function addFiles(files, field) {
-=======
+    // "Vyfotit znovu" → nová fotka nahradí starou
     if (replaceIdRef.current) {
       replacePhoto(replaceIdRef.current, files[0]);
       replaceIdRef.current = null;
       return;
     }
 
->>>>>>> dedc383ffcf1e77a6af2e0b8774268582b4c6e23
+    addFiles(files, photoFieldRef.current);
+  }
+
+  // Přidá fotky do seznamu (z galerie, ze systémového fotoaparátu i z automatické kamery).
+  async function addFiles(files, field) {
     // Víc než 10 fotek backend nepřijme → přebytečné nepřidáme.
     const free = PHOTO_LIMITS.maxCount - photos.length;
     const accepted = files.slice(0, free);
@@ -163,12 +162,7 @@ export default function Scan() {
     const added = [];
     for (const file of accepted) {
       try {
-<<<<<<< HEAD
-        const small = await shrinkPhoto(file);
-        added.push({ id: ++photoCounter, field, file: small, url: URL.createObjectURL(small) });
-=======
-        added.push(await makePhoto(file, photoFieldRef.current));
->>>>>>> dedc383ffcf1e77a6af2e0b8774268582b4c6e23
+        added.push(await makePhoto(file, field));
       } catch {
         message = t('scan.openFailed');
       }
@@ -473,15 +467,6 @@ export default function Scan() {
                   >
                     <CameraIcon />
                     {kind.add}
-                  </button>
-                  {/* Záloha: systémový fotoaparát telefonu */}
-                  <button
-                    type="button"
-                    className="btn btn-link"
-                    onClick={() => openPicker(kind.field, true)}
-                    disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
-                  >
-                    {t('autocam.systemCamera')}
                   </button>
                   <button
                     type="button"
