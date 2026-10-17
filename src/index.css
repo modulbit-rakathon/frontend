@@ -2878,3 +2878,31 @@ html[data-nav='back']::view-transition-new(root) {
     animation: none !important;
   }
 }
+
+/* =========================================================
+   AUTOMATICKÁ KAMERA (components/AutoCamera.jsx)
+   ========================================================= */
+.autocam {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.autocam-video {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: var(--radius);
+  background: #000000;
+}
+
+.autocam-hint {
+  min-height: 2.5em;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.autocam-hint-ok {
+  color: var(--primary);
+}

@@ -30,6 +30,7 @@ import { ITEM_TYPES, PHOTO_KINDS, PHOTO_LIMITS, dosageText } from '../types.js';
 import { getLang, t } from '../i18n/index.js';
 import { animateStep, setNavDirection } from '../navTransition.js';
 import BackButton from '../components/BackButton.jsx';
+import AutoCamera from '../components/AutoCamera.jsx';
 
 // Uklidňující texty při čtení fotek – střídají se každých 5 sekund (viz 'scan.loadingMessages').
 const loadingMessages = () => t('scan.loadingMessages');
@@ -72,6 +73,7 @@ export default function Scan() {
   const [loadingIndex, setLoadingIndex] = useState(0); // který uklidňující text ukazujeme
   // Úloha z fronty fotek, ke které patří tahle obrazovka (čeká na internet / přečtená)
   const [jobId, setJobId] = useState(null);
+  const [autoField, setAutoField] = useState(null); // pro kterou skupinu fotek je otevřená automatická kamera
 
   // Odkazy na skryté <input type="file">, abychom je mohli "kliknout" z tlačítek:
   // jeden otevře rovnou fotoaparát, druhý galerii/soubory.
@@ -126,11 +128,15 @@ export default function Scan() {
     (useCamera ? cameraInputRef : fileInputRef).current.click();
   }
 
-  async function handleFiles(event) {
+  function handleFiles(event) {
     const files = [...event.target.files];
     event.target.value = ''; // vyčistíme, aby šla stejná fotka vybrat znovu
     if (files.length === 0) return;
+    addFiles(files, photoFieldRef.current);
+  }
 
+  // Přidá fotky do seznamu (z galerie, ze systémového fotoaparátu i z automatické kamery).
+  async function addFiles(files, field) {
     // Víc než 10 fotek backend nepřijme → přebytečné nepřidáme.
     const free = PHOTO_LIMITS.maxCount - photos.length;
     const accepted = files.slice(0, free);
@@ -141,7 +147,7 @@ export default function Scan() {
     for (const file of accepted) {
       try {
         const small = await shrinkPhoto(file);
-        added.push({ id: ++photoCounter, field: photoFieldRef.current, file: small, url: URL.createObjectURL(small) });
+        added.push({ id: ++photoCounter, field, file: small, url: URL.createObjectURL(small) });
       } catch {
         message = t('scan.openFailed');
       }
@@ -304,7 +310,27 @@ export default function Scan() {
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFiles} hidden />
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFiles} hidden />
 
-      {step === 'pick' && (
+      {/* Automatická kamera – výchozí způsob focení (otevře ji hlavní tlačítko u skupiny) */}
+      {step === 'pick' && autoField && (
+        <>
+          <h1>{photoKinds.find((k) => k.field === autoField)?.title}</h1>
+          <AutoCamera
+            onPhoto={(file) => {
+              addFiles([file], autoField);
+              // Plno → kameru zavřeme
+              if (photos.length + 1 >= PHOTO_LIMITS.maxCount) setAutoField(null);
+            }}
+            onClose={() => setAutoField(null)}
+            onFallback={() => {
+              const field = autoField;
+              setAutoField(null);
+              openPicker(field, true);
+            }}
+          />
+        </>
+      )}
+
+      {step === 'pick' && !autoField && (
         <>
           <h1>{t('scan.title')}</h1>
           <p className="subtitle">{t('scan.subtitle', { max: PHOTO_LIMITS.maxCount })}</p>
@@ -338,14 +364,24 @@ export default function Scan() {
                 )}
 
                 <div className="photo-actions">
+                  {/* Hlavní tlačítko = automatická kamera (vyfotí sama, když je obraz ostrý) */}
                   <button
                     type="button"
                     className="btn btn-dashed"
-                    onClick={() => openPicker(kind.field, true)}
+                    onClick={() => setAutoField(kind.field)}
                     disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
                   >
                     <CameraIcon />
                     {kind.add}
+                  </button>
+                  {/* Záloha: systémový fotoaparát telefonu */}
+                  <button
+                    type="button"
+                    className="btn btn-link"
+                    onClick={() => openPicker(kind.field, true)}
+                    disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
+                  >
+                    {t('autocam.systemCamera')}
                   </button>
                   <button
                     type="button"

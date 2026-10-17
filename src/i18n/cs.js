@@ -627,4 +627,12 @@ export default {
   'install.doneTitle': 'Hotovo, PillGaze je na ploše',
   'install.doneText': 'Tuhle stránku zavřete a otevřete PillGaze z plochy telefonu.',
   'install.alreadyHave': 'Už ji na ploše máte? Otevřete ji odtamtud.',
+
+  // autocam vyfoceni
+  'autocam.aim': 'Namiřte na krabičku a držte telefon v klidu',
+  'autocam.hold': 'Držte…',
+  'autocam.gotIt': 'Mám to ✓ – další',
+  'autocam.shoot': 'Vyfotit teď',
+  'autocam.noCamera': 'Kameru se nepodařilo zapnout. Povolte ji v prohlížeči, nebo použijte fotoaparát telefonu.',
+  'autocam.systemCamera': 'Použít fotoaparát telefonu',
 };

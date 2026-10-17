@@ -619,4 +619,12 @@ export default {
   'install.doneTitle': 'Done, PillGaze is on your home screen',
   'install.doneText': 'Close this page and open PillGaze from your home screen.',
   'install.alreadyHave': 'Already on your home screen? Open it from there.',
+
+  // Automatic camera
+  'autocam.aim': 'Point at the box and hold the phone still',
+  'autocam.hold': 'Hold…',
+  'autocam.gotIt': 'Got it ✓ – next',
+  'autocam.shoot': 'Take photo now',
+  'autocam.noCamera': 'Could not turn on the camera. Allow it in your browser, or use the phone camera.',
+  'autocam.systemCamera': 'Use the phone camera',
 };
