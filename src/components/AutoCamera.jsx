@@ -6,6 +6,7 @@
 // field         – co se fotí ('note' | 'box' | 'regimen'), podle toho je nápověda
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n/index.js';
+import { CameraIcon, CheckIcon } from './Icons.jsx';
 
 // ---- Čísla k vyladění (viz krok 5) ----
 const CHECK_MS = 150; // jak často kontrolujeme obraz
@@ -163,25 +164,36 @@ export default function AutoCamera({ field, onPhoto, onClose, onFallback, onGall
           <button type="button" className="btn btn-primary" onClick={onFallback}>
             {t('autocam.systemCamera')}
           </button>
-        </>
-      ) : (
-        <>
-          {/* playsInline = na iPhonu se video nepřepne do celé obrazovky */}
-          <video ref={videoRef} className="autocam-video" playsInline muted autoPlay />
-          <p className={gotIt ? 'autocam-hint autocam-hint-ok' : 'autocam-hint'} role="status">
-            {gotIt ? t('autocam.gotIt') : steadyNow ? t('autocam.hold') : t(`autocam.aim.${field}`)}
-          </p>
-          <button type="button" className="btn btn-primary" onClick={capture}>
-            {t('autocam.shoot')}
+          <button type="button" className="btn btn-secondary" onClick={onClose}>
+            {t('common.done')}
           </button>
         </>
+      ) : (
+        // Ovládání je PŘÍMO v náhledu kamery – Hotovo i Vyfotit teď jsou vidět vždy,
+        // i na malém telefonu (náhled je nízký jen tak, aby se vešel na obrazovku).
+        <div className="autocam-view">
+          {/* playsInline = na iPhonu se video nepřepne do celé obrazovky */}
+          <video ref={videoRef} className="autocam-video" playsInline muted autoPlay />
+
+          <button type="button" className="autocam-done" onClick={onClose}>
+            <CheckIcon size={22} />
+            {t('common.done')}
+          </button>
+
+          <div className="autocam-bottom">
+            <p className={gotIt ? 'autocam-hint autocam-hint-ok' : 'autocam-hint'} role="status">
+              {gotIt ? t('autocam.gotIt') : steadyNow ? t('autocam.hold') : t(`autocam.aim.${field}`)}
+            </p>
+            <button type="button" className="btn btn-primary autocam-shoot" onClick={capture}>
+              <CameraIcon />
+              {t('autocam.shoot')}
+            </button>
+          </div>
+        </div>
       )}
       {/* Fotky už má v telefonu → vybere je z galerie (i víc najednou) */}
       <button type="button" className="btn btn-link" onClick={onGallery}>
         {t('scan.fromGallery')}
-      </button>
-      <button type="button" className="btn btn-secondary" onClick={onClose}>
-        {t('common.done')}
       </button>
     </div>
   );
