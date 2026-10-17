@@ -15,6 +15,7 @@ import { restoreRemovedItem } from './medsList.js';
 const STORAGE_KEY = 'pillgaze-meds';
 const PROFILE_KEY = 'pillgaze-profile';
 const HELPER_KEY = 'pillgaze-helper';
+const UNDO_TIMEOUT_MS = 5000;
 
 const MedsContext = createContext(null);
 
@@ -64,6 +65,13 @@ export function MedsProvider({ children }) {
       }
     }
   }, [helper]);
+
+  // Nabídka "Vrátit" po odebrání zmizí sama po 5 s (další odebrání odpočet obnoví).
+  useEffect(() => {
+    if (!lastRemoved) return;
+    const timer = setTimeout(() => setLastRemoved(null), UNDO_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [lastRemoved]);
 
   // Změna seznamu jde buď do vlastních léků, nebo do léků toho, za koho vyplňujeme.
   function changeMeds(update) {
