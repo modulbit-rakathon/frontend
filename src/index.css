@@ -3156,23 +3156,76 @@ html[data-nav='back']::view-transition-new(root) {
   gap: 12px;
 }
 
-.autocam-video {
-  width: 100%;
-  aspect-ratio: 3 / 4;
-  object-fit: cover;
+/* Náhled kamery s ovládáním uvnitř (Hotovo nahoře, Vyfotit teď dole) */
+.autocam-view {
+  position: relative;
+  overflow: hidden;
   border-radius: var(--radius);
   background: #000000;
 }
 
+/* Výška: 3:4, ale nejvýš tolik, aby se náhled vešel na obrazovku
+   (nad ním nadpis, pod ním "Vybrat z galerie" a spodní lišta appky). */
+.autocam-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: calc(100dvh - var(--nav-height) - env(safe-area-inset-bottom) - 190px);
+  min-height: 280px;
+  object-fit: cover;
+}
+
+/* "Hotovo" vpravo nahoře v náhledu */
+.autocam-done {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 52px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+/* Dole v náhledu: nápověda + "Vyfotit teď" (tmavý přechod, ať je text čitelný) */
+.autocam-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 12px 12px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+}
+
 .autocam-hint {
-  min-height: 2.5em;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
   text-align: center;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
 }
 
 .autocam-hint-ok {
-  color: var(--primary);
+  background: var(--primary);
+}
+
+.autocam-shoot {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
 /* /doc: "Změna uložena – poslat pacientovi?" – drží se dole na obrazovce */
