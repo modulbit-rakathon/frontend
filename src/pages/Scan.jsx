@@ -22,7 +22,7 @@ import { useOffline } from '../offline/OfflineContext.jsx';
 import { photosByField } from '../offline/photoQueue.js';
 import MedForm from '../components/MedForm.jsx';
 import ReviewDetail from '../components/ReviewDetail.jsx';
-import { CameraIcon, CheckIcon, WarningIcon } from '../components/Icons.jsx';
+import { CameraIcon, DocumentIcon, CheckIcon, WarningIcon } from '../components/Icons.jsx';
 import { medTitle, sourcesText } from '../labels.js';
 import { preparePhoto, sizeText } from '../photos.js';
 import { draftToItem, draftTodos, makeDraft } from '../review.js';
@@ -31,6 +31,7 @@ import { getLang, t } from '../i18n/index.js';
 import { animateStep, setNavDirection } from '../navTransition.js';
 import BackButton from '../components/BackButton.jsx';
 import AutoCamera from '../components/AutoCamera.jsx';
+import { isPhone } from '../device.js';
 
 // Uklidňující texty při čtení fotek – střídají se každých 5 sekund (viz 'scan.loadingMessages').
 const loadingMessages = () => t('scan.loadingMessages');
@@ -78,6 +79,9 @@ export default function Scan() {
   // Úloha z fronty fotek, ke které patří tahle obrazovka (čeká na internet / přečtená)
   const [jobId, setJobId] = useState(null);
   const [autoField, setAutoField] = useState(null); // pro kterou skupinu fotek je otevřená automatická kamera
+  // Telefon → hlavní tlačítko otevře automatickou kameru.
+  // Počítač → hlavní tlačítko otevře průzkumník souborů (jde vybrat víc fotek najednou).
+  const [phone] = useState(isPhone);
 
   // Odkazy na skryté <input type="file">, abychom je mohli "kliknout" z tlačítek:
   // jeden otevře rovnou fotoaparát, druhý galerii/soubory.
@@ -371,6 +375,7 @@ export default function Scan() {
         <>
           <h1>{photoKinds.find((k) => k.field === autoField)?.title}</h1>
           <AutoCamera
+            field={autoField}
             onPhoto={(file) => {
               addFiles([file], autoField);
               // Plno → kameru zavřeme
@@ -381,6 +386,11 @@ export default function Scan() {
               const field = autoField;
               setAutoField(null);
               openPicker(field, true);
+            }}
+            onGallery={() => {
+              const field = autoField;
+              setAutoField(null);
+              openPicker(field, false);
             }}
           />
         </>
@@ -458,25 +468,41 @@ export default function Scan() {
                 )}
 
                 <div className="photo-actions">
-                  {/* Hlavní tlačítko = automatická kamera (vyfotí sama, když je obraz ostrý) */}
-                  <button
-                    type="button"
-                    className="btn btn-dashed"
-                    onClick={() => setAutoField(kind.field)}
-                    disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
-                  >
-                    <CameraIcon />
-                    {kind.add}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-link"
-                    aria-label={t('scan.fromGalleryAria', { kind: lower(kind.title) })}
-                    onClick={() => openPicker(kind.field, false)}
-                    disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
-                  >
-                    {t('scan.fromGallery')}
-                  </button>
+                  {phone ? (
+                    <>
+                      {/* Telefon: hlavní tlačítko = automatická kamera (vyfotí sama, když je obraz ostrý) */}
+                      <button
+                        type="button"
+                        className="btn btn-dashed"
+                        onClick={() => setAutoField(kind.field)}
+                        disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
+                      >
+                        <CameraIcon />
+                        {kind.add}
+                      </button>
+                      {/* Fotky z galerie – jde vybrat víc najednou */}
+                      <button
+                        type="button"
+                        className="btn btn-link"
+                        aria-label={t('scan.fromGalleryAria', { kind: lower(kind.title) })}
+                        onClick={() => openPicker(kind.field, false)}
+                        disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
+                      >
+                        {t('scan.fromGallery')}
+                      </button>
+                    </>
+                  ) : (
+                    // Počítač: průzkumník souborů (jde vybrat víc fotek najednou)
+                    <button
+                      type="button"
+                      className="btn btn-dashed"
+                      onClick={() => openPicker(kind.field, false)}
+                      disabled={preparing || photos.length >= PHOTO_LIMITS.maxCount}
+                    >
+                      <DocumentIcon />
+                      {kind.upload}
+                    </button>
+                  )}
                 </div>
               </section>
             );

@@ -121,6 +121,7 @@ function photoKind(field, extra) {
     field,
     get title() { return t(`photo.${field}.title`); },
     get add() { return t(`photo.${field}.add`); },
+    get upload() { return t(`photo.${field}.upload`); }, // na počítači (průzkumník souborů)
     get hint() { return t(`photo.${field}.hint`); },
     ...extra,
   };

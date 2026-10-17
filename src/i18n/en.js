@@ -228,12 +228,15 @@ export default {
   // --- Druhy fotek ---
   'photo.note.title': 'Note from your doctor',
   'photo.note.add': 'Photograph the note',
+  'photo.note.upload': 'Upload photos of the note',
   'photo.note.hint': 'A list of medicines, a prescription or a hospital discharge letter.',
   'photo.box.title': 'Medicine boxes',
   'photo.box.add': 'Photograph a box',
+  'photo.box.upload': 'Upload photos of boxes',
   'photo.box.hint': 'One box per photo, with the name and strength clearly visible.',
   'photo.regimen.title': 'Oncology report',
   'photo.regimen.add': 'Photograph the report',
+  'photo.regimen.upload': 'Upload a photo of the report',
   'photo.regimen.hint': 'The part with the name of your treatment, e.g. FOLFOX.',
 
   // --- Pole formuláře ---
@@ -656,7 +659,9 @@ export default {
   'install.alreadyHave': 'Already on your home screen? Open it from there.',
 
   // Automatic camera
-  'autocam.aim': 'Point at the box and hold the phone still',
+  'autocam.aim.note': 'Point at the note and hold the phone still',
+  'autocam.aim.box': 'Point at the box and hold the phone still',
+  'autocam.aim.regimen': 'Point at the report and hold the phone still',
   'autocam.hold': 'Hold…',
   'autocam.gotIt': 'Got it ✓ – next',
   'autocam.shoot': 'Take photo now',

@@ -2,6 +2,8 @@
 // onPhoto(file) – zavolá se s každou vyfocenou fotkou (JPEG)
 // onClose()     – pacient dal "Hotovo"
 // onFallback()  – kamera nejde zapnout → pacient chce systémový fotoaparát telefonu
+// onGallery()   – pacient chce místo focení vybrat fotky z galerie
+// field         – co se fotí ('note' | 'box' | 'regimen'), podle toho je nápověda
 import { useEffect, useRef, useState } from 'react';
 import { t } from '../i18n/index.js';
 
@@ -51,12 +53,12 @@ function motion(gray, prev) {
   return diff / gray.length;
 }
 
-export default function AutoCamera({ onPhoto, onClose, onFallback }) {
+export default function AutoCamera({ field, onPhoto, onClose, onFallback, onGallery }) {
   const videoRef = useRef(null);
   const armedRef = useRef(true); // smí se teď fotit automaticky?
   const captureRef = useRef(null);
   const [error, setError] = useState('');
-  const [hint, setHint] = useState(t('autocam.aim'));
+  const [steadyNow, setSteadyNow] = useState(false); // je obraz právě ostrý a v klidu?
   const [gotIt, setGotIt] = useState(false); // ukazujeme "Mám to"
 
   // Vyfotí plné rozlišení z videa a pošle ho ven jako soubor
@@ -112,7 +114,7 @@ export default function AutoCamera({ onPhoto, onClose, onFallback }) {
 
       const ok = move < MOTION_MAX && sharpness(gray) > SHARP_MIN;
       steady = ok ? steady + 1 : 0;
-      setHint(ok ? t('autocam.hold') : t('autocam.aim'));
+      setSteadyNow(ok);
 
       if (steady >= STEADY_CHECKS) {
         steady = 0;
@@ -167,13 +169,17 @@ export default function AutoCamera({ onPhoto, onClose, onFallback }) {
           {/* playsInline = na iPhonu se video nepřepne do celé obrazovky */}
           <video ref={videoRef} className="autocam-video" playsInline muted autoPlay />
           <p className={gotIt ? 'autocam-hint autocam-hint-ok' : 'autocam-hint'} role="status">
-            {gotIt ? t('autocam.gotIt') : hint}
+            {gotIt ? t('autocam.gotIt') : steadyNow ? t('autocam.hold') : t(`autocam.aim.${field}`)}
           </p>
           <button type="button" className="btn btn-primary" onClick={capture}>
             {t('autocam.shoot')}
           </button>
         </>
       )}
+      {/* Fotky už má v telefonu → vybere je z galerie (i víc najednou) */}
+      <button type="button" className="btn btn-link" onClick={onGallery}>
+        {t('scan.fromGallery')}
+      </button>
       <button type="button" className="btn btn-secondary" onClick={onClose}>
         {t('common.done')}
       </button>

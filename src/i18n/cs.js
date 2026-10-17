@@ -231,12 +231,15 @@ export default {
   // --- Druhy fotek ---
   'photo.note.title': 'Lístek od lékaře',
   'photo.note.add': 'Vyfotit lístek',
+  'photo.note.upload': 'Nahrát fotky lístku',
   'photo.note.hint': 'Seznam léků, recept nebo propouštěcí zpráva.',
   'photo.box.title': 'Krabičky léků',
   'photo.box.add': 'Vyfotit krabičku',
+  'photo.box.upload': 'Nahrát fotky krabiček',
   'photo.box.hint': 'Každou krabičku zvlášť, ať je vidět název a síla.',
   'photo.regimen.title': 'Zpráva z onkologie',
   'photo.regimen.add': 'Vyfotit zprávu',
+  'photo.regimen.upload': 'Nahrát fotku zprávy',
   'photo.regimen.hint': 'Část, kde je název léčby, např. FOLFOX.',
 
   // --- Pole formuláře ---
@@ -668,7 +671,9 @@ export default {
   'install.alreadyHave': 'Už ji na ploše máte? Otevřete ji odtamtud.',
 
   // autocam vyfoceni
-  'autocam.aim': 'Namiřte na krabičku a držte telefon v klidu',
+  'autocam.aim.note': 'Namiřte na lístek a držte telefon v klidu',
+  'autocam.aim.box': 'Namiřte na krabičku a držte telefon v klidu',
+  'autocam.aim.regimen': 'Namiřte na zprávu a držte telefon v klidu',
   'autocam.hold': 'Držte…',
   'autocam.gotIt': 'Mám to ✓ – další',
   'autocam.shoot': 'Vyfotit teď',
