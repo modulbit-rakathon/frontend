@@ -141,20 +141,47 @@ function newRegimenId() {
   return `doc-regimen-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
-// Opravy pro pacienta: jen opravené léky a u nich jen opravená pole (viz diffShare)
+// Změny pro pacienta (viz diffShare ve familyShare.js):
+//   - opravený lék: jen opravená pole ("edited")
+//   - opravená onkologická léčba: název / forma / poslední dávka
+//   - léčba doplněná lékařem: celá položka s příznakem doctorAdded
+// Léčbu a formu pacient ukládá jinak než backend (klíč formy, datum ISO) → převedeme.
+const REGIMEN_SEND_FIELDS = { name: 'name', form: 'oncoForm', frequency: 'lastDose' };
+
+function oncoFormKey(formText) {
+  return ONCO_FORMS.find((f) => oncoFormText(f.key, 'cs') === formText)?.key ?? '';
+}
+
 function toSendBackItems(meds) {
-  return meds
-    .filter((med) => med.doctorEdits)
-    .map((med) => ({
-      id: med.id,
-      type: ITEM_TYPES.LEK,
-      name: med.name,
-      strength: med.strength ?? '',
-      dosage: dosageFromText(dosageCodeText(med)),
-      active_substance: med.active_substance ?? '',
-      catalog_id: med.catalog_id ?? '',
-      edited: med.doctorEdits.fields,
-    }));
+  return meds.flatMap((med) => {
+    if (med.kind === 'regimen') {
+      if (!med.addedByDoctor && !med.regimenEdits) return [];
+      const item = {
+        id: med.id,
+        type: ITEM_TYPES.ONKO,
+        kind: 'regimen',
+        name: med.name,
+        oncoForm: oncoFormKey(med.form),
+        lastDose: lastDoseIso(med),
+        source: 'manual',
+      };
+      if (med.addedByDoctor) return [{ ...item, doctorAdded: true }];
+      return [{ ...item, edited: med.regimenEdits.fields.map((f) => REGIMEN_SEND_FIELDS[f]) }];
+    }
+    if (!med.doctorEdits) return [];
+    return [
+      {
+        id: med.id,
+        type: ITEM_TYPES.LEK,
+        name: med.name,
+        strength: med.strength ?? '',
+        dosage: dosageFromText(dosageCodeText(med)),
+        active_substance: med.active_substance ?? '',
+        catalog_id: med.catalog_id ?? '',
+        edited: med.doctorEdits.fields,
+      },
+    ];
+  });
 }
 
 /**
@@ -349,6 +376,8 @@ export default function Doctor() {
   const [confirmDiscard, setConfirmDiscard] = useState(false); // ptáme se na zavření pacienta?
   const [editingId, setEditingId] = useState(null); // který lék lékař právě opravuje
   const [sendBackOpen, setSendBackOpen] = useState(false); // okno s kódem pro pacienta
+  // Lišta "Změna uložena – poslat pacientovi?" po každé uložené změně
+  const [sendOffer, setSendOffer] = useState(false);
   // Formulář režimu: null = zavřený, 'new' = přidání, jinak id upravovaného režimu
   const [regimenForm, setRegimenForm] = useState(null);
   // Pořadí kontroly interakcí – výsledek staré kontroly (předchozí pacient)
@@ -377,6 +406,7 @@ export default function Doctor() {
     setPdfState('idle');
     setEditingId(null);
     setRegimenForm(null);
+    setSendOffer(false);
   }
 
   // Oprava léku: nový seznam a hned nová kontrola interakcí. Starý výsledek
@@ -386,6 +416,7 @@ export default function Doctor() {
     setMeds(next);
     setEditingId(null);
     setPdfState('idle');
+    setSendOffer(true);
     runCheck(next);
   }
 
@@ -394,6 +425,7 @@ export default function Doctor() {
   function changeMeds(next) {
     setMeds(next);
     setPdfState('idle');
+    setSendOffer(true);
     runCheck(next);
   }
 
@@ -449,6 +481,7 @@ export default function Doctor() {
       setMeds(data.medications);
       setEditingId(null);
       setRegimenForm(null);
+      setSendOffer(false);
       setPin('');
       setOpen(false);
       setDrugsOpen(true);
@@ -495,7 +528,8 @@ export default function Doctor() {
   const result = check.result;
   const findingCount = result ? result.findings.length + result.duplicates.length : 0;
   const nameOf = (id) => meds?.find((m) => m.id === id)?.name ?? id;
-  const editedCount = meds?.filter((m) => m.doctorEdits).length ?? 0;
+  // Kolik změn jde poslat pacientovi (opravy léků i léčby, doplněná léčba)
+  const editedCount = meds ? toSendBackItems(meds).length : 0;
 
   // „Kopírovat do karty pacienta“: léky, onkologická léčba a doplňky. Interakce jen vlastním tlačítkem.
   function allText() {
@@ -1020,6 +1054,30 @@ export default function Doctor() {
               )}
             </section>
           </>
+        )}
+        {/* Po každé uložené změně nabídneme poslat změny pacientovi. Drží se dole
+            na obrazovce, ať je vidět i u změny hluboko v seznamu. */}
+        {meds !== null && sendOffer && editedCount > 0 && !sendBackOpen && (
+          <div className="doc-send-offer no-print" role="status">
+            <p>
+              <strong>{t('doc.sendOffer.title')}</strong> {t('doc.sendOffer.text')}
+            </p>
+            <div className="doc-send-offer-actions">
+              <button
+                type="button"
+                className="doc-button"
+                onClick={() => {
+                  setSendOffer(false);
+                  setSendBackOpen(true);
+                }}
+              >
+                {t('doc.sendBack.button', { count: editedCount })}
+              </button>
+              <button type="button" className="doc-button doc-button-secondary" onClick={() => setSendOffer(false)}>
+                {t('doc.sendOffer.later')}
+              </button>
+            </div>
+          </div>
         )}
       </main>
 

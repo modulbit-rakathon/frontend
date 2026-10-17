@@ -3154,3 +3154,27 @@ html[data-nav='back']::view-transition-new(root) {
 .autocam-hint-ok {
   color: var(--primary);
 }
+
+/* /doc: "Změna uložena – poslat pacientovi?" – drží se dole na obrazovce */
+.doc-send-offer {
+  position: sticky;
+  bottom: 16px;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin: 0 32px 16px;
+  padding: 16px 20px;
+  border: 2px solid var(--primary);
+  border-radius: 12px;
+  background: var(--primary-light);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.doc-send-offer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}

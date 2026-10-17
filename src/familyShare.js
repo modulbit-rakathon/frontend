@@ -34,9 +34,11 @@ export const OLD_AFTER_DAYS = 30;
 const ITEM_FIELDS = [
   'id', 'type', 'name', 'strength', 'dosage', 'since', 'prescriber', 'source', 'sources',
   'note_style', 'kind', 'active_substance', 'form', 'catalog_id', 'supplementKey', 'oncoForm', 'lastDose', 'edited',
+  'doctorAdded',
 ];
-// Co může lékař opravit (pole "edited" u položky v odpovědi od lékaře)
-export const DOCTOR_FIELDS = ['name', 'strength', 'dosage'];
+// Co může lékař opravit (pole "edited" u položky v odpovědi od lékaře):
+// u léku název, síla, dávkování; u onkologické léčby název, forma a poslední dávka.
+export const DOCTOR_FIELDS = ['name', 'strength', 'dosage', 'oncoForm', 'lastDose'];
 const ONCO_KEYS = ['', 'ano', 'ne', 'nechci'];
 
 // Náhodné ID odkazu (žádost i odpověď mají vlastní).
@@ -99,6 +101,8 @@ function unpackItem(raw) {
   item.dosage = cleanDosage(raw.dosage);
   if (Array.isArray(raw.sources)) item.sources = raw.sources.filter((s) => ['box', 'note', 'manual'].includes(s));
   if (Array.isArray(raw.edited)) item.edited = DOCTOR_FIELDS.filter((f) => raw.edited.includes(f));
+  // Položka, kterou lékař doplnil (např. onkologická léčba) – pacient ji může přidat
+  if (raw.doctorAdded === true) item.doctorAdded = true;
   if (!['box', 'note', 'manual'].includes(item.source)) item.source = 'manual';
   return normalizeItem(item);
 }
@@ -252,6 +256,8 @@ function applyDoctorEdits(mine, item) {
   }
   if (edited.includes('strength')) after.strength = item.strength || '';
   if (edited.includes('dosage')) after.dosage = item.dosage;
+  if (edited.includes('oncoForm')) after.oncoForm = item.oncoForm || '';
+  if (edited.includes('lastDose')) after.lastDose = item.lastDose || '';
   return after;
 }
 
@@ -271,8 +277,16 @@ export function diffShare(own, share) {
   for (const item of share.items) {
     const mine = ownById.get(item.id);
     if (share.doc) {
-      // Lékař jen opravuje. Lék, který pacient mezitím smazal, znovu nepřidáme.
-      if (!mine) continue;
+      // Lékař opravuje, nebo doplnil novou položku (doctorAdded, např. onkologickou léčbu).
+      // Opravený lék, který pacient mezitím smazal, znovu nepřidáme.
+      if (!mine) {
+        if (!item.doctorAdded) continue;
+        const { doctorAdded, ...added } = item;
+        if (ownKeys.has(sameKey(added)) || seenKeys.has(sameKey(added))) result.duplicates.push(added);
+        else result.added.push(added);
+        seenKeys.add(sameKey(added));
+        continue;
+      }
       const after = applyDoctorEdits(mine, item);
       if (isChanged(mine, after)) result.changed.push({ before: mine, after });
       else result.unchanged += 1;
