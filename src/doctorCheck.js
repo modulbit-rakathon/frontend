@@ -66,7 +66,8 @@ async function resolveRegimens(meds) {
  * Zkontroluje seznam léků pacienta.
  * @param {Array} meds – léky z claimShare
  * @returns {Promise<{
- *   findings: Array<{ id: string, a: string, b: string, level: string, pairs: Array<{ substances: string, level: string }> }>,
+ *   findings: Array<{ id: string, a: string, b: string, level: string,
+ *     pairs: Array<{ substances: string, level: string, description?: string, management?: string, url?: string }> }>,
  *   cells: Record<string, string>,
  *   regimens: Record<string, object|null>,
  *   unchecked: Array<{ id: string, name: string, reason: string, substances?: string[] }>,
@@ -107,7 +108,14 @@ export async function checkMeds(meds) {
     if (a === b) continue;
     const key = [a, b].sort().join('|');
     const finding = (byRows[key] ??= { id: key, a, b, level: pair.level, pairs: [] });
-    finding.pairs.push({ substances: `${pair.substance_a} × ${pair.substance_b}`, level: pair.level });
+    // Popis a doporučení (anglicky z webu DDInter) má backend jen u části dvojic
+    finding.pairs.push({
+      substances: `${pair.substance_a} × ${pair.substance_b}`,
+      level: pair.level,
+      description: pair.description,
+      management: pair.management,
+      url: pair.url,
+    });
     if (LEVEL_RANK[pair.level] > LEVEL_RANK[finding.level]) finding.level = pair.level;
     cells[`${a}|${b}`] = finding.level;
     cells[`${b}|${a}`] = finding.level;
