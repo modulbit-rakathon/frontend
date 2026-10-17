@@ -28,16 +28,16 @@ Appka je primárně pro starší uživatele, proto musí mít:
 
 Pacient:
 
-- [ ] vyfocení lístku a krabiček (až 10 fotek najednou), kontrola v tabulce „Sedí to?“
-- [ ] ruční zadání léku
-- [ ] seznam léků s možnými interakcemi
-- [ ] vygenerování jednorázového kódu pro lékaře
+- vyfocení lístku a krabiček (až 10 fotek najednou), kontrola v tabulce „Sedí to?“
+- ruční zadání léku
+- seznam léků s možnými interakcemi
+- vygenerování jednorázového kódu pro lékaře
 
 Lékař (`/doc`):
 
-- [ ] zadání jednorázového kódu od pacienta
-- [ ] tabulka léků (lék, účinná látka, síla, dávkování, zdroj)
-- [ ] interakce léků v rozbalovací liště pod tabulkou
+- zadání jednorázového kódu od pacienta
+- tabulka léků (lék, účinná látka, síla, dávkování, zdroj)
+- interakce léků v rozbalovací liště pod tabulkou
 
 ## Lékařský pohled `/doc`
 
