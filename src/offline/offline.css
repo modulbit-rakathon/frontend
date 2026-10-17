@@ -44,17 +44,6 @@
   border-color: var(--primary-dark);
 }
 
-.app-status-update {
-  border-color: var(--primary);
-}
-
-.app-status-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 6px;
-}
-
 /* Lékařský pohled je na počítači – menší písmo, lišta jen jako řádek */
 .app-status-area-doc .app-status {
   font-size: 16px;

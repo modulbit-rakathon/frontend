@@ -1,13 +1,13 @@
 // Malá lišta nahoře na každé obrazovce:
 //   - "Jste bez internetu" (a co i tak funguje),
-//   - stav fotek, které čekají ve frontě (posílám / přečtené – zkontrolujte),
-//   - nová verze appky → tlačítko "Načíst novou verzi".
+//   - stav fotek, které čekají ve frontě (posílám / přečtené – zkontrolujte).
+// Novou verzi appky service worker stáhne a stránku načte znovu sám (vite.config.js).
 // Když je všechno v pořádku, nezobrazí nic.
 import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useOffline } from './OfflineContext.jsx';
-import { CheckIcon, OfflineIcon, RefreshIcon } from '../components/Icons.jsx';
+import { CheckIcon, OfflineIcon } from '../components/Icons.jsx';
 import './offline.css';
 import { t } from '../i18n/index.js';
 
@@ -20,11 +20,8 @@ export default function AppStatus({ doctor = false }) {
   const { online, jobs, sendingId } = useOffline();
   const location = useLocation();
 
-  // Service worker (viz vite.config.js): needRefresh = je stažená nová verze.
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW({
+  // Service worker (viz vite.config.js): po stažení nové verze se stránka sama obnoví.
+  useRegisterSW({
     onRegisteredSW(swUrl, registration) {
       // Appka může být otevřená dlouho – občas se zeptáme na novou verzi.
       if (!registration || updateTimer) return;
@@ -47,24 +44,6 @@ export default function AppStatus({ doctor = false }) {
 
   return (
     <div className={doctor ? 'app-status-area app-status-area-doc no-print' : 'app-status-area no-print'}>
-      {needRefresh && (
-        <div className="app-status app-status-update" role="status">
-          <p className="app-status-title">
-            <RefreshIcon />
-            <span>{t('offline.updateTitle')}</span>
-          </p>
-          <p>{t('offline.updateText')}</p>
-          <div className="app-status-actions">
-            <button type="button" className="btn btn-primary" onClick={() => updateServiceWorker(true)}>
-              {t('offline.updateReload')}
-            </button>
-            <button type="button" className="btn btn-link" onClick={() => setNeedRefresh(false)}>
-              {t('offline.updateLater')}
-            </button>
-          </div>
-        </div>
-      )}
-
       {!online && (
         <div className="app-status app-status-offline" role="status">
           <p className="app-status-title">

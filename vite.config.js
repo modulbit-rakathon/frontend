@@ -17,9 +17,9 @@ export default defineConfig(({ mode }) => {
       // Service worker (Workbox) si při první návštěvě uloží celou appku
       // (HTML, JS, CSS, písma, ikony). Data pacienta jsou v localStorage.
       VitePWA({
-        // Nová verze se nenačte sama uprostřed práce – appka nabídne
-        // "Načíst novou verzi" (src/offline/AppStatus.jsx).
-        registerType: 'prompt',
+        // Nová verze se nainstaluje a stránka se sama načte znovu – bez dotazu.
+        // Léky jsou v localStorage, takže o nic nepřijdou.
+        registerType: 'autoUpdate',
         // Service worker registrujeme sami přes useRegisterSW v AppStatus.jsx.
         injectRegister: false,
         // Ikony a favicon už bere globPatterns níže → nepřidávat podruhé.
@@ -55,8 +55,9 @@ export default defineConfig(({ mode }) => {
           navigateFallbackDenylist: [/^\/api\//],
           // Staré verze uložené appky po aktualizaci smažeme.
           cleanupOutdatedCaches: true,
-          // Při první instalaci převezme service worker stránku hned, ať appka
-          // funguje offline i bez dalšího obnovení. Novou verzi ale aktivuje až pacient.
+          // Nový service worker převezme stránku hned (i při první instalaci,
+          // ať appka funguje offline bez dalšího obnovení).
+          skipWaiting: true,
           clientsClaim: true,
           // runtimeCaching schválně nenastavujeme: API se do mezipaměti service workeru
           // neukládá. Hledání v katalogu bez internetu řeší src/offline/catalogCache.js.
