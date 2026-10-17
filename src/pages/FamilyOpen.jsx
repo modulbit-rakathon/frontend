@@ -38,6 +38,12 @@ function itemDetails(item) {
     .join(' · ');
 }
 
+// U změněné položky: když se změnil i název (oprava od lékaře), ukážeme ho v "Dřív / Nově"
+function changeText(item, other) {
+  const name = item.name !== other.name && displayName(item);
+  return [name, itemDetails(item)].filter(Boolean).join(' · ');
+}
+
 const oncoLabel = (key) => (key ? t(`onco.answer.${key}`) : t('common.unanswered'));
 
 export default function FamilyOpen() {
@@ -239,7 +245,9 @@ function OpenResponse({ share, oldWarning }) {
   const [diff] = useState(() => diffShare(ownMeds, share));
   const [done, setDone] = useState(false);
   const [confirmEnd, setConfirmEnd] = useState(false);
-  const alreadyImported = hasLink('imported', share.rid);
+  // Odpověď od lékaře nemá žádost (rid) – pamatujeme si ji podle vlastního ID
+  const importKey = share.doc ? share.id : share.rid;
+  const alreadyImported = Boolean(importKey) && hasLink('imported', importKey);
 
   // Co je zaškrtnuté: nové a změněné ano, odebrání ne (nic nemažeme bez souhlasu).
   const [checked, setChecked] = useState(() => {
@@ -338,7 +346,7 @@ function OpenResponse({ share, oldWarning }) {
       remove: diff.removed.filter((m) => checked[`del-${m.id}`]).map((m) => m.id),
       onco: oncoDiffers && takeOnco ? share.onco : undefined,
     });
-    if (share.rid) rememberLink('imported', share.rid);
+    if (importKey) rememberLink('imported', importKey);
     // Data z adresy smažeme, ať se po obnovení stránky neukládají znovu.
     window.history.replaceState(window.history.state, '', window.location.pathname);
     setDone(true);
@@ -360,11 +368,13 @@ function OpenResponse({ share, oldWarning }) {
   return (
     <>
       <BackButton to="/" />
-      <h1>{t('family.res.title')}</h1>
+      <h1>{share.doc ? t('family.res.doc.title') : t('family.res.title')}</h1>
       <p className="subtitle">
-        {share.from
-          ? tRich('family.res.introNamed', { name: <strong>{share.from}</strong> })
-          : t('family.res.introUnnamed')}
+        {share.doc
+          ? t('family.res.doc.intro')
+          : share.from
+            ? tRich('family.res.introNamed', { name: <strong>{share.from}</strong> })
+            : t('family.res.introUnnamed')}
       </p>
       {oldWarning}
       {alreadyImported && <p className="box box-info">{t('family.res.already')}</p>}
@@ -400,9 +410,9 @@ function OpenResponse({ share, oldWarning }) {
                     `chg-${after.id}`,
                     after,
                     <span className="family-details">
-                      {t('family.res.before', { text: itemDetails(before) || t('family.res.notEntered') })}
+                      {t('family.res.before', { text: changeText(before, after) || t('family.res.notEntered') })}
                       <br />
-                      {t('family.res.after', { text: itemDetails(after) || t('family.res.notEntered') })}
+                      {t('family.res.after', { text: changeText(after, before) || t('family.res.notEntered') })}
                     </span>,
                   ),
                 )}

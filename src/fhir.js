@@ -57,6 +57,13 @@ function toFhirDosage(item) {
 }
 
 /** Poznámky: zdroj údajů a vše, pro co FHIR nemá jednoduché pole. */
+// "síla (původně 5 mg)"
+function doctorEditText(item, field) {
+  const { original } = item.doctorEdits;
+  const value = field === 'dosage' ? [original.frequency, original.amount].filter(Boolean).join(' · ') : original[field];
+  return t('fhir.doctorEdit.field', { field: t(`fhir.field.${field}`), value: value || '—' });
+}
+
 function toFhirNotes(item) {
   const lines = [
     // U léku z lístku i z krabičky jsou zdroje dva
@@ -69,6 +76,9 @@ function toFhirNotes(item) {
     item.prescriber && t('fhir.prescriber', { value: prescriberText(item.prescriber) }),
     item.oncoForm && t('fhir.oncoForm', { value: oncoFormText(item.oncoForm) }),
     item.lastDose && t('fhir.lastDose', { date: dateText(item.lastDose) }),
+    // Opravy lékaře v /doc – původní zdroj se nesmí vydávat za autora opravy
+    item.doctorEdits && t('fhir.doctorEdit', { list: item.doctorEdits.fields.map((f) => doctorEditText(item, f)).join('; ') }),
+    item.doctorEdits?.unverified && t('fhir.unverified'),
   ];
   return lines.filter(Boolean).map((text) => ({ text }));
 }

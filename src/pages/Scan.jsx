@@ -24,7 +24,7 @@ import MedForm from '../components/MedForm.jsx';
 import ReviewDetail from '../components/ReviewDetail.jsx';
 import { CameraIcon, CheckIcon, WarningIcon } from '../components/Icons.jsx';
 import { medTitle, sourcesText } from '../labels.js';
-import { shrinkPhoto, sizeText } from '../photos.js';
+import { preparePhoto, sizeText } from '../photos.js';
 import { draftToItem, draftTodos, makeDraft } from '../review.js';
 import { ITEM_TYPES, PHOTO_KINDS, PHOTO_LIMITS, dosageText } from '../types.js';
 import { getLang, t } from '../i18n/index.js';
@@ -40,6 +40,9 @@ const ERROR_CODES = ['nothing_found', 'payload_too_large', 'unsupported_media_ty
 
 // Jednoduché unikátní id pro fotku
 let photoCounter = 0;
+
+// Má fotka upozornění na kvalitu, které pacient ještě nevyřešil?
+const hasWarning = (p) => Boolean(p.quality && (p.quality.dark || p.quality.blurry) && !p.keep);
 
 // Druh fotky malými písmeny do věty ("krabičky léků")
 const lower = (text) => text.toLocaleLowerCase(getLang());
@@ -60,7 +63,8 @@ export default function Scan() {
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState(searchParams.get('rucne') ? 'manual' : 'pick');
 
-  // Nafocené fotky: { id, field: 'note'|'box'|'regimen', file, url (náhled) }
+  // Nafocené fotky: { id, field: 'note'|'box'|'regimen', file, url (náhled),
+  //   quality: { dark, blurry } nebo null (kontrola neproběhla), keep: pacient chce fotku i tak }
   const [photos, setPhotos] = useState([]);
   const [preparing, setPreparing] = useState(false); // zmenšujeme fotky
   const [pickMessage, setPickMessage] = useState(''); // upozornění při přidávání fotek
@@ -81,6 +85,8 @@ export default function Scan() {
   const fileInputRef = useRef(null);
   // Jaký druh fotky pacient právě přidává ('note', 'box' nebo 'regimen').
   const photoFieldRef = useRef('box');
+  // Id fotky, kterou pacient fotí znovu (nová fotka ji nahradí na stejném místě).
+  const replaceIdRef = useRef(null);
   // Číslo aktuálního požadavku – díky němu umíme ignorovat zrušené čtení.
   const requestIdRef = useRef(0);
   // Aktuální fotky pro úklid při odchodu z obrazovky
@@ -122,8 +128,10 @@ export default function Scan() {
 
   // Otevře fotoaparát (useCamera) nebo výběr z galerie
   // (z galerie jde vybrat víc fotek najednou).
-  function openPicker(field, useCamera) {
+  // replaceId = fotka, kterou nová fotka nahradí ("Vyfotit znovu").
+  function openPicker(field, useCamera, replaceId = null) {
     photoFieldRef.current = field;
+    replaceIdRef.current = replaceId;
     setPickMessage('');
     (useCamera ? cameraInputRef : fileInputRef).current.click();
   }
@@ -135,8 +143,17 @@ export default function Scan() {
     addFiles(files, photoFieldRef.current);
   }
 
+<<<<<<< HEAD
   // Přidá fotky do seznamu (z galerie, ze systémového fotoaparátu i z automatické kamery).
   async function addFiles(files, field) {
+=======
+    if (replaceIdRef.current) {
+      replacePhoto(replaceIdRef.current, files[0]);
+      replaceIdRef.current = null;
+      return;
+    }
+
+>>>>>>> dedc383ffcf1e77a6af2e0b8774268582b4c6e23
     // Víc než 10 fotek backend nepřijme → přebytečné nepřidáme.
     const free = PHOTO_LIMITS.maxCount - photos.length;
     const accepted = files.slice(0, free);
@@ -146,8 +163,12 @@ export default function Scan() {
     const added = [];
     for (const file of accepted) {
       try {
+<<<<<<< HEAD
         const small = await shrinkPhoto(file);
         added.push({ id: ++photoCounter, field, file: small, url: URL.createObjectURL(small) });
+=======
+        added.push(await makePhoto(file, photoFieldRef.current));
+>>>>>>> dedc383ffcf1e77a6af2e0b8774268582b4c6e23
       } catch {
         message = t('scan.openFailed');
       }
@@ -155,6 +176,38 @@ export default function Scan() {
     setPreparing(false);
     setPhotos((prev) => [...prev, ...added]);
     setPickMessage(message);
+  }
+
+  // Zmenší fotku a zkontroluje ji (viz photos.js). Při chybě otevření vyhodí výjimku.
+  async function makePhoto(file, field) {
+    const { file: small, quality } = await preparePhoto(file);
+    return { id: ++photoCounter, field, file: small, url: URL.createObjectURL(small), quality, keep: false };
+  }
+
+  // "Vyfotit znovu": nová fotka nahradí starou na stejném místě.
+  // Když se nová fotka nepovede otevřít, stará zůstane.
+  async function replacePhoto(id, file) {
+    setPreparing(true);
+    try {
+      const photo = await makePhoto(file, photoFieldRef.current);
+      const old = photosRef.current.find((p) => p.id === id);
+      if (old) {
+        URL.revokeObjectURL(old.url);
+        setPhotos((prev) => prev.map((p) => (p.id === id ? photo : p)));
+      } else {
+        // Starou fotku pacient mezitím odebral → novou přidáme na konec
+        setPhotos((prev) => [...prev, photo]);
+      }
+      setPickMessage('');
+    } catch {
+      setPickMessage(t('scan.openFailed'));
+    }
+    setPreparing(false);
+  }
+
+  // "Ponechat": pacient chce fotku poslat i s upozorněním.
+  function keepPhoto(id) {
+    setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, keep: true } : p)));
   }
 
   function removePhoto(id) {
@@ -238,7 +291,14 @@ export default function Scan() {
   function openJob(job) {
     photosRef.current.forEach((p) => URL.revokeObjectURL(p.url));
     setPhotos(
-      job.photos.map((p) => ({ id: ++photoCounter, field: p.field, file: p.file, url: URL.createObjectURL(p.file) })),
+      job.photos.map((p) => ({
+        id: ++photoCounter,
+        field: p.field,
+        file: p.file,
+        url: URL.createObjectURL(p.file),
+        quality: null, // fotky z fronty už jednou prošly, znovu je nekontrolujeme
+        keep: false,
+      })),
     );
     if (job.status === 'ready') {
       // Úlohu smažeme až po uložení léků – kdyby pacient odešel, výsledek mu zůstane.
@@ -301,12 +361,14 @@ export default function Scan() {
   }
 
   const remaining = drafts.filter((d) => draftTodos(d) > 0).length;
+  // Fotky s nevyřízeným upozorněním na kvalitu
+  const warnedCount = photos.filter(hasWarning).length;
 
   return (
     <>
       {/* Skryté vstupy pro fotky. capture="environment" = na mobilu rovnou zadní fotoaparát.
           multiple = z galerie jde vybrat víc fotek najednou.
-          image/* (ne jen jpeg/png): fotky z iPhonu (HEIC) převede shrinkPhoto na JPEG. */}
+          image/* (ne jen jpeg/png): fotky z iPhonu (HEIC) převede preparePhoto na JPEG. */}
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" onChange={handleFiles} hidden />
       <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFiles} hidden />
 
@@ -347,19 +409,57 @@ export default function Scan() {
 
                 {list.length > 0 && (
                   <ul className="photo-list">
-                    {list.map((p, index) => (
-                      <li key={p.id} className="photo-item">
-                        <img src={p.url} alt={t('scan.photoAlt', { kind: kind.title, n: index + 1 })} />
+                    {list.map((p, index) => {
+                      const warn = hasWarning(p);
+                      const vars = { n: index + 1, kind: lower(kind.title) };
+                      const removeButton = (
                         <button
                           type="button"
                           className="btn-text"
-                          aria-label={t('scan.removePhoto', { n: index + 1, kind: lower(kind.title) })}
+                          aria-label={t('scan.removePhoto', vars)}
                           onClick={() => removePhoto(p.id)}
                         >
                           {t('common.remove')}
                         </button>
-                      </li>
-                    ))}
+                      );
+                      return (
+                        <li key={p.id} className={warn ? 'photo-item photo-item-warn' : 'photo-item'}>
+                          <img src={p.url} alt={t('scan.photoAlt', { kind: kind.title, n: index + 1 })} />
+                          {warn ? (
+                            // Upozornění je u své fotky. Je to jen odhad – odeslání nijak neblokuje.
+                            <div className="photo-warn">
+                              <p className="photo-warn-text">
+                                <WarningIcon />
+                                <span>{t(p.quality.dark ? 'scan.quality.dark' : 'scan.quality.blurry')}</span>
+                              </p>
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                aria-label={t('scan.quality.retakeAria', vars)}
+                                onClick={() => openPicker(kind.field, true, p.id)}
+                                disabled={preparing}
+                              >
+                                <CameraIcon />
+                                {t('scan.quality.retake')}
+                              </button>
+                              <div className="photo-warn-more">
+                                <button
+                                  type="button"
+                                  className="btn-text"
+                                  aria-label={t('scan.quality.keepAria', vars)}
+                                  onClick={() => keepPhoto(p.id)}
+                                >
+                                  {t('scan.quality.keep')}
+                                </button>
+                                {removeButton}
+                              </div>
+                            </div>
+                          ) : (
+                            removeButton
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
 
@@ -400,6 +500,7 @@ export default function Scan() {
           {/* role="status" = čtečka přečte změnu (přidaná fotka, upozornění) */}
           <p className="photo-counter" role="status">
             {preparing ? t('scan.preparing') : t('scan.counter', { count: photos.length, max: PHOTO_LIMITS.maxCount })}
+            {!preparing && warnedCount > 0 && ` (${t('scan.quality.count', { count: warnedCount })})`}
           </p>
           {pickMessage && (
             <div className="box box-warning">
