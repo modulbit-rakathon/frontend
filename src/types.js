@@ -231,8 +231,11 @@ export function dosageFromText(frequency, amount) {
     return d;
   }
 
-  // Česky i v ostatních jazycích appky (hlasové zadání)
-  if (/podle potřeby|dle potřeby|při bolesti|as needed|when needed|if needed|за потреби|при потребі|при болю/i.test(freq)) {
+  // Česky i v ostatních jazycích appky (hlasové zadání).
+  // Jen když je to CELÉ dávkování – "dle potřeby, max 2 denně, 1 tableta" by jinak
+  // ztratilo maximum i množství. Takový text necháme celý jako volný text níž.
+  const asNeeded = /^(podle potřeby|dle potřeby|při bolesti|as needed|when needed|if needed|за потреби|при потребі|при болю)[.!]?$/i;
+  if (asNeeded.test(freq) && !amt) {
     d.mode = DOSAGE_MODES.AS_NEEDED;
     return d;
   }

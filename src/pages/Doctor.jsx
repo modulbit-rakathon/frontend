@@ -259,9 +259,24 @@ function drugsText(drugs) {
 
 function regimensText(regimens, result) {
   const lines = regimens.map((med) => {
-    const drugs = result?.regimens[med.id]?.drugs;
-    const details = [med.form, med.frequency && `${t('doc.col.lastDose')}: ${lastDoseText(med)}`].filter(Boolean);
-    return `- ${med.name}${drugs ? ` (${drugs.join(', ')})` : ''}${details.length ? ` – ${details.join(', ')}` : ''}`;
+    const info = result?.regimens[med.id];
+    // Složení: nejednoznačnou zkratku po variantách, neznámou / nezjištěnou nedohadujeme
+    let drugs = '';
+    if (result && !info) drugs = ` (${t('doc.regimenUnknown')})`;
+    else if (info?.failed) drugs = ` (${t('doc.regimenFailed')})`;
+    else if (info?.variants.length > 1) {
+      const variants = info.variants.map((v) => `${v.name}${v.indication ? ` – ${v.indication}` : ''}: ${v.drugs.join(', ')}`);
+      drugs = ` (${t('doc.ambiguous', { count: info.variants.length })} ${variants.join('; ')})`;
+    } else if (info) drugs = ` (${info.drugs.join(', ')})`;
+
+    const details = [
+      med.form,
+      med.frequency && `${t('doc.col.lastDose')}: ${lastDoseText(med)}`,
+      // Kdo údaj doplnil / opravil – ať se lékař nevydává za pacienta a naopak
+      med.addedByDoctor && t('doc.source.doctor'),
+      med.regimenEdits && t('doc.edit.by'),
+    ].filter(Boolean);
+    return `- ${med.name}${drugs}${details.length ? ` – ${details.join(', ')}` : ''}`;
   });
   return [t('doc.onco.title', { count: regimens.length }), ...lines].join('\n');
 }
@@ -660,46 +675,30 @@ export default function Doctor() {
               </section>
             )}
 
-<<<<<<< HEAD
             {/* ---------- Rozbalovací lišta s onkologickou léčbou ----------
-                Je vidět vždy – i bez režimu, aby ho lékař mohl doplnit. */}
+                Je vidět vždy – i bez léčby, aby ji lékař mohl doplnit. */}
             <section className="doc-interactions doc-onco">
-              <button
-                type="button"
-                className="doc-toggle"
-                aria-expanded={oncoOpen}
-                aria-controls="doc-onco-body"
-                onClick={() => setOncoOpen(!oncoOpen)}
-              >
-                <span className={oncoOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
-                  <ChevronIcon size={22} />
-                </span>
-                <strong>{t('doc.onco.title', { count: regimens.length })}</strong>
-                <span className="doc-toggle-hint">{oncoOpen ? t('doc.hide') : t('doc.show')}</span>
-              </button>
-=======
-            {/* ---------- Rozbalovací lišta s onkologickou léčbou ---------- */}
-            {regimens.length > 0 && (
-              <section className="doc-interactions doc-onco">
-                <div className="doc-section-head">
-                  <button
-                    type="button"
-                    className="doc-toggle"
-                    aria-expanded={oncoOpen}
-                    aria-controls="doc-onco-body"
-                    onClick={() => setOncoOpen(!oncoOpen)}
-                  >
-                    <span className={oncoOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
-                      <ChevronIcon size={22} />
-                    </span>
-                    <strong>{t('doc.onco.title', { count: regimens.length })}</strong>
-                  </button>
+              <div className="doc-section-head">
+                <button
+                  type="button"
+                  className="doc-toggle"
+                  aria-expanded={oncoOpen}
+                  aria-controls="doc-onco-body"
+                  onClick={() => setOncoOpen(!oncoOpen)}
+                >
+                  <span className={oncoOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
+                    <ChevronIcon size={22} />
+                  </span>
+                  <strong>{t('doc.onco.title', { count: regimens.length })}</strong>
+                </button>
+                {/* Kopírovat má smysl jen když je co kopírovat */}
+                {regimens.length > 0 && (
                   <CopyButton
                     text={() => regimensText(regimens, result)}
                     section={t('doc.onco.title', { count: regimens.length })}
                   />
-                </div>
->>>>>>> dcb0dae6cb6ac92a0dda118285a5f7dcc113ab11
+                )}
+              </div>
 
               {oncoOpen && (
                 <div id="doc-onco-body" className="doc-onco-body">
@@ -890,78 +889,7 @@ export default function Doctor() {
 
               {check.status === 'done' && open && (
                 <div id="doc-interactions-body" className="doc-interactions-body">
-<<<<<<< HEAD
-                  {/* Vlevo: seznam nálezů */}
-                  <div className="doc-findings">
-                    {findingCount === 0 && (
-                      <p className="doc-finding doc-finding-none">
-                        {t('doc.none', { db: result.checkedAgainst?.name ?? 'DDInter' })}
-                      </p>
-                    )}
-                    {result.findings.map((f) => (
-                      <article key={f.id} className={`doc-finding doc-finding-${LEVELS[f.level].css}`}>
-                        <p className="doc-finding-tag">{LEVELS[f.level].tag}</p>
-                        <h3>
-                          {nameOf(f.a)} × {nameOf(f.b)}
-                        </h3>
-                        {/* Nejednoznačná zkratka: kontrolovaly se všechny možné látky, ne potvrzená léčba */}
-                        {[f.a, f.b].some((id) => result.regimens[id]?.variants?.length > 1) && (
-                          <p className="doc-kind">{t('doc.ambiguousFinding')}</p>
-                        )}
-                        {/* U režimu může být víc dvojic látek – závažnost píšeme jen když se liší */}
-                        {f.pairs.map((pair) => (
-                          <p key={pair.substances} className="doc-finding-meds">
-                            {pair.substances}
-                            {f.pairs.length > 1 && pair.level !== f.level && (
-                              <span className="doc-kind"> ({LEVELS[pair.level].tag.toLocaleLowerCase(getLang())})</span>
-                            )}
-                          </p>
-                        ))}
-                      </article>
-                    ))}
-                    {result.duplicates.map((d) => (
-                      <article key={d.id} className="doc-finding doc-finding-medium">
-                        <p className="doc-finding-tag">{LEVELS.same.tag}</p>
-                        <h3>
-                          {nameOf(d.a)} + {nameOf(d.b)}
-                        </h3>
-                        <p>{t('doc.duplicate', { substance: d.substance })}</p>
-                      </article>
-                    ))}
-
-                    {/* Co se zkontrolovat nepodařilo – nikdy to nezamlčíme */}
-                    {result.unchecked.length > 0 && (
-                      <div className="doc-finding doc-finding-none">
-                        <p className="doc-finding-tag">{t('doc.uncheckedTag')}</p>
-                        <ul className="doc-unchecked">
-                          {result.unchecked.map((u) => (
-                            <li key={u.id}>
-                              <strong>{u.name}</strong> – {UNCHECKED_REASONS.includes(u.reason) ? t(`doc.reason.${u.reason}`) : u.reason}
-                              {u.substances?.length > 0 && ` (${u.substances.join(', ')})`}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    <p className="doc-note">
-                      {result.note}{' '}
-                      {result.checkedAgainst && (
-                        <>
-                          {t('doc.sourceLabel')}{' '}
-                          <a href={result.checkedAgainst.url} target="_blank" rel="noreferrer">
-                            {result.checkedAgainst.name}
-                          </a>{' '}
-                          ({result.checkedAgainst.license}, {result.checkedAgainst.version}). {t('doc.verify')}
-                        </>
-                      )}
-                    </p>
-                  </div>
-
-                  {/* Vpravo: matice dvojic */}
-=======
                   {/* Nahoře (na širší obrazovce vlevo): matice dvojic */}
->>>>>>> dcb0dae6cb6ac92a0dda118285a5f7dcc113ab11
                   <div className="doc-matrix-box">
                     <h2>
                       {t('doc.matrix')}{' '}
@@ -1032,6 +960,10 @@ export default function Doctor() {
                         <h3>
                           {nameOf(f.a)} × {nameOf(f.b)}
                         </h3>
+                        {/* Nejednoznačná zkratka: kontrolovaly se všechny možné látky, ne potvrzená léčba */}
+                        {[f.a, f.b].some((id) => result.regimens[id]?.variants?.length > 1) && (
+                          <p className="doc-kind">{t('doc.ambiguousFinding')}</p>
+                        )}
                         {/* U režimu může být víc dvojic látek – závažnost píšeme jen když se liší */}
                         {f.pairs.map((pair) => (
                           <div key={pair.substances} className="doc-finding-pair">
