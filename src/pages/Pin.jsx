@@ -24,18 +24,11 @@ import { createSharePin } from '../api.js';
 import { OfflineIcon, WarningIcon } from '../components/Icons.jsx';
 import { useOnline } from '../offline/network.js';
 import { t, tRich } from '../i18n/index.js';
+import { formatLeft } from '../labels.js';
 import BackButton from '../components/BackButton.jsx';
 
 // Adresa lékařské stránky (stejný server, na kterém běží appka)
 const DOCTOR_URL = `${window.location.origin}/doc`;
-
-// Zbývající čas jako "2:41"
-function formatLeft(ms) {
-  const total = Math.max(0, Math.ceil(ms / 1000));
-  const min = Math.floor(total / 60);
-  const sec = String(total % 60).padStart(2, '0');
-  return `${min}:${sec}`;
-}
 
 export default function Pin() {
   const { meds } = useMeds();

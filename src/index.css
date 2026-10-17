@@ -774,6 +774,21 @@ ul {
   text-align: center;
 }
 
+/* Kód od lékaře / blízkého, který pacient opisuje (/kod) */
+.field input.code-input {
+  min-height: 72px;
+  font-size: 40px;
+  letter-spacing: 0.2em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.handoff-code {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .report-header {
   padding-bottom: 12px;
   border-bottom: 2px solid var(--border);
@@ -1259,8 +1274,11 @@ ul {
   }
 }
 
-.doc-send-dialog .share-qr img {
-  max-width: 280px;
+/* Kód pro pacienta v okně lékaře – velký, ať ho pacient opíše z obrazovky */
+.doc-send-dialog .handoff-code {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* --- Rozbalovací lišta s interakcemi --- */

@@ -80,3 +80,11 @@ export function medDosage(med) {
 export function pluralLeky(count) {
   return t('count.meds', { count });
 }
+
+// Zbývající čas platnosti kódu jako "2:41"
+export function formatLeft(ms) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const min = Math.floor(total / 60);
+  const sec = String(total % 60).padStart(2, '0');
+  return `${min}:${sec}`;
+}

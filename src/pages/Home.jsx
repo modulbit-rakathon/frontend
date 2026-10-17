@@ -43,11 +43,16 @@ export default function Home() {
         {t('home.report')}
       </Link>
 
-      {/* Režim pro blízké – v něm už o pomoc nežádáme */}
+      {/* Režim pro blízké – v něm už o pomoc nežádáme ani kód nezadáváme */}
       {!helper && (
-        <Link to="/blizky" className="btn btn-link">
-          {t('family.askLink')}
-        </Link>
+        <>
+          <Link to="/blizky" className="btn btn-link">
+            {t('family.askLink')}
+          </Link>
+          <Link to="/kod" className="btn btn-link">
+            {t('home.enterCode')}
+          </Link>
+        </>
       )}
 
       <Link to="/nastaveni" className="btn btn-link">

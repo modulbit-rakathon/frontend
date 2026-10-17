@@ -2,12 +2,15 @@
 //
 // Dvě podoby podle toho, kdo ji otevře:
 //   - pacient: vytvoří odkaz "Požádat blízkého o pomoc" (volitelně i se svým seznamem),
-//   - blízký v režimu pro blízké: hotový seznam pošle odkazem zpět.
-// Léky jsou v odkazu za # (viz familyShare.js) – na server se nedostanou.
+//   - blízký v režimu pro blízké: hotový seznam pošle zpět jednorázovým kódem (HandoffCode),
+//     pacient ho opíše ve své appce.
+// V žádosti jsou léky v odkazu za # (viz familyShare.js) – na server se nedostanou.
+// Zpáteční seznam drží backend jen po dobu platnosti kódu, bez jmen.
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMeds } from '../context/MedsContext.jsx';
 import ShareLink from '../components/ShareLink.jsx';
+import HandoffCode from '../components/HandoffCode.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import { WarningIcon } from '../components/Icons.jsx';
 import { medName } from '../labels.js';
@@ -24,15 +27,15 @@ import {
 } from '../familyShare.js';
 import BackButton from '../components/BackButton.jsx';
 
-// Upozornění, které ukážeme před vytvořením každého odkazu.
-function PrivacyNote() {
+// Upozornění, které ukážeme před vytvořením každého odkazu / kódu.
+function PrivacyNote({ code = false }) {
   return (
     <div className="box box-info">
       <div className="box-title">
         <WarningIcon />
-        <span>{t('family.privacyTitle')}</span>
+        <span>{t(code ? 'family.privacyCodeTitle' : 'family.privacyTitle')}</span>
       </div>
-      <p>{t('family.privacyText')}</p>
+      <p>{t(code ? 'family.privacyCodeText' : 'family.privacyText')}</p>
     </div>
   );
 }
@@ -143,30 +146,28 @@ function SendBack() {
   const navigate = useNavigate();
   const { helper, meds, profile, endHelping } = useMeds();
   const who = helper.name || t('family.defaultName');
-  const [from, setFrom] = useState('');
-  const [url, setUrl] = useState('');
+  const [encoded, setEncoded] = useState('');
   const [error, setError] = useState('');
   const [confirmEnd, setConfirmEnd] = useState(false);
 
   async function create(event) {
     event.preventDefault();
     setError('');
+    // Bez jmen (pacienta ani blízkého): seznam čeká na kód na serveru.
     const data = makeResponse({
       id: helper.requestId,
       rid: makeShareId(),
-      name: helper.name,
-      from: from.trim(),
       items: meds,
       onco: profile.onco,
       base: helper.base ?? [],
     });
     try {
-      const link = shareUrl(window.location.origin, await encodeShare(data));
-      if (link.length > MAX_LINK_LENGTH) {
+      const text = await encodeShare(data);
+      if (text.length > MAX_LINK_LENGTH) {
         setError(t('family.send.tooLong'));
         return;
       }
-      setUrl(link);
+      setEncoded(text);
     } catch {
       setError(t('family.createFailed'));
     }
@@ -178,7 +179,7 @@ function SendBack() {
   }
 
   // Odeslaný a neodeslaný seznam mají jiné varování
-  const endKey = url ? 'family.send.confirmEndSent' : 'family.send.confirmEndUnsent';
+  const endKey = encoded ? 'family.send.confirmEndSent' : 'family.send.confirmEndUnsent';
 
   return (
     <>
@@ -196,20 +197,9 @@ function SendBack() {
         </ul>
       )}
 
-      {!url && (
+      {!encoded && (
         <form className="family-form" onSubmit={create}>
-          <div className="field">
-            <label htmlFor="family-from">{t('family.send.fromLabel')}</label>
-            <input
-              id="family-from"
-              type="text"
-              maxLength={60}
-              placeholder={t('family.send.fromPlaceholder')}
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-            />
-          </div>
-          <PrivacyNote />
+          <PrivacyNote code />
           {error && (
             <p className="box box-warning" role="alert">
               {error}
@@ -224,11 +214,10 @@ function SendBack() {
         </form>
       )}
 
-      {url && (
+      {encoded && (
         <>
-          <p className="share-step">{t('family.send.sendBack')}</p>
-          <ShareLink url={url} title={t('family.send.shareTitle')} text={t('family.send.shareText')} />
-          {/* Po změně seznamu se odkaz vytvoří znovu (obrazovka začne od začátku) */}
+          <HandoffCode encoded={encoded} intro={t('family.send.codeIntro', { name: who })} />
+          {/* Po změně seznamu se kód vytvoří znovu (obrazovka začne od začátku) */}
           <Link to="/leky" className="btn btn-secondary">
             {t('family.send.change')}
           </Link>

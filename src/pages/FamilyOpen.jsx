@@ -5,6 +5,8 @@
 //   - odpověď (t: 'res') – pacient zkontroluje, co blízký přidal / změnil, a sám potvrdí uložení.
 // Nic se nepřepisuje potichu: nové a změněné položky jsou předvybrané, odebrání ne.
 //
+// Stejnou kontrolu ukazuje i obrazovka /kod (EnterCode): data z kódu předá v `encoded`.
+//
 // Stavy (`step`): 'loading' → 'error' | 'ready' → 'done'
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -46,9 +48,10 @@ function changeText(item, other) {
 
 const oncoLabel = (key) => (key ? t(`onco.answer.${key}`) : t('common.unanswered'));
 
-export default function FamilyOpen() {
+// encoded = data z kódu (EnterCode); bez něj je čteme z adresy za #
+export default function FamilyOpen({ encoded: fromCode }) {
   // Odkaz čteme jen jednou při otevření (po uložení ho z adresy smažeme).
-  const [encoded] = useState(() => readHash(window.location.hash));
+  const [encoded] = useState(() => fromCode ?? readHash(window.location.hash));
   const [step, setStep] = useState('loading');
   const [share, setShare] = useState(null);
   const [errorCode, setErrorCode] = useState('');

@@ -160,6 +160,37 @@ export function claimShare(pin) {
 }
 
 /**
+ * Lékař nebo blízký: data pro pacienta (zakódovaná jako dřív do odkazu, viz encodeShare
+ * ve familyShare.js) uloží backend pod jednorázový kód. Pacient ho opíše v appce.
+ * @param {string} encoded – výsledek encodeShare ("1z.…")
+ * @returns {Promise<{ pin: string, expires_at: string, expires_in: number }>}
+ * Chyby (error.message): 'invalid_input', 'payload_too_large', 'rate_limited', 'offline'
+ */
+export function createHandoff(encoded) {
+  return request('/api/handoff', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: encoded }),
+    signal: AbortSignal.timeout(15000),
+  });
+}
+
+/**
+ * Pacient: vyzvedne data podle kódu. Kód je jednorázový.
+ * @param {string} pin – 4 číslice
+ * @returns {Promise<{ data: string }>} data = text pro decodeShare
+ * Chyby (error.message): 'not_found', 'rate_limited', 'invalid_input', 'offline'
+ */
+export function claimHandoff(pin) {
+  return request('/api/handoff/claim', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin }),
+    signal: AbortSignal.timeout(15000),
+  });
+}
+
+/**
  * Aplikace lékaře: zpráva jako PDF (generuje backend, POST /api/report/pdf).
  * Interakce, rozklad režimů i duplicity si backend spočítá sám.
  * Odpověď je PDF (ne JSON), proto vlastní fetch místo request().

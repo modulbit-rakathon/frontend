@@ -19,8 +19,8 @@
 // Lékař může u běžných léků opravit název, sílu a dávkování (EditRow). Opravy
 // zůstávají jen v této relaci: položka si v "doctorEdits" pamatuje, co lékař změnil
 // a jak to bylo původně. Po každé opravě se interakce kontrolují znovu.
-// Pacientovi jde opravy poslat odkazem / QR kódem (SendBackDialog) – na telefonu
-// se nic nezmění, dokud je pacient sám nepotvrdí (viz familyShare.js).
+// Pacientovi jde opravy poslat jednorázovým kódem (SendBackDialog, HandoffCode) – pacient
+// ho opíše v appce a na telefonu se nic nezmění, dokud opravy sám nepotvrdí (viz familyShare.js).
 //
 // Onkologickou léčbu (režim) může lékař doplnit sám (zkratka, např. FOLFOX, forma podání,
 // poslední dávka) – i když ji pacient neuvedl. Je to samostatná položka kind = 'regimen'
@@ -35,12 +35,12 @@ import { ChevronIcon, CopyIcon, DownloadIcon } from '../components/Icons.jsx';
 import { catalogName, medDosage, pluralLeky } from '../labels.js';
 import { downloadFhir } from '../fhir.js';
 import { ITEM_TYPES, ONCO_FORMS, dateText, dosageFromText, dosageToBackend, oncoFormText } from '../types.js';
-import { MAX_LINK_LENGTH, encodeShare, makeResponse, makeShareId, shareUrl } from '../familyShare.js';
+import { MAX_LINK_LENGTH, encodeShare, makeResponse, makeShareId } from '../familyShare.js';
 import { getLang, t } from '../i18n/index.js';
 import LanguageSwitch from '../components/LanguageSwitch.jsx';
 import ConfirmDialog from '../components/ConfirmDialog.jsx';
 import CatalogSuggestions from '../components/CatalogSuggestions.jsx';
-import ShareLink from '../components/ShareLink.jsx';
+import HandoffCode from '../components/HandoffCode.jsx';
 
 // Zdroj léku v "lékařské" podobě (podstatné jméno): 'box' → "krabička"
 const SOURCE_KEYS = ['box', 'note', 'manual'];
@@ -348,7 +348,7 @@ export default function Doctor() {
   const [pdfState, setPdfState] = useState('idle'); // 'idle' | 'loading' | 'error'
   const [confirmDiscard, setConfirmDiscard] = useState(false); // ptáme se na zavření pacienta?
   const [editingId, setEditingId] = useState(null); // který lék lékař právě opravuje
-  const [sendBackOpen, setSendBackOpen] = useState(false); // okno s QR pro pacienta
+  const [sendBackOpen, setSendBackOpen] = useState(false); // okno s kódem pro pacienta
   // Formulář režimu: null = zavřený, 'new' = přidání, jinak id upravovaného režimu
   const [regimenForm, setRegimenForm] = useState(null);
   // Pořadí kontroly interakcí – výsledek staré kontroly (předchozí pacient)
@@ -1207,7 +1207,7 @@ function EditRow({ med, onSave, onCancel }) {
 // z aktuálních oprav. Data jsou za # (viz familyShare.js) – na server nejdou.
 function SendBackDialog({ open, meds, onClose }) {
   const ref = useRef(null);
-  const [url, setUrl] = useState('');
+  const [encoded, setEncoded] = useState('');
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -1220,23 +1220,21 @@ function SendBackDialog({ open, meds, onClose }) {
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
-    setUrl('');
+    setEncoded('');
     setError(false);
     const data = makeResponse({
       id: makeShareId(),
       rid: '',
-      from: t('doc.sendBack.from'),
       items: toSendBackItems(meds),
       onco: '',
       base: [],
       doc: true,
     });
     encodeShare(data)
-      .then((encoded) => {
+      .then((text) => {
         if (cancelled) return;
-        const link = shareUrl(window.location.origin, encoded);
-        if (link.length > MAX_LINK_LENGTH) setError(true);
-        else setUrl(link);
+        if (text.length > MAX_LINK_LENGTH) setError(true);
+        else setEncoded(text);
       })
       .catch(() => !cancelled && setError(true));
     return () => {
@@ -1263,14 +1261,8 @@ function SendBackDialog({ open, meds, onClose }) {
             {t('doc.sendBack.error')}
           </p>
         )}
-        {url && (
-          <ShareLink
-            url={url}
-            title={t('doc.sendBack.shareTitle')}
-            text={t('doc.sendBack.shareText')}
-            qrCaption={t('doc.sendBack.qrCaption')}
-          />
-        )}
+        {/* Jen když je okno otevřené – jinak by kód vznikal i na pozadí */}
+        {open && encoded && <HandoffCode encoded={encoded} intro={t('doc.sendBack.codeIntro')} />}
         <div className="confirm-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             {t('common.done')}
