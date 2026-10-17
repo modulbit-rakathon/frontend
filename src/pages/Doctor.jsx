@@ -20,13 +20,20 @@
 // a jak to bylo původně. Po každé opravě se interakce kontrolují znovu.
 // Pacientovi jde opravy poslat odkazem / QR kódem (SendBackDialog) – na telefonu
 // se nic nezmění, dokud je pacient sám nepotvrdí (viz familyShare.js).
+//
+// Onkologickou léčbu (režim) může lékař doplnit sám (zkratka, např. FOLFOX, forma podání,
+// poslední dávka) – i když ji pacient neuvedl. Je to samostatná položka kind = 'regimen'
+// s příznakem addedByDoctor: rozloží se na léčiva (doctorCheck.js) a zkontrolují se interakce.
+// Léčbu od pacienta může lékař upravit – opravy si pamatuje "regimenEdits" (jako u léků).
+// Léčiva z režimu se ukazují jen u režimu, nikdy jako pacientem nahlášené léky.
+// Do telefonu pacienta se režim neposílá.
 import { useEffect, useRef, useState } from 'react';
 import { claimShare, downloadReportPdf } from '../api.js';
 import { LEVEL_RANK, checkMeds, pickShared } from '../doctorCheck.js';
 import { ChevronIcon, DownloadIcon } from '../components/Icons.jsx';
 import { catalogName, medDosage, pluralLeky } from '../labels.js';
 import { downloadFhir } from '../fhir.js';
-import { ITEM_TYPES, dosageFromText, dosageToBackend } from '../types.js';
+import { ITEM_TYPES, ONCO_FORMS, dateText, dosageFromText, dosageToBackend, oncoFormText } from '../types.js';
 import { MAX_LINK_LENGTH, encodeShare, makeResponse, makeShareId, shareUrl } from '../familyShare.js';
 import { getLang, t } from '../i18n/index.js';
 import LanguageSwitch from '../components/LanguageSwitch.jsx';
@@ -60,7 +67,7 @@ const LEVELS = {
 };
 
 // Proč se položku nepodařilo zkontrolovat ('doc.reason.<kód>')
-const UNCHECKED_REASONS = ['no_active_substance', 'not_in_source', 'partly_in_source', 'unknown_regimen'];
+const UNCHECKED_REASONS = ['no_active_substance', 'not_in_source', 'partly_in_source', 'unknown_regimen', 'resolve_failed'];
 
 // Chybové kódy z backendu, pro které máme větu pro lékaře ('doc.error.<kód>')
 const ERROR_CODES = ['not_found', 'rate_limited', 'invalid_input', 'offline'];
@@ -84,7 +91,53 @@ function toFhirItems(meds) {
 
 // Lék pro backend (PDF): jen známá pole + co opravil lékař
 function toReportMed(med) {
+  // TODO(backend): backend nezná "položku doplnil lékař" (source je jen box/note/manual).
+  // Než ji bude znát, napíšeme to do sloupce dávkování, ať je ve zprávě vidět, kdo léčbu doplnil.
+  if (med.addedByDoctor) {
+    return { ...pickShared(med), frequency: [med.frequency, t('doc.onco.reportNote')].filter(Boolean).join(' · ') };
+  }
+  // Oprava léčby: backend zná jen name / strength / dosage. Poslední dávka je v "dávkování".
+  // TODO(backend): změnu formy podání zpráva zatím neoznačí.
+  if (med.regimenEdits) {
+    const fields = med.regimenEdits.fields.map((f) => REGIMEN_REPORT_FIELDS[f]).filter(Boolean);
+    return fields.length > 0 ? { ...pickShared(med), edited_fields: fields } : pickShared(med);
+  }
   return med.doctorEdits ? { ...pickShared(med), edited_fields: med.doctorEdits.fields } : pickShared(med);
+}
+
+// ---------- Onkologická léčba ----------
+
+// Pole léčby, která lékař může změnit, a jak se jmenují pro PDF (edited_fields)
+const REGIMEN_FIELDS = ['name', 'form', 'frequency'];
+const REGIMEN_REPORT_FIELDS = { name: 'name', frequency: 'dosage' };
+
+// Poslední dávku posílá pacient v "frequency" jako "poslední dávka/cyklus 1. 10. 2026"
+// (česky, viz createSharePin v api.js) – stejně ji ukládá i lékař.
+function lastDoseFrequency(isoDate) {
+  return isoDate ? `poslední dávka/cyklus ${dateText(isoDate, 'cs')}` : null;
+}
+
+// "poslední dávka/cyklus 1. 10. 2026" → "2026-10-01" pro <input type="date"> ('' = nejde přečíst)
+function lastDoseIso(med) {
+  const m = med.frequency?.match(/(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/);
+  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : '';
+}
+
+/**
+ * Uloží úpravu léčby. U léčby od pacienta si pamatujeme původní hodnoty – když je
+ * lékař vrátí, značka "opravil lékař" zmizí. Léčba doplněná lékařem žádnou nepotřebuje.
+ */
+function applyRegimenEdit(med, fields) {
+  const original = med.regimenEdits?.original ?? { name: med.name, form: med.form ?? null, frequency: med.frequency ?? null };
+  const { regimenEdits, ...next } = { ...med, ...fields };
+  if (med.addedByDoctor) return next;
+  const changed = REGIMEN_FIELDS.filter((f) => (next[f] ?? null) !== (original[f] ?? null));
+  return changed.length > 0 ? { ...next, regimenEdits: { fields: changed, original } } : next;
+}
+
+// Nové id pro režim doplněný lékařem (nesmí obsahovat "#", viz doctorCheck.js)
+function newRegimenId() {
+  return `doc-regimen-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 // Opravy pro pacienta: jen opravené léky a u nich jen opravená pole (viz diffShare)
@@ -166,6 +219,7 @@ function Edited({ value, original }) {
 
 // Zdroj jako text pro lékaře: ['box', 'note'] → "krabička + lístek"
 function sourceText(med) {
+  if (med.addedByDoctor) return t('doc.source.doctor');
   return (med.sources ?? [med.source]).map((s) => (SOURCE_KEYS.includes(s) ? t(`doc.source.${s}`) : s)).join(' + ');
 }
 
@@ -173,6 +227,14 @@ function sourceText(med) {
 // (viz createSharePin v api.js) – do sloupce "Poslední dávka" stačí datum.
 function lastDoseText(med) {
   return med.frequency?.replace(/^poslední dávka\/cyklus\s*/, '') || '—';
+}
+
+// Buňka léčby: opravená hodnota má pod sebou tu původní
+function RegimenCell({ med, field, value }) {
+  const edits = med.regimenEdits;
+  if (!edits?.fields.includes(field)) return value || '—';
+  const original = field === 'frequency' ? lastDoseText(edits.original) : edits.original[field];
+  return <Edited value={value} original={original === '—' ? '' : original} />;
 }
 
 // Zkratka léku do matice, např. "Warfarin" → "WAR"
@@ -196,6 +258,8 @@ export default function Doctor() {
   const [confirmDiscard, setConfirmDiscard] = useState(false); // ptáme se na zavření pacienta?
   const [editingId, setEditingId] = useState(null); // který lék lékař právě opravuje
   const [sendBackOpen, setSendBackOpen] = useState(false); // okno s QR pro pacienta
+  // Formulář režimu: null = zavřený, 'new' = přidání, jinak id upravovaného režimu
+  const [regimenForm, setRegimenForm] = useState(null);
   // Pořadí kontroly interakcí – výsledek staré kontroly (předchozí pacient)
   // nesmí přepsat výsledek pro nového.
   const checkRun = useRef(0);
@@ -221,6 +285,7 @@ export default function Doctor() {
     setCheck({ status: 'loading', result: null });
     setPdfState('idle');
     setEditingId(null);
+    setRegimenForm(null);
   }
 
   // Oprava léku: nový seznam a hned nová kontrola interakcí. Starý výsledek
@@ -231,6 +296,51 @@ export default function Doctor() {
     setEditingId(null);
     setPdfState('idle');
     runCheck(next);
+  }
+
+  // Změna seznamu režimů (přidání / úprava / odebrání): starý výsledek kontroly
+  // patří k jinému seznamu → spustíme novou kontrolu, PDF se vygeneruje znovu.
+  function changeMeds(next) {
+    setMeds(next);
+    setPdfState('idle');
+    runCheck(next);
+  }
+
+  // Uložení formuláře léčby. Zkratku bereme doslova – nic nedohadujeme,
+  // neznámá zkratka se v tabulce ukáže jako neověřená.
+  // draft = { name, form, lastDose } (lastDose = "2026-10-01" nebo '')
+  function saveRegimen(draft) {
+    if (regimenForm === 'new') {
+      changeMeds([
+        ...meds,
+        {
+          id: newRegimenId(),
+          kind: 'regimen',
+          name: draft.name,
+          active_substance: null,
+          strength: null,
+          form: draft.form || null,
+          frequency: lastDoseFrequency(draft.lastDose),
+          amount: null,
+          source: 'manual', // backend jiný zdroj nepřijme – "lékař" ukazujeme podle addedByDoctor
+          addedByDoctor: true,
+        },
+      ]);
+    } else {
+      const old = meds.find((m) => m.id === regimenForm);
+      const fields = { name: draft.name, form: draft.form || null };
+      // Datum přepíšeme jen když ho lékař změnil – jinak by se ztratil text, který nejde přečíst jako datum
+      if (draft.lastDose !== lastDoseIso(old)) fields.frequency = lastDoseFrequency(draft.lastDose);
+      const next = applyRegimenEdit(old, fields);
+      const changed = REGIMEN_FIELDS.some((f) => (next[f] ?? null) !== (old[f] ?? null));
+      if (changed) changeMeds(meds.map((m) => (m.id === old.id ? next : m)));
+    }
+    setRegimenForm(null);
+  }
+
+  function removeRegimen(id) {
+    if (regimenForm === id) setRegimenForm(null);
+    changeMeds(meds.filter((m) => m.id !== id));
   }
 
   async function handleSubmit(event) {
@@ -247,6 +357,7 @@ export default function Doctor() {
       const data = await claimShare(pin);
       setMeds(data.medications);
       setEditingId(null);
+      setRegimenForm(null);
       setPin('');
       setOpen(false);
       setOncoOpen(true);
@@ -440,55 +551,125 @@ export default function Doctor() {
               </div>
             )}
 
-            {/* ---------- Rozbalovací lišta s onkologickou léčbou ---------- */}
-            {regimens.length > 0 && (
-              <section className="doc-interactions doc-onco">
-                <button
-                  type="button"
-                  className="doc-toggle"
-                  aria-expanded={oncoOpen}
-                  aria-controls="doc-onco-body"
-                  onClick={() => setOncoOpen(!oncoOpen)}
-                >
-                  <span className={oncoOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
-                    <ChevronIcon size={22} />
-                  </span>
-                  <strong>{t('doc.onco.title', { count: regimens.length })}</strong>
-                  <span className="doc-toggle-hint">{oncoOpen ? t('doc.hide') : t('doc.show')}</span>
-                </button>
+            {/* ---------- Rozbalovací lišta s onkologickou léčbou ----------
+                Je vidět vždy – i bez režimu, aby ho lékař mohl doplnit. */}
+            <section className="doc-interactions doc-onco">
+              <button
+                type="button"
+                className="doc-toggle"
+                aria-expanded={oncoOpen}
+                aria-controls="doc-onco-body"
+                onClick={() => setOncoOpen(!oncoOpen)}
+              >
+                <span className={oncoOpen ? 'doc-chevron doc-chevron-open' : 'doc-chevron'}>
+                  <ChevronIcon size={22} />
+                </span>
+                <strong>{t('doc.onco.title', { count: regimens.length })}</strong>
+                <span className="doc-toggle-hint">{oncoOpen ? t('doc.hide') : t('doc.show')}</span>
+              </button>
 
-                {oncoOpen && (
-                  <div id="doc-onco-body" className="doc-onco-body doc-table-wrap">
-                    <table className="doc-table">
-                      <thead>
-                        <tr>
-                          <th>{t('doc.col.regimen')}</th>
-                          <th>{t('doc.col.drugs')}</th>
-                          <th>{t('doc.col.oncoForm')}</th>
-                          <th>{t('doc.col.lastDose')}</th>
-                          <th>{t('doc.col.source')}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {regimens.map((med) => (
-                          <tr key={med.id}>
-                            <td>
-                              <strong>{med.name}</strong>
-                            </td>
-                            <td>
-                              <RegimenDrugs info={result?.regimens[med.id]} status={check.status} />
-                            </td>
-                            <td>{med.form || '—'}</td>
-                            <td>{lastDoseText(med)}</td>
-                            <td>{sourceText(med)}</td>
+              {oncoOpen && (
+                <div id="doc-onco-body" className="doc-onco-body">
+                  {regimens.length === 0 && regimenForm !== 'new' && <p className="doc-muted">{t('doc.onco.none')}</p>}
+
+                  {regimens.length > 0 && (
+                    <div className="doc-table-wrap">
+                      <table className="doc-table">
+                        <thead>
+                          <tr>
+                            <th>{t('doc.col.regimen')}</th>
+                            <th>{t('doc.col.drugs')}</th>
+                            <th>{t('doc.col.oncoForm')}</th>
+                            <th>{t('doc.col.lastDose')}</th>
+                            <th>{t('doc.col.source')}</th>
+                            <th className="no-print">
+                              <span className="sr-only">{t('doc.col.actions')}</span>
+                            </th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
-            )}
+                        </thead>
+                        <tbody>
+                          {regimens.map((med) =>
+                            regimenForm === med.id ? (
+                              <tr key={med.id} className="doc-row-editing">
+                                <td colSpan={6}>
+                                  <RegimenForm
+                                    initial={{ name: med.name, form: med.form ?? '', lastDose: lastDoseIso(med) }}
+                                    onSave={saveRegimen}
+                                    onCancel={() => setRegimenForm(null)}
+                                  />
+                                </td>
+                              </tr>
+                            ) : (
+                              <tr
+                                key={med.id}
+                                className={med.addedByDoctor || med.regimenEdits ? 'doc-row-edited' : undefined}
+                              >
+                                <td>
+                                  <strong>
+                                    <RegimenCell med={med} field="name" value={med.name} />
+                                  </strong>
+                                </td>
+                                <td>
+                                  <RegimenDrugs info={result?.regimens[med.id]} status={check.status} />
+                                </td>
+                                <td>
+                                  <RegimenCell med={med} field="form" value={med.form} />
+                                </td>
+                                <td>
+                                  <RegimenCell med={med} field="frequency" value={lastDoseText(med)} />
+                                </td>
+                                <td>
+                                  {sourceText(med)}
+                                  {med.regimenEdits && <span className="doc-edited">{t('doc.edit.by')}</span>}
+                                </td>
+                                <td className="no-print doc-row-actions">
+                                  {/* Upravit jde každou léčbu. Odebrat jen tu, kterou doplnil lékař –
+                                      údaj od pacienta nezmizí. */}
+                                  <button
+                                    type="button"
+                                    className="doc-button doc-button-secondary doc-button-small"
+                                    aria-label={t('doc.onco.editFor', { name: med.name })}
+                                    onClick={() => setRegimenForm(med.id)}
+                                  >
+                                    {t('doc.edit.button')}
+                                  </button>
+                                  {med.addedByDoctor && (
+                                    <button
+                                      type="button"
+                                      className="doc-button doc-button-secondary doc-button-small"
+                                      aria-label={t('doc.onco.removeFor', { name: med.name })}
+                                      onClick={() => removeRegimen(med.id)}
+                                    >
+                                      {t('common.remove')}
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ),
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {regimenForm === 'new' ? (
+                    <RegimenForm
+                      initial={{ name: '', form: '', lastDose: '' }}
+                      onSave={saveRegimen}
+                      onCancel={() => setRegimenForm(null)}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="doc-button doc-button-secondary doc-onco-add no-print"
+                      onClick={() => setRegimenForm('new')}
+                    >
+                      {t('doc.onco.add')}
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
 
             {/* ---------- Rozbalovací lišta s doplňky stravy ---------- */}
             {supplements.length > 0 && (
@@ -579,6 +760,10 @@ export default function Doctor() {
                         <h3>
                           {nameOf(f.a)} × {nameOf(f.b)}
                         </h3>
+                        {/* Nejednoznačná zkratka: kontrolovaly se všechny možné látky, ne potvrzená léčba */}
+                        {[f.a, f.b].some((id) => result.regimens[id]?.variants?.length > 1) && (
+                          <p className="doc-kind">{t('doc.ambiguousFinding')}</p>
+                        )}
                         {/* U režimu může být víc dvojic látek – závažnost píšeme jen když se liší */}
                         {f.pairs.map((pair) => (
                           <p key={pair.substances} className="doc-finding-meds">
@@ -1028,7 +1213,36 @@ function CodeDialog({ open, pin, loading, errorCode, onPinChange, onSubmit }) {
 // Léčiva onkologického režimu podle zkratky (z /api/regimens/resolve)
 function RegimenDrugs({ info, status }) {
   if (status === 'loading') return <span className="doc-muted">{t('doc.regimenLoading')}</span>;
-  if (!info) return <span className="doc-muted">{t('doc.regimenUnknown')}</span>;
+  // Kontrola celá selhala – složení neznáme, ale nic netvrdíme
+  if (status === 'error') return <span className="doc-unverified">{t('doc.regimenFailed')}</span>;
+  // Neznámá zkratka – nic nedohadujeme
+  if (!info) return <span className="doc-unverified">{t('doc.regimenUnknown')}</span>;
+  if (info.failed) return <span className="doc-unverified">{t('doc.regimenFailed')}</span>;
+
+  // Víc variant: každou zvlášť. Souhrn látek by vypadal jako potvrzená léčba pacienta.
+  if (info.variants.length > 1) {
+    return (
+      <>
+        <span className="doc-unverified">{t('doc.ambiguous', { count: info.variants.length })}</span>
+        <ul className="doc-variants">
+          {info.variants.map((v, i) => (
+            <li key={i}>
+              <strong>{v.name}</strong>
+              {v.indication && <span className="doc-kind"> ({v.indication})</span>}: {v.drugs.join(', ')}
+            </li>
+          ))}
+        </ul>
+        <span className="doc-kind">
+          ({t('doc.byAbbr')},{' '}
+          <a href={info.source.url} target="_blank" rel="noreferrer">
+            HemOnc
+          </a>
+          )
+        </span>
+      </>
+    );
+  }
+
   return (
     <>
       {info.drugs.join(', ')}
@@ -1042,5 +1256,104 @@ function RegimenDrugs({ info, status }) {
         )
       </span>
     </>
+  );
+}
+
+// Formulář léčby (přidání i úprava): zkratka, forma podání, poslední dávka.
+// Uložit = nový seznam, Zrušit / Esc = beze změny. Prázdnou zkratku uložit nejde.
+function RegimenForm({ initial, onSave, onCancel }) {
+  const [draft, setDraft] = useState(initial);
+  const [error, setError] = useState(false);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  // Forma se posílá česky (jako od pacienta), v nabídce je v jazyce lékaře.
+  // Hodnotu, která v nabídce není (např. z fotky), necháme jako další volbu.
+  const formOptions = ONCO_FORMS.map((f) => ({ value: oncoFormText(f.key, 'cs'), label: f.label }));
+  if (initial.form && !formOptions.some((o) => o.value === initial.form)) {
+    formOptions.push({ value: initial.form, label: initial.form });
+  }
+
+  const set = (key) => (event) => setDraft((prev) => ({ ...prev, [key]: event.target.value }));
+
+  function submit(event) {
+    event.preventDefault();
+    const name = draft.name.trim();
+    if (!name) {
+      setError(true);
+      inputRef.current?.focus();
+      return;
+    }
+    onSave({ ...draft, name });
+  }
+
+  return (
+    <form
+      className="doc-edit doc-regimen-form"
+      onSubmit={submit}
+      onKeyDown={(e) => e.key === 'Escape' && onCancel()}
+      noValidate
+    >
+      <div className="doc-edit-fields">
+        <div className="doc-edit-field doc-edit-name">
+          <label htmlFor="doc-regimen-abbr">{t('doc.onco.abbr')}</label>
+          <input
+            ref={inputRef}
+            id="doc-regimen-abbr"
+            type="text"
+            maxLength={100}
+            autoComplete="off"
+            placeholder="FOLFOX"
+            value={draft.name}
+            aria-invalid={error}
+            aria-describedby={error ? 'doc-regimen-hint doc-regimen-error' : 'doc-regimen-hint'}
+            onChange={(e) => {
+              setError(false);
+              set('name')(e);
+            }}
+          />
+          <p id="doc-regimen-hint" className="doc-muted">
+            {t('doc.onco.abbrHint')}
+          </p>
+          {error && (
+            <p id="doc-regimen-error" className="doc-edit-error" role="alert">
+              {t('doc.onco.abbrRequired')}
+            </p>
+          )}
+        </div>
+        <div className="doc-edit-field">
+          <label htmlFor="doc-regimen-form">{t('doc.col.oncoForm')}</label>
+          <select id="doc-regimen-form" value={draft.form} onChange={set('form')}>
+            <option value="">{t('common.notEntered')}</option>
+            {formOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="doc-edit-field">
+          <label htmlFor="doc-regimen-last">{t('doc.col.lastDose')}</label>
+          <input
+            id="doc-regimen-last"
+            type="date"
+            max={new Date().toISOString().slice(0, 10)}
+            value={draft.lastDose}
+            onChange={set('lastDose')}
+          />
+        </div>
+      </div>
+      <div className="doc-edit-actions">
+        <button type="submit" className="doc-button">
+          {t('doc.onco.save')}
+        </button>
+        <button type="button" className="doc-button doc-button-secondary" onClick={onCancel}>
+          {t('doc.edit.cancel')}
+        </button>
+      </div>
+    </form>
   );
 }

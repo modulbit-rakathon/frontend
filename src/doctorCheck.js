@@ -38,8 +38,10 @@ function substanceKey(med) {
 }
 
 /**
- * Rozloží všechny režimy v seznamu. Neznámá zkratka nebo chyba = null (režim se nekontroluje).
- * @returns {Promise<Record<string, { drugs: string[], variants: Array, source: object, note: string } | null>>}
+ * Rozloží všechny režimy v seznamu. Režim, který se rozložit nepodařilo, se nekontroluje:
+ *   null             = neznámá zkratka (backend ji v tabulce režimů nemá) → "neověřeno"
+ *   { failed: true } = chyba spojení / serveru → lékař to musí vědět, zkusí kontrolu znovu
+ * @returns {Promise<Record<string, { drugs: string[], variants: Array, source: object, note: string } | { failed: true } | null>>}
  */
 async function resolveRegimens(meds) {
   const regimens = meds.filter((m) => m.kind === 'regimen');
@@ -50,8 +52,10 @@ async function resolveRegimens(meds) {
         // Víc variant (např. "EC") = zkratka není jednoznačná → kontrolujeme všechna léčiva
         const drugs = [...new Set(data.regimens.flatMap((r) => r.drugs))];
         return [med.id, { drugs, variants: data.regimens, source: data.source, note: data.note }];
-      } catch {
-        return [med.id, null];
+      } catch (err) {
+        // not_found = zkratku neznáme; invalid_input = prázdná / moc dlouhá zkratka
+        if (err.message === 'not_found' || err.message === 'invalid_input') return [med.id, null];
+        return [med.id, { failed: true }];
       }
     }),
   );
@@ -140,9 +144,9 @@ export async function checkMeds(meds) {
   }
   // Režim, který jsme nerozložili, backend vůbec neviděl → přidáme ho ručně
   for (const med of meds) {
-    if (med.kind === 'regimen' && !regimens[med.id]) {
-      unchecked.push({ id: med.id, name: med.name, reason: 'unknown_regimen' });
-    }
+    if (med.kind !== 'regimen') continue;
+    if (!regimens[med.id]) unchecked.push({ id: med.id, name: med.name, reason: 'unknown_regimen' });
+    else if (regimens[med.id].failed) unchecked.push({ id: med.id, name: med.name, reason: 'resolve_failed' });
   }
 
   return { findings, cells, regimens, unchecked, checkedAgainst: data.checked_against, note: data.note, duplicates };

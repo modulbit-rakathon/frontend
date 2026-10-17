@@ -66,8 +66,9 @@ function doctorEditText(item, field) {
 
 function toFhirNotes(item) {
   const lines = [
-    // U léku z lístku i z krabičky jsou zdroje dva
-    t('fhir.source', {
+    // U léku z lístku i z krabičky jsou zdroje dva. Režim od lékaře má source 'manual'
+    // jen kvůli backendu – "zadáno ručně pacientem" by nebyla pravda.
+    !item.addedByDoctor && t('fhir.source', {
       list: (item.sources?.length ? item.sources : [item.source])
         .map((s) => (SOURCES.includes(s) ? t(`fhir.source.${s}`) : s))
         .join(' + '),
@@ -79,6 +80,21 @@ function toFhirNotes(item) {
     // Opravy lékaře v /doc – původní zdroj se nesmí vydávat za autora opravy
     item.doctorEdits && t('fhir.doctorEdit', { list: item.doctorEdits.fields.map((f) => doctorEditText(item, f)).join('; ') }),
     item.doctorEdits?.unverified && t('fhir.unverified'),
+    // Forma léčby z lékařského pohledu je už text (od pacienta / lékaře), ne klíč
+    !item.oncoForm && item.type === 'onko' && item.form && t('fhir.oncoForm', { value: item.form }),
+    // Léčba upravená lékařem v /doc
+    item.regimenEdits &&
+      t('fhir.doctorEdit', {
+        list: item.regimenEdits.fields
+          .map((f) => {
+            // Poslední dávka je uložená jako "poslední dávka/cyklus 1. 10. 2026" – stačí datum
+            const value = item.regimenEdits.original[f]?.replace(/^poslední dávka\/cyklus\s*/, '');
+            return t('fhir.doctorEdit.field', { field: t(`fhir.field.${f}`), value: value || '—' });
+          })
+          .join('; '),
+      }),
+    // Léčba doplněná lékařem v /doc – pacient ji neuvedl
+    item.addedByDoctor && t('fhir.addedByDoctor'),
   ];
   return lines.filter(Boolean).map((text) => ({ text }));
 }
@@ -97,18 +113,22 @@ export function buildFhirBundle(items) {
       resourceType: 'MedicationStatement',
       status: 'active',
       category: {
-        coding: [
-          {
-            system: 'http://terminology.hl7.org/CodeSystem/medication-statement-category',
-            code: 'patientspecified', // údaj uvádí pacient
-          },
-        ],
+        // "patientspecified" = údaj uvádí pacient. U režimu doplněného lékařem to neplatí.
+        coding: item.addedByDoctor
+          ? undefined
+          : [
+              {
+                system: 'http://terminology.hl7.org/CodeSystem/medication-statement-category',
+                code: 'patientspecified',
+              },
+            ],
         text: CATEGORIES.includes(item.type) ? t(`fhir.category.${item.type}`) : undefined,
       },
       medicationCodeableConcept: { text: [item.name, item.strength].filter(Boolean).join(' ') },
       subject: { reference: patientUrl },
       dateAsserted: now,
-      informationSource: { reference: patientUrl },
+      // Kdo údaj uvedl: pacient, nebo lékař v /doc (anonymně, jen popisem)
+      informationSource: item.addedByDoctor ? { display: t('fhir.addedByDoctor.source') } : { reference: patientUrl },
       note: toFhirNotes(item),
     };
 

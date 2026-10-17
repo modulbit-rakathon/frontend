@@ -1202,7 +1202,8 @@ ul {
   color: var(--text-muted);
 }
 
-.doc-edit-field input {
+.doc-edit-field input,
+.doc-edit-field select {
   height: 44px;
   padding: 0 10px;
   border: 2px solid var(--control-border);
@@ -1318,6 +1319,29 @@ ul {
 /* Onkologická léčba – stejná lišta, jen s tabulkou uvnitř */
 .doc-onco-body {
   border-top: 2px solid var(--surface);
+}
+
+/* Text "pacient režim neuvedl", formulář a tlačítko "Přidat režim" pod tabulkou */
+.doc-onco-body > .doc-muted,
+.doc-onco-body > .doc-regimen-form,
+.doc-onco-body > .doc-onco-add {
+  margin: 16px 20px;
+}
+
+.doc-onco-add {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Upravit + Odebrat vedle sebe */
+.doc-row-actions .doc-button-small + .doc-button-small {
+  margin-left: 8px;
+}
+
+/* Nejednoznačná zkratka: varianty pod sebou */
+.doc-variants {
+  margin: 4px 0;
+  padding-left: 20px;
 }
 
 .doc-interactions-body {
